@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Machine Production - Saarlekha</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+          },
+          colors: {
+            primary: {
+              DEFAULT: '#0059bb',
+              light: '#0070ea',
+            },
+            secondary: {
+              DEFAULT: '#006a6a',
+            },
+            surface: '#f9f9ff',
+            border: '#c1c6d7',
+            text: {
+              primary: '#181c23',
+              secondary: '#414754',
+            },
+            danger: '#ba1a1a',
+            success: '#006a6a',
+            pending: '#d97706',
+            rejected: '#ba1a1a',
+          },
+          borderRadius: {
+            card: '0.75rem',
+            input: '0.5rem',
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    body {
+      font-family: 'Inter', sans-serif;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .tnum {
+      font-variant-numeric: tabular-nums;
+    }
+  </style>
+</head>
+<body class="bg-surface text-text-primary min-h-screen flex flex-col justify-between">
+  
+  
+  <!-- Header -->
+  <header class="bg-primary text-white px-4 py-3 sticky top-0 z-50 flex items-center justify-between">
+    <div class="flex items-center gap-3">
+      <button class="text-white hover:text-gray-200">
+        <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
+      </button>
+      <h1 class="text-base font-bold">Machine Production</h1>
+    </div>
+    <div class="flex gap-2 text-xs">
+      <button class="bg-secondary px-3 py-1 rounded text-white font-medium flex items-center gap-1.5 shadow-sm">
+        <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+        <span>Add Log</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- Export & Search Bar -->
+  <div class="bg-white p-3 border-b border-border space-y-2.5">
+    <div class="flex gap-2">
+      <input type="text" placeholder="Search by machine, operator..." class="flex-1 text-xs border border-border rounded px-3 py-1.5 focus:outline-none" />
+      <button class="bg-gray-100 hover:bg-gray-200 text-xs px-3 rounded font-medium border border-border">Filter</button>
+    </div>
+
+    <!-- Export Action Bar (Mobile-optimized) -->
+    <div class="flex justify-between items-center text-xs">
+      <div class="font-medium text-text-secondary">Selected: <span class="font-bold text-primary tnum">2 rows</span></div>
+      <div class="flex gap-1.5">
+        <button class="bg-primary/5 hover:bg-primary/10 text-primary border border-primary/20 px-2 py-1 rounded text-[10px] font-bold">EXCEL</button>
+        <button class="bg-primary/5 hover:bg-primary/10 text-primary border border-primary/20 px-2 py-1 rounded text-[10px] font-bold">PDF</button>
+        <button class="bg-primary/5 hover:bg-primary/10 text-primary border border-primary/20 px-2 py-1 rounded text-[10px] font-bold">CSV</button>
+      </div>
+    </div>
+  </div>
+
+  <main class="flex-1 p-4 space-y-3 pb-20">
+    
+    <!-- Mobile Production Log Cards (Replacing wide tables) -->
+    <div class="space-y-3">
+      
+      <!-- Card 1 -->
+      <div class="bg-white rounded-card border border-border p-4 shadow-sm flex items-start gap-3 relative">
+        <input type="checkbox" checked class="mt-1 rounded text-primary focus:ring-primary h-4 w-4" />
+        
+        <div class="flex-1 text-xs space-y-1">
+          <div class="flex justify-between items-start">
+            <span class="font-bold text-text-primary">Loom Machine #04</span>
+            <span class="bg-teal-50 text-secondary px-1.5 py-0.5 rounded font-bold text-[9px]">EFFICIENCY: 104.2%</span>
+          </div>
+          <div class="text-text-secondary">Operator: <span class="font-semibold text-text-primary">Mudit Garg</span></div>
+          <div class="grid grid-cols-2 gap-2 pt-1 text-[11px] tnum">
+            <div>Production: <span class="font-bold text-text-primary">5,210 mtr</span></div>
+            <div>Daily Target: <span class="font-medium text-text-secondary">5,000 mtr</span></div>
+          </div>
+          <div class="text-[9px] text-text-secondary pt-1 flex justify-between">
+            <span>Date: Jun 1, 2026</span>
+            <span>Logged: 18:45</span>
+          </div>
+        </div>
+
+        <!-- Ellipsis Context Button -->
+        <button class="text-gray-400 hover:text-text-primary p-1 absolute top-2 right-2">
+          <svg class="h-4 w-4" fill="currentColor" viewBox="0 0 24 24"><path d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"/></svg>
+        </button>
+      </div>
+
+      <!-- Card 2 -->
+      <div class="bg-white rounded-card border border-border p-4 shadow-sm flex items-start gap-3 relative">
+        <input type="checkbox" checked class="mt-1 rounded text-primary focus:ring-primary h-4 w-4" />
+        
+        <div class="flex-1 text-xs space-y-1">
+          <div class="flex justify-between items-start">
+            <span class="font-bold text-text-primary">Stitch Machine #02</span>
+            <span class="bg-primary/5 text-primary px-1.5 py-0.5 rounded font-bold text-[9px]">EFFICIENCY: 90.0%</span>
+          </div>
+          <div class="text-text-secondary">Operator: <span class="font-semibold text-text-primary">Arun Kumar</span></div>
+          <div class="grid grid-cols-2 gap-2 pt-1 text-[11px] tnum">
+            <div>Production: <span class="font-bold text-text-primary">1,800 pcs</span></div>
+            <div>Daily Target: <span class="font-medium text-text-secondary">2,000 pcs</span></div>
+          </div>
+          <div class="text-[9px] text-text-secondary pt-1 flex justify-between">
+            <span>Date: Jun 1, 2026</span>
+            <span>Logged: 18:32</span>
+          </div>
+        </div>
+
+        <button class="text-gray-400 hover:text-text-primary p-1 absolute top-2 right-2">
+          <svg class="h-4 w-4" fill="currentColor" viewBox="0 0 24 24"><path d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"/></svg>
+        </button>
+      </div>
+
+    </div>
+
+  </main>
+  
+
+</body>
+</html>

@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport"/>
+<title>Dashboard - Saarlekha</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20,400,0,0" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+          },
+          colors: {
+            primary: {
+              50: '#eff6ff',
+              100: '#dbeafe',
+              200: '#bfdbfe',
+              500: '#0059bb', // Industrial Blue
+              600: '#004da3',
+              700: '#003d82',
+            },
+            surface: '#f8fafc',
+            border: '#e2e8f0',
+            industry: {
+              dark: '#1e293b',
+              muted: '#64748b',
+              accent: '#006a6a', // Teal accent from Saarlekha system
+            }
+          },
+          borderRadius: {
+            card: '0.5rem',
+          }
+        }
+      }
+    }
+  </script>
+<style>
+    body {
+      font-family: 'Inter', sans-serif;
+      -webkit-tap-highlight-color: transparent;
+      background-color: #f8fafc;
+    }
+    .tnum {
+      font-variant-numeric: tabular-nums;
+    }
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      display: inline-block;
+    }
+  </style>
+</head>
+<body class="text-industry-dark min-h-screen flex flex-col">
+<!-- Header -->
+<header class="bg-primary-500 text-white px-4 pt-4 pb-4 sticky top-0 z-50 shadow-md">
+<div class="flex items-center justify-between">
+<div class="flex flex-col">
+<span class="font-extrabold text-xl tracking-tight leading-none">Saarlekha</span>
+<div class="flex items-center gap-1.5 mt-1">
+<span class="bg-white/20 text-[10px] px-1.5 py-0.5 rounded font-bold uppercase tracking-widest">Crox Oil</span>
+<span class="h-1 w-1 rounded-full bg-green-400"></span>
+<span class="text-[10px] font-medium opacity-90 uppercase">Live Ops</span>
+</div>
+</div>
+<div class="flex items-center gap-2">
+<button class="bg-white/10 p-2 rounded-lg backdrop-blur-sm border border-white/10">
+<span class="material-symbols-outlined text-[20px] block">notifications</span>
+</button>
+<button class="bg-white/10 p-2 rounded-lg backdrop-blur-sm border border-white/10">
+<span class="material-symbols-outlined text-[20px] block">search</span>
+</button>
+</div>
+</div>
+</header>
+<!-- Main Body -->
+<main class="flex-1 p-4 space-y-4 pb-24">
+<!-- Date & Filter Row -->
+<div class="flex items-center justify-between bg-white p-3 rounded-card border border-border shadow-sm">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-industry-muted text-[18px]">calendar_today</span>
+<span class="text-xs font-bold text-industry-dark">Jun 1, 2026</span>
+</div>
+<div class="flex items-center gap-1 text-[11px] font-bold text-primary-500 bg-primary-50 px-2 py-1 rounded">
+<span>SHIFT A</span>
+<span class="material-symbols-outlined text-[14px]">expand_more</span>
+</div>
+</div>
+<!-- KPI 2x2 Grid -->
+<div class="grid grid-cols-2 gap-3">
+<!-- Total Production -->
+<div class="bg-white p-4 rounded-card border border-border shadow-[0_2px_4px_rgba(0,0,0,0.02)]">
+<div class="text-[10px] font-bold text-industry-muted uppercase tracking-wider mb-1">Production</div>
+<div class="text-2xl font-black text-primary-500 tnum leading-tight">14,250</div>
+<div class="text-[10px] text-industry-muted mt-0.5 font-medium">Meters (Today)</div>
+<div class="mt-3 flex items-center gap-1 text-green-600">
+<span class="material-symbols-outlined text-[14px] font-bold">trending_up</span>
+<span class="text-[10px] font-bold">+4.2%</span>
+</div>
+</div>
+<!-- Avg Efficiency -->
+<div class="bg-white p-4 rounded-card border border-border shadow-[0_2px_4px_rgba(0,0,0,0.02)]">
+<div class="text-[10px] font-bold text-industry-muted uppercase tracking-wider mb-1">Efficiency</div>
+<div class="text-2xl font-black text-industry-accent tnum leading-tight">87.5%</div>
+<div class="text-[10px] text-industry-muted mt-0.5 font-medium">Plant Average</div>
+<div class="mt-3 flex items-center gap-1 text-green-600">
+<span class="material-symbols-outlined text-[14px] font-bold">check_circle</span>
+<span class="text-[10px] font-bold">On Target</span>
+</div>
+</div>
+<!-- Open Job Orders -->
+<div class="bg-white p-4 rounded-card border border-border shadow-[0_2px_4px_rgba(0,0,0,0.02)]">
+<div class="text-[10px] font-bold text-industry-muted uppercase tracking-wider mb-1">Job Orders</div>
+<div class="text-2xl font-black text-industry-dark tnum leading-tight">12</div>
+<div class="text-[10px] text-industry-muted mt-0.5 font-medium">Active Batches</div>
+<div class="mt-3 flex items-center gap-1 text-amber-600">
+<span class="material-symbols-outlined text-[14px] font-bold">pending_actions</span>
+<span class="text-[10px] font-bold">4 Pending</span>
+</div>
+</div>
+<!-- Active Manpower -->
+<div class="bg-white p-4 rounded-card border border-border shadow-[0_2px_4px_rgba(0,0,0,0.02)]">
+<div class="text-[10px] font-bold text-industry-muted uppercase tracking-wider mb-1">Workforce</div>
+<div class="text-2xl font-black text-industry-dark tnum leading-tight">34<span class="text-industry-muted text-lg font-bold ml-1">/ 40</span></div>
+<div class="text-[10px] text-industry-muted mt-0.5 font-medium">Active Staff</div>
+<div class="mt-3 flex items-center gap-1 text-industry-muted">
+<span class="material-symbols-outlined text-[14px] font-bold">group</span>
+<span class="text-[10px] font-bold">85% Present</span>
+</div>
+</div>
+</div>
+<!-- Machine Maintenance Card -->
+<div class="bg-white rounded-card border border-border shadow-sm overflow-hidden">
+<div class="px-4 py-3 bg-slate-50 border-b border-border flex justify-between items-center">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-industry-muted text-[18px]">engineering</span>
+<h3 class="text-[11px] font-extrabold uppercase tracking-widest text-industry-dark">Maintenance Status</h3>
+</div>
+<span class="bg-red-100 text-red-700 text-[9px] px-2 py-0.5 rounded-full font-black uppercase">2 Alerts</span>
+</div>
+<div class="divide-y divide-border">
+<!-- Loom Machine -->
+<div class="p-4 flex justify-between items-center bg-white">
+<div class="flex items-center gap-3">
+<div class="h-8 w-8 rounded bg-primary-50 flex items-center justify-center">
+<span class="material-symbols-outlined text-primary-500 text-[20px]">settings_input_component</span>
+</div>
+<div>
+<div class="text-xs font-bold text-industry-dark">Loom Machine #04</div>
+<div class="text-[10px] text-industry-muted font-medium">Next: Jun 15, 2026</div>
+</div>
+</div>
+<div class="flex items-center gap-1.5 bg-green-50 text-green-700 px-2 py-1 rounded text-[9px] font-black uppercase">
+<span class="status-dot bg-green-500"></span>
+            Operational
+          </div>
+</div>
+<!-- Stitch Machine -->
+<div class="p-4 flex justify-between items-center bg-red-50/30">
+<div class="flex items-center gap-3">
+<div class="h-8 w-8 rounded bg-red-100 flex items-center justify-center">
+<span class="material-symbols-outlined text-red-600 text-[20px]">report_problem</span>
+</div>
+<div>
+<div class="text-xs font-bold text-industry-dark">Stitch Machine #02</div>
+<div class="text-[10px] text-red-600 font-bold uppercase tracking-tight">Parts Missing - Critical</div>
+</div>
+</div>
+<div class="flex items-center gap-1.5 bg-red-100 text-red-700 px-2 py-1 rounded text-[9px] font-black uppercase">
+<span class="status-dot bg-red-500"></span>
+            Down
+          </div>
+</div>
+<!-- Press Machine -->
+<div class="p-4 flex justify-between items-center bg-white">
+<div class="flex items-center gap-3">
+<div class="h-8 w-8 rounded bg-slate-100 flex items-center justify-center">
+<span class="material-symbols-outlined text-slate-500 text-[20px]">precision_manufacturing</span>
+</div>
+<div>
+<div class="text-xs font-bold text-industry-dark">Press Machine #01</div>
+<div class="text-[10px] text-industry-muted font-medium">Overdue since May 15</div>
+</div>
+</div>
+<div class="flex items-center gap-1.5 bg-amber-50 text-amber-700 px-2 py-1 rounded text-[9px] font-black uppercase">
+<span class="status-dot bg-amber-500"></span>
+            Maintenance
+          </div>
+</div>
+</div>
+</div>
+<!-- Operator Efficiency Card -->
+<div class="bg-white rounded-card border border-border p-4 shadow-sm space-y-4">
+<div class="flex justify-between items-center">
+<h3 class="text-[11px] font-extrabold uppercase tracking-widest text-industry-dark">Top Performance</h3>
+<span class="material-symbols-outlined text-industry-muted text-[18px]">leaderboard</span>
+</div>
+<div class="space-y-4">
+<!-- Operator 1 -->
+<div>
+<div class="flex justify-between text-xs items-center mb-1.5">
+<div class="flex items-center gap-2">
+<span class="text-[10px] font-black bg-industry-accent text-white w-5 h-5 flex items-center justify-center rounded-full">1</span>
+<span class="font-bold text-industry-dark">Mudit Garg (Loom)</span>
+</div>
+<div class="font-black text-industry-accent tnum">104.2%</div>
+</div>
+<div class="w-full bg-slate-100 rounded-full h-2">
+<div class="bg-industry-accent h-2 rounded-full" style="width: 100%"></div>
+</div>
+</div>
+<!-- Operator 2 -->
+<div>
+<div class="flex justify-between text-xs items-center mb-1.5">
+<div class="flex items-center gap-2">
+<span class="text-[10px] font-black bg-primary-500 text-white w-5 h-5 flex items-center justify-center rounded-full">2</span>
+<span class="font-bold text-industry-dark">Arun Kumar (Stitch)</span>
+</div>
+<div class="font-black text-primary-500 tnum">96.5%</div>
+</div>
+<div class="w-full bg-slate-100 rounded-full h-2">
+<div class="bg-primary-500 h-2 rounded-full" style="width: 96.5%"></div>
+</div>
+</div>
+</div>
+</div>
+</main>
+<!-- Sticky Bottom Navigation Bar -->
+<nav class="bg-white border-t border-border fixed bottom-0 left-0 right-0 z-50 flex items-center justify-between px-2 pb-6 pt-2 shadow-[0_-2px_10px_rgba(0,0,0,0.05)]">
+<a class="flex flex-col items-center justify-center text-primary-500 w-1/5 gap-0.5" href="#">
+<span class="material-symbols-outlined text-[24px] fill-1">dashboard</span>
+<span class="text-[9px] font-black uppercase tracking-tighter">Dashboard</span>
+</a>
+<a class="flex flex-col items-center justify-center text-industry-muted hover:text-primary-500 w-1/5 gap-0.5" href="#">
+<span class="material-symbols-outlined text-[24px]">factory</span>
+<span class="text-[9px] font-bold uppercase tracking-tighter">Production</span>
+</a>
+<a class="flex flex-col items-center justify-center text-industry-muted hover:text-primary-500 w-1/5 gap-0.5" href="#">
+<span class="material-symbols-outlined text-[24px]">verified</span>
+<span class="text-[9px] font-bold uppercase tracking-tighter">Quality</span>
+</a>
+<a class="flex flex-col items-center justify-center text-industry-muted hover:text-primary-500 w-1/5 gap-0.5" href="#">
+<span class="material-symbols-outlined text-[24px]">inventory_2</span>
+<span class="text-[9px] font-bold uppercase tracking-tighter">Inventory</span>
+</a>
+<a class="flex flex-col items-center justify-center text-industry-muted hover:text-primary-500 w-1/5 gap-0.5" href="#">
+<span class="material-symbols-outlined text-[24px]">settings</span>
+<span class="text-[9px] font-bold uppercase tracking-tighter">Settings</span>
+</a>
+</nav>
+</body></html>

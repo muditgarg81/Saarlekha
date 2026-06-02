@@ -1,0 +1,7 @@
+/build/*
+!/build/.npmkeep
+
+# Keystores and secrets
+*.keystore
+*.jks
+*password*

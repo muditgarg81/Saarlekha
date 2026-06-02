@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Manpower Master | SaarLekha</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;600;700&amp;family=Inter:wght@400;500;600&amp;family=JetBrains+Mono:wght@500&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            display: inline-block;
+            line-height: 1;
+            text-transform: none;
+            letter-spacing: normal;
+            word-wrap: normal;
+            white-space: nowrap;
+            direction: ltr;
+        }
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f8f9ff;
+        }
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #c1c7cf;
+            border-radius: 10px;
+        }
+    </style>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-tertiary-fixed": "#191c1e",
+                        "secondary-fixed": "#90f3ee",
+                        "on-secondary-fixed": "#00201f",
+                        "on-tertiary-container": "#cacdcf",
+                        "on-surface": "#0d1c2e",
+                        "on-error": "#ffffff",
+                        "on-primary-fixed-variant": "#094b6f",
+                        "inverse-on-surface": "#eaf1ff",
+                        "primary": "#004366",
+                        "inverse-surface": "#233144",
+                        "error-container": "#ffdad6",
+                        "tertiary-fixed-dim": "#c4c7c9",
+                        "tertiary-fixed": "#e0e3e5",
+                        "on-secondary-container": "#00706d",
+                        "surface-container-low": "#eff4ff",
+                        "surface-bright": "#f8f9ff",
+                        "background": "#f8f9ff",
+                        "surface-container-highest": "#d5e3fc",
+                        "outline": "#71787f",
+                        "on-secondary": "#ffffff",
+                        "on-error-container": "#93000a",
+                        "tertiary-container": "#545759",
+                        "on-primary": "#ffffff",
+                        "surface-container-lowest": "#ffffff",
+                        "error": "#ba1a1a",
+                        "surface-variant": "#d5e3fc",
+                        "primary-container": "#235b80",
+                        "on-primary-fixed": "#001e30",
+                        "primary-fixed": "#cbe6ff",
+                        "inverse-primary": "#99ccf7",
+                        "tertiary": "#3c4042",
+                        "surface": "#f8f9ff",
+                        "surface-container-high": "#dce9ff",
+                        "secondary": "#006a67",
+                        "on-primary-container": "#9fd2fd",
+                        "on-secondary-fixed-variant": "#00504d",
+                        "surface-tint": "#2d6388",
+                        "on-background": "#0d1c2e",
+                        "primary-fixed-dim": "#99ccf7",
+                        "secondary-container": "#90f3ee",
+                        "surface-dim": "#ccdbf3",
+                        "outline-variant": "#c1c7cf",
+                        "secondary-fixed-dim": "#73d7d2",
+                        "on-tertiary": "#ffffff",
+                        "on-surface-variant": "#41474e",
+                        "on-tertiary-fixed-variant": "#444749",
+                        "surface-container": "#e6eeff"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "fontFamily": {
+                        "headline-lg": ["Hanken Grotesk"],
+                        "label-md": ["JetBrains Mono"],
+                        "headline-md": ["Hanken Grotesk"],
+                        "body-md": ["Inter"],
+                        "headline-sm": ["Hanken Grotesk"],
+                        "headline-lg-mobile": ["Hanken Grotesk"],
+                        "body-lg": ["Inter"]
+                    },
+                    "fontSize": {
+                        "headline-lg": ["30px", {"lineHeight": "38px", "fontWeight": "700"}],
+                        "label-md": ["12px", {"lineHeight": "16px", "letterSpacing": "0.02em", "fontWeight": "500"}],
+                        "headline-md": ["24px", {"lineHeight": "32px", "fontWeight": "600"}],
+                        "body-md": ["14px", {"lineHeight": "20px", "fontWeight": "400"}],
+                        "headline-sm": ["20px", {"lineHeight": "28px", "fontWeight": "600"}],
+                        "headline-lg-mobile": ["24px", {"lineHeight": "32px", "fontWeight": "700"}],
+                        "body-lg": ["16px", {"lineHeight": "24px", "fontWeight": "400"}]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-surface text-on-surface select-none">
+<!-- Top App Bar -->
+<header class="fixed top-0 left-0 right-0 z-40 h-16 bg-surface border-b border-outline-variant flex justify-between items-center px-4">
+<div class="flex items-center gap-3">
+<button class="text-primary p-2 transition-transform active:scale-95">
+<span class="material-symbols-outlined">menu</span>
+</button>
+<h1 class="font-headline-md text-headline-md-mobile font-bold text-primary">SaarLekha</h1>
+</div>
+<div class="flex items-center gap-4">
+<div class="w-8 h-8 rounded-full bg-primary-container overflow-hidden border border-outline-variant">
+<img alt="User" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAs2oTkekAxpmJiCgwSYwgI-EUVCx98wW5D0K7VoorpQsTndP_3A82mAlMzHyysXYILO65xFuNAYjHL_vCHXpeKJ48YGiNRSXZh95qbUctlEvvzB8bhQAb58_wiD9oVBXIdr3blLkKztlCiol0W3C9Mon37j27dCEp3iM6WqY1q6aFd6EyF8rVy36qVLR4zTAax2rYnx3Vp5zgzW3k1ou867dDA1eKC3fPzkt1FM6st4ZUXgg9G-KmVhnc4iA7MR_7SNwqoH9jHvZbS"/>
+</div>
+</div>
+</header>
+<!-- Main Content Canvas -->
+<main class="pt-20 pb-24 px-4 min-h-screen">
+<!-- Page Header -->
+<div class="flex flex-col gap-2 mb-6">
+<div class="flex items-center justify-between">
+<h2 class="font-headline-sm text-headline-sm text-on-surface">Manpower Master</h2>
+<button class="bg-primary text-on-primary font-label-md text-label-md px-4 py-2 rounded-lg flex items-center gap-2 shadow-sm hover:opacity-90 active:scale-95 transition-all">
+<span class="material-symbols-outlined text-sm">add</span>
+                    Add Personnel
+                </button>
+</div>
+<p class="font-body-md text-body-md text-on-surface-variant">Manage staff, departments, and shift assignments.</p>
+</div>
+<!-- Search and Filter Section -->
+<div class="bg-white border border-outline-variant rounded-xl p-3 mb-6">
+<div class="relative flex items-center">
+<span class="material-symbols-outlined absolute left-3 text-outline">search</span>
+<input class="w-full pl-10 pr-4 py-2 bg-surface-container-low border border-outline-variant rounded-lg font-body-md text-body-md focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all" placeholder="Search by name, dept or ID..." type="text"/>
+<button class="ml-2 p-2 text-primary border border-outline-variant rounded-lg active:bg-surface-container-high transition-colors">
+<span class="material-symbols-outlined">filter_list</span>
+</button>
+</div>
+<div class="flex gap-2 mt-3 overflow-x-auto pb-1 no-scrollbar">
+<span class="whitespace-nowrap bg-primary-container text-on-primary-container px-3 py-1 rounded-full font-label-md text-[11px] border border-primary/10">All Workers (42)</span>
+<span class="whitespace-nowrap bg-surface-container-highest text-on-surface-variant px-3 py-1 rounded-full font-label-md text-[11px] border border-outline-variant">Loom (18)</span>
+<span class="whitespace-nowrap bg-surface-container-highest text-on-surface-variant px-3 py-1 rounded-full font-label-md text-[11px] border border-outline-variant">Finishing (12)</span>
+<span class="whitespace-nowrap bg-surface-container-highest text-on-surface-variant px-3 py-1 rounded-full font-label-md text-[11px] border border-outline-variant">Maintenance (6)</span>
+</div>
+</div>
+<!-- List Section -->
+<div class="space-y-3">
+<!-- Individual Personnel Card -->
+<div class="bg-white border border-outline-variant rounded-xl p-4 flex gap-4 hover:bg-slate-50 transition-colors relative group">
+<div class="relative">
+<div class="w-14 h-14 rounded-lg bg-surface-container-high overflow-hidden border border-outline-variant">
+<img class="w-full h-full object-cover" data-alt="Professional studio portrait of a manufacturing unit supervisor wearing a white shirt, clear focus on neutral facial expression, soft directional lighting with industrial office background, high resolution corporate aesthetic." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCdZTGRhgCWD5JFMuA2alILeIF0l3XF3Vo-59BJRDkY7EDHVxAk4R6LtCi4-jCjQJvilnuJ6Tbjc1z14cnP1EYTGmV1cAmWWPFClEQotG-QNoUxpjPou4CaATfPR4smOL9paByE7pd0zfG593a12LhzFWKvCRw9RsUmt0rnUtsEVB0kioDQvgAiSIPixigxm_GTnv5hyLipejY8RceY0yfwG9_MHxD70ufNq_4yqCbPZhB6JbEdBuY2HizV8KnWPRWQCaG0e1bixdMa"/>
+</div>
+<div class="absolute -bottom-1 -right-1 w-4 h-4 rounded-full border-2 border-white bg-green-600"></div>
+</div>
+<div class="flex-1">
+<div class="flex justify-between items-start">
+<div>
+<h3 class="font-headline-sm text-[16px] text-on-surface leading-tight">Anil K. Sharma</h3>
+<span class="font-label-md text-[10px] text-outline uppercase tracking-wider">ID: MP-1029</span>
+</div>
+<div class="flex gap-1">
+<button class="p-1 text-on-surface-variant hover:text-primary active:scale-90"><span class="material-symbols-outlined text-[20px]">edit</span></button>
+<button class="p-1 text-on-surface-variant hover:text-error active:scale-90"><span class="material-symbols-outlined text-[20px]">delete</span></button>
+</div>
+</div>
+<div class="mt-3 grid grid-cols-2 gap-2">
+<div class="flex items-center gap-1.5">
+<span class="material-symbols-outlined text-outline text-[16px]">factory</span>
+<span class="font-body-md text-[13px] text-on-surface-variant">Loom</span>
+</div>
+<div class="flex items-center gap-1.5">
+<span class="material-symbols-outlined text-outline text-[16px]">schedule</span>
+<span class="font-body-md text-[13px] text-on-surface-variant">Shift A (06:00)</span>
+</div>
+</div>
+<div class="mt-3 flex items-center justify-between">
+<span class="bg-secondary-container text-on-secondary-container px-2 py-0.5 rounded text-[11px] font-bold border border-secondary/10">PERMANENT</span>
+<div class="flex items-center gap-1 text-green-700 font-label-md text-[11px]">
+<span class="material-symbols-outlined text-[14px]">check_circle</span>
+                            ACTIVE
+                        </div>
+</div>
+</div>
+</div>
+<!-- Personnel Card 2 -->
+<div class="bg-white border border-outline-variant rounded-xl p-4 flex gap-4 hover:bg-slate-50 transition-colors">
+<div class="relative">
+<div class="w-14 h-14 rounded-lg bg-surface-container-high overflow-hidden border border-outline-variant">
+<img class="w-full h-full object-cover" data-alt="Close up portrait of a textile worker in a production environment, featuring soft natural lighting, realistic facial features, wearing a blue industrial apron, blurred manufacturing background with high-key lighting for clarity and professional look." src="https://lh3.googleusercontent.com/aida-public/AB6AXuD6sypzYrvT_ooKjqGdxynCf0WvNcVcSnI_cI90_DF9St69pHJC6AJOZyr4BchiiWNH1HIfwf_xy1O14zAA0nO3xgjYpRDlnsxH8PHK-EPlZG1QoQbCPV0RS-Vd4BDV97Re4G1PmiDRZozSMsAkVnTK0tHtSd0NbMmNK5aZmzp_3TocSRxPoqX_B4o1SS6J_ZgKlgedggLOJ8ROuyQSXdDygdiRKsrZ60jsV6LAX_Sk0mx4BNYbUn8drLueeYHzD1ZWazrgjxcZe7mW"/>
+</div>
+<div class="absolute -bottom-1 -right-1 w-4 h-4 rounded-full border-2 border-white bg-green-600"></div>
+</div>
+<div class="flex-1">
+<div class="flex justify-between items-start">
+<div>
+<h3 class="font-headline-sm text-[16px] text-on-surface leading-tight">Sunita Devi</h3>
+<span class="font-label-md text-[10px] text-outline uppercase tracking-wider">ID: MP-1044</span>
+</div>
+<div class="flex gap-1">
+<button class="p-1 text-on-surface-variant hover:text-primary active:scale-90"><span class="material-symbols-outlined text-[20px]">edit</span></button>
+<button class="p-1 text-on-surface-variant hover:text-error active:scale-90"><span class="material-symbols-outlined text-[20px]">delete</span></button>
+</div>
+</div>
+<div class="mt-3 grid grid-cols-2 gap-2">
+<div class="flex items-center gap-1.5">
+<span class="material-symbols-outlined text-outline text-[16px]">checkroom</span>
+<span class="font-body-md text-[13px] text-on-surface-variant">Finishing</span>
+</div>
+<div class="flex items-center gap-1.5">
+<span class="material-symbols-outlined text-outline text-[16px]">schedule</span>
+<span class="font-body-md text-[13px] text-on-surface-variant">Shift B (14:00)</span>
+</div>
+</div>
+<div class="mt-3 flex items-center justify-between">
+<span class="bg-surface-container-highest text-on-surface-variant px-2 py-0.5 rounded text-[11px] font-bold border border-outline-variant">CONTRACT</span>
+<div class="flex items-center gap-1 text-green-700 font-label-md text-[11px]">
+<span class="material-symbols-outlined text-[14px]">check_circle</span>
+                            ACTIVE
+                        </div>
+</div>
+</div>
+</div>
+<!-- Personnel Card 3 (Inactive) -->
+<div class="bg-white border border-outline-variant rounded-xl p-4 flex gap-4 opacity-75 grayscale-[0.5]">
+<div class="relative">
+<div class="w-14 h-14 rounded-lg bg-surface-container-high overflow-hidden border border-outline-variant">
+<img class="w-full h-full object-cover" data-alt="Portrait of a young adult male in a workshop environment, clean composition with soft industrial lighting, neutral gray background, realistic photography style focusing on professional clarity and organizational branding." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAceA5PN2Z_3KhSWIWMlvcfJhMt-r0AYfY_2gtRbcTLhE_YzIu8vTxwj9i0B3vtaT60G4JYEPGvMq_bNRKzsHAVLvQbsEa5an7LG4XVfeROnw6Iyj-CfOJilg-zjtnjWelHdP6uQDXJNgvSs3zCqQP8S3K6-b0zr-Tz-nyUI7mHg5kGW3XohY5A2A153bRbM54KicwIqiV3tjyPcDjGdSslitLiGZZ4jNwEMt5pa67B0MXOAjRnsmnsKVpaQ-yAw2Yu5iraNUgOSIgo"/>
+</div>
+<div class="absolute -bottom-1 -right-1 w-4 h-4 rounded-full border-2 border-white bg-outline"></div>
+</div>
+<div class="flex-1">
+<div class="flex justify-between items-start">
+<div>
+<h3 class="font-headline-sm text-[16px] text-on-surface leading-tight">Rajesh Kumar</h3>
+<span class="font-label-md text-[10px] text-outline uppercase tracking-wider">ID: MP-0988</span>
+</div>
+<div class="flex gap-1">
+<button class="p-1 text-on-surface-variant hover:text-primary active:scale-90"><span class="material-symbols-outlined text-[20px]">edit</span></button>
+<button class="p-1 text-on-surface-variant hover:text-error active:scale-90"><span class="material-symbols-outlined text-[20px]">delete</span></button>
+</div>
+</div>
+<div class="mt-3 grid grid-cols-2 gap-2">
+<div class="flex items-center gap-1.5">
+<span class="material-symbols-outlined text-outline text-[16px]">engineering</span>
+<span class="font-body-md text-[13px] text-on-surface-variant">Maintenance</span>
+</div>
+<div class="flex items-center gap-1.5">
+<span class="material-symbols-outlined text-outline text-[16px]">event_busy</span>
+<span class="font-body-md text-[13px] text-on-surface-variant">On Leave</span>
+</div>
+</div>
+<div class="mt-3 flex items-center justify-between">
+<span class="bg-secondary-container text-on-secondary-container px-2 py-0.5 rounded text-[11px] font-bold border border-secondary/10">PERMANENT</span>
+<div class="flex items-center gap-1 text-outline font-label-md text-[11px]">
+<span class="material-symbols-outlined text-[14px]">do_not_disturb_on</span>
+                            INACTIVE
+                        </div>
+</div>
+</div>
+</div>
+<!-- Personnel Card 4 -->
+<div class="bg-white border border-outline-variant rounded-xl p-4 flex gap-4 hover:bg-slate-50 transition-colors">
+<div class="relative">
+<div class="w-14 h-14 rounded-lg bg-surface-container-high overflow-hidden border border-outline-variant">
+<img class="w-full h-full object-cover" data-alt="Detailed professional portrait of a senior industrial supervisor, featuring sharp focus and warm professional lighting, realistic skin textures, corporate manufacturing aesthetic with subtle depth of field." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBf363akI30KR7r2zklKIJLQRvqB4KPIWlYjb8g60HjbhqyWrkt2xz2yQFvKnX_KFje7VC0CluqmKZVm9kfQESZJaT48YE9zUdB1Jk113f3MG-GVvGSIm5VeMUnDQUy4mI4Z2p5YUlMPyvmcUtziwjzBxSILWDvGRfzT1cl6DwLj3-SNGFbrcJoTqsQ4J20Ovwa5lHpI7Zg5V9YqiKhwA0NITNjNYU3TYoZvGlDjld8rBIIN41u1HwDS4Bix8p_7ogzUCSzTVwbw8kg"/>
+</div>
+<div class="absolute -bottom-1 -right-1 w-4 h-4 rounded-full border-2 border-white bg-green-600"></div>
+</div>
+<div class="flex-1">
+<div class="flex justify-between items-start">
+<div>
+<h3 class="font-headline-sm text-[16px] text-on-surface leading-tight">Megha Verma</h3>
+<span class="font-label-md text-[10px] text-outline uppercase tracking-wider">ID: MP-1102</span>
+</div>
+<div class="flex gap-1">
+<button class="p-1 text-on-surface-variant hover:text-primary active:scale-90"><span class="material-symbols-outlined text-[20px]">edit</span></button>
+<button class="p-1 text-on-surface-variant hover:text-error active:scale-90"><span class="material-symbols-outlined text-[20px]">delete</span></button>
+</div>
+</div>
+<div class="mt-3 grid grid-cols-2 gap-2">
+<div class="flex items-center gap-1.5">
+<span class="material-symbols-outlined text-outline text-[16px]">factory</span>
+<span class="font-body-md text-[13px] text-on-surface-variant">Loom</span>
+</div>
+<div class="flex items-center gap-1.5">
+<span class="material-symbols-outlined text-outline text-[16px]">schedule</span>
+<span class="font-body-md text-[13px] text-on-surface-variant">Shift C (22:00)</span>
+</div>
+</div>
+<div class="mt-3 flex items-center justify-between">
+<span class="bg-surface-container-highest text-on-surface-variant px-2 py-0.5 rounded text-[11px] font-bold border border-outline-variant">CONTRACT</span>
+<div class="flex items-center gap-1 text-green-700 font-label-md text-[11px]">
+<span class="material-symbols-outlined text-[14px]">check_circle</span>
+                            ACTIVE
+                        </div>
+</div>
+</div>
+</div>
+</div>
+<!-- Floating Quick Action (Mobile Style) -->
+<button class="fixed right-6 bottom-24 w-14 h-14 bg-primary text-on-primary rounded-full shadow-lg flex items-center justify-center active:scale-90 transition-all z-50">
+<span class="material-symbols-outlined text-2xl">person_add</span>
+</button>
+</main>
+<!-- Bottom Navigation Bar -->
+<nav class="fixed bottom-0 w-full z-50 flex justify-around items-center h-20 bg-surface border-t border-outline-variant px-2 pb-2">
+<a class="flex flex-col items-center justify-center text-on-surface-variant p-2 hover:bg-surface-container transition-colors" href="#">
+<span class="material-symbols-outlined">home</span>
+<span class="font-label-md text-label-md mt-1">Home</span>
+</a>
+<a class="flex flex-col items-center justify-center bg-primary-container text-on-primary-container rounded-full px-4 py-1 transition-all" href="#">
+<span class="material-symbols-outlined">list_alt</span>
+<span class="font-label-md text-label-md mt-1">Masters</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant p-2 hover:bg-surface-container transition-colors" href="#">
+<span class="material-symbols-outlined">precision_manufacturing</span>
+<span class="font-label-md text-label-md mt-1">Jobs</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant p-2 hover:bg-surface-container transition-colors" href="#">
+<span class="material-symbols-outlined">pending_actions</span>
+<span class="font-label-md text-label-md mt-1">Logs</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant p-2 hover:bg-surface-container transition-colors" href="#">
+<span class="material-symbols-outlined">analytics</span>
+<span class="font-label-md text-label-md mt-1">Reports</span>
+</a>
+</nav>
+<script>
+        // Micro-interaction for buttons
+        document.querySelectorAll('button, a').forEach(el => {
+            el.addEventListener('mousedown', () => el.style.transform = 'scale(0.96)');
+            el.addEventListener('mouseup', () => el.style.transform = 'scale(1)');
+            el.addEventListener('mouseleave', () => el.style.transform = 'scale(1)');
+        });
+
+        // Search highlight effect
+        const searchInput = document.querySelector('input[type="text"]');
+        searchInput.addEventListener('focus', () => {
+            searchInput.parentElement.classList.add('ring-2', 'ring-primary/20', 'border-primary');
+        });
+        searchInput.addEventListener('blur', () => {
+            searchInput.parentElement.classList.remove('ring-2', 'ring-primary/20', 'border-primary');
+        });
+    </script>
+</body></html>

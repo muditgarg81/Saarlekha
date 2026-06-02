@@ -1,0 +1,42 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  body {
+    @apply bg-surface text-text-primary antialiased;
+    /* Safe area for notched phones / iOS PWA */
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  /* Tabular-lining figures for numeric cells as requested */
+  table {
+    @apply tabular-nums;
+  }
+
+  /* Better mobile form inputs */
+  input, select, textarea {
+    @apply text-base; /* prevents iOS zoom on focus */
+  }
+
+  /* Smooth scrolling tables on mobile */
+  .overflow-x-auto {
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
+@layer utilities {
+  /* Bottom tab bar safe area */
+  .pb-safe {
+    padding-bottom: calc(env(safe-area-inset-bottom) + 3.5rem);
+  }
+
+  /* Status colors */
+  .text-danger { color: #ba1a1a; }
+  .text-secondary { color: #006a6a; }
+}

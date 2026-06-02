@@ -1,0 +1,57 @@
+{
+  "project_name": "Saarlekha",
+  "version": "1.0.0",
+  "description": "Multi-tenant internal operations reporting platform for manufacturing companies.",
+  "design_system": {
+    "name": "Industrial Efficiency System",
+    "theme": {
+      "primary_color": "#0059bb",
+      "secondary_color": "#006a6a",
+      "surface_color": "#f9f9ff",
+      "on_surface_color": "#181c23",
+      "typography": "Inter",
+      "style": "Modern corporate, high-contrast, data-dense, hairline borders"
+    }
+  },
+  "core_screens": [
+    {
+      "id": "SCREEN_AUTH",
+      "title": "Auth (Login & Register)",
+      "role": "Manual and Google authentication with terms agreement and API configuration."
+    },
+    {
+      "id": "SCREEN_DASHBOARD",
+      "title": "Operations Dashboard",
+      "role": "Summary KPI cards, production/efficiency summary, and date range filters."
+    },
+    {
+      "id": "SCREEN_DATA_ENTRY",
+      "title": "Data Log Entry",
+      "role": "Batch data logger with local row queueing and validation."
+    },
+    {
+      "id": "SCREEN_PRODUCTION",
+      "title": "Machine Production",
+      "role": "Production records, efficiency statistics, and multi-row downloads."
+    },
+    {
+      "id": "SCREEN_QUALITY",
+      "title": "Quality Detail Matrix",
+      "role": "Loom/operator matrix display with collapsible detail views."
+    },
+    {
+      "id": "SCREEN_MAINTENANCE",
+      "title": "Machine Maintenance Log",
+      "role": "Log maintenance checklist with custom options and color-coded status badges."
+    },
+    {
+      "id": "SCREEN_JOB_ORDERS",
+      "title": "Job Orders Master",
+      "role": "Job orders with dynamic custom columns, inline masters quick-creation modals, and selective exports."
+    }
+  ],
+  "technical_stack": "React, TypeScript, Tailwind CSS, HTML5",
+  "brand_assets": {
+    "primary_logo": "logo.png"
+  }
+}

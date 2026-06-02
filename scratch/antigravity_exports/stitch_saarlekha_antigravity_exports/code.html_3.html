@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Daily Quality Matrix - Saarlekha</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+          },
+          colors: {
+            primary: {
+              DEFAULT: '#0059bb',
+              light: '#0070ea',
+            },
+            secondary: {
+              DEFAULT: '#006a6a',
+            },
+            surface: '#f9f9ff',
+            border: '#c1c6d7',
+            text: {
+              primary: '#181c23',
+              secondary: '#414754',
+            },
+            danger: '#ba1a1a',
+            success: '#006a6a',
+            pending: '#d97706',
+            rejected: '#ba1a1a',
+          },
+          borderRadius: {
+            card: '0.75rem',
+            input: '0.5rem',
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    body {
+      font-family: 'Inter', sans-serif;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .tnum {
+      font-variant-numeric: tabular-nums;
+    }
+  </style>
+</head>
+<body class="bg-surface text-text-primary min-h-screen flex flex-col justify-between">
+  
+  
+  <!-- Header -->
+  <header class="bg-primary text-white px-4 py-3 sticky top-0 z-50 flex items-center justify-between">
+    <div class="flex items-center gap-3">
+      <button class="text-white hover:text-gray-200">
+        <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
+      </button>
+      <h1 class="text-base font-bold">Daily Quality Report</h1>
+    </div>
+  </header>
+
+  <!-- Segmented Control Filters -->
+  <div class="bg-white p-3 border-b border-border space-y-3">
+    <div class="bg-gray-100 p-0.5 rounded-lg flex text-xs">
+      <button class="flex-1 bg-white text-primary font-bold py-1.5 rounded-md shadow-sm">Machine-wise</button>
+      <button class="flex-1 text-text-secondary py-1.5 font-medium">Operator-wise</button>
+    </div>
+    
+    <div class="flex justify-between items-center text-xs">
+      <div class="text-text-secondary font-medium">Total Machines: <span class="font-bold text-text-primary tnum">2</span></div>
+      <div class="flex gap-2">
+        <button class="text-primary font-semibold hover:underline">Expand All</button>
+        <span class="text-gray-300">|</span>
+        <button class="text-primary font-semibold hover:underline">Collapse All</button>
+      </div>
+    </div>
+  </div>
+
+  <main class="flex-1 p-4 space-y-3 pb-20">
+    
+    <!-- Collapsible Accordion Grid Cards -->
+    <div class="space-y-3">
+      
+      <!-- Accordion #1: Expanded -->
+      <div class="bg-white rounded-card border border-border shadow-sm overflow-hidden">
+        <!-- Accordion Header -->
+        <button class="w-full flex justify-between items-center px-4 py-3 bg-gray-50 border-b border-border text-xs font-bold text-text-primary">
+          <div class="flex items-center gap-1.5">
+            <svg class="h-4 w-4 text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>
+            <span>Loom Machine #04</span>
+          </div>
+          <div class="flex items-center gap-2">
+            <span class="text-[10px] text-text-secondary">2 entries</span>
+            <svg class="h-4 w-4 text-text-secondary transition-transform transform rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+          </div>
+        </button>
+
+        <!-- Accordion Content -->
+        <div class="p-3 divide-y divide-border text-[11px]">
+          
+          <!-- Entry 1 -->
+          <div class="py-2.5 space-y-1">
+            <div class="flex justify-between font-bold text-text-primary">
+              <span>Loom No: #04 &bull; Mudit Garg</span>
+              <span class="text-primary font-bold">18:45</span>
+            </div>
+            <div class="grid grid-cols-2 gap-2 text-text-secondary tnum">
+              <div>Required Size: <span class="font-semibold text-text-primary">45.0 mm</span></div>
+              <div>Recorded Size: <span class="font-semibold text-text-primary">45.5 mm</span></div>
+              <div>Variation: <span class="text-danger font-bold">+0.5 mm</span></div>
+              <div>Loom Quality: <span class="text-secondary font-bold">Grade-A</span></div>
+            </div>
+          </div>
+
+          <!-- Entry 2 -->
+          <div class="py-2.5 space-y-1">
+            <div class="flex justify-between font-bold text-text-primary">
+              <span>Loom No: #04 &bull; Arun Kumar</span>
+              <span class="text-primary font-bold">16:15</span>
+            </div>
+            <div class="grid grid-cols-2 gap-2 text-text-secondary tnum">
+              <div>Required Size: <span class="font-semibold text-text-primary">45.0 mm</span></div>
+              <div>Recorded Size: <span class="font-semibold text-text-primary">44.8 mm</span></div>
+              <div>Variation: <span class="text-danger font-bold">-0.2 mm</span></div>
+              <div>Loom Quality: <span class="text-secondary font-bold">Grade-A</span></div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- Accordion #2: Collapsed -->
+      <div class="bg-white rounded-card border border-border shadow-sm overflow-hidden">
+        <button class="w-full flex justify-between items-center px-4 py-3 bg-gray-50 text-xs font-bold text-text-primary">
+          <div class="flex items-center gap-1.5">
+            <svg class="h-4 w-4 text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>
+            <span>Loom Machine #08</span>
+          </div>
+          <div class="flex items-center gap-2">
+            <span class="text-[10px] text-text-secondary">0 entries</span>
+            <svg class="h-4 w-4 text-text-secondary transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+          </div>
+        </button>
+      </div>
+
+    </div>
+
+  </main>
+  
+
+</body>
+</html>

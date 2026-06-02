@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Auth - Saarlekha</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+          },
+          colors: {
+            primary: {
+              DEFAULT: '#0059bb',
+              light: '#0070ea',
+            },
+            secondary: {
+              DEFAULT: '#006a6a',
+            },
+            surface: '#f9f9ff',
+            border: '#c1c6d7',
+            text: {
+              primary: '#181c23',
+              secondary: '#414754',
+            },
+            danger: '#ba1a1a',
+            success: '#006a6a',
+            pending: '#d97706',
+            rejected: '#ba1a1a',
+          },
+          borderRadius: {
+            card: '0.75rem',
+            input: '0.5rem',
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    body {
+      font-family: 'Inter', sans-serif;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .tnum {
+      font-variant-numeric: tabular-nums;
+    }
+  </style>
+</head>
+<body class="bg-surface text-text-primary min-h-screen flex flex-col justify-between">
+  
+  
+  <div class="flex-1 flex items-center justify-center py-8 px-4">
+    <div class="max-w-md w-full bg-white p-6 rounded-card shadow-sm border border-border relative">
+      <!-- Settings cog -->
+      <button class="absolute top-4 right-4 text-gray-400 hover:text-primary">
+        <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+      </button>
+
+      <div class="text-center mb-6">
+        <h2 class="text-2xl font-extrabold text-primary">Saarlekha</h2>
+        <p class="text-xs text-text-secondary mt-1">Operations Reporting Platform</p>
+      </div>
+
+      <!-- Server Settings Panel (collapsible) -->
+      <div class="mb-4 bg-gray-50 p-3 rounded-md border border-border text-xs">
+        <div class="font-semibold text-text-primary mb-1">Server Settings</div>
+        <div class="text-[10px] text-text-secondary mb-2">Expose local host to tunnel server for testing.</div>
+        <div class="flex gap-2">
+          <input type="text" value="https://d9ccfb2c54794dcd-106-213-82-255.serveousercontent.com" class="flex-1 border border-border rounded px-2 py-1 focus:outline-none" />
+          <button class="bg-primary text-white px-3 py-1 rounded font-medium">Save</button>
+        </div>
+      </div>
+
+      <!-- Login Form -->
+      <form class="space-y-4">
+        <div>
+          <label class="block text-xs font-medium text-text-primary">Email address</label>
+          <input type="email" placeholder="name@company.com" class="mt-1 block w-full border border-border rounded px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary" />
+        </div>
+
+        <div>
+          <div class="flex justify-between items-center">
+            <label class="block text-xs font-medium text-text-primary">Password</label>
+            <a href="#" class="text-[10px] text-primary hover:underline">Forgot password?</a>
+          </div>
+          <input type="password" class="mt-1 block w-full border border-border rounded px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary" />
+        </div>
+
+        <!-- Signup checklist (Terms & Conditions) -->
+        <div class="flex items-start gap-2">
+          <input type="checkbox" id="terms" class="mt-0.5 rounded text-primary focus:ring-primary" />
+          <label for="terms" class="text-[10px] text-text-secondary">
+            I agree to the <a href="#" class="text-primary underline">Terms &amp; Conditions</a>, <a href="#" class="text-primary underline">Privacy Policy</a>, and <a href="#" class="text-primary underline">Legal Terms</a>.
+          </label>
+        </div>
+
+        <button type="submit" class="w-full bg-primary hover:bg-primary-light text-white text-sm font-semibold py-2 rounded shadow-sm">
+          Sign in
+        </button>
+
+        <div class="text-center text-xs text-text-secondary">
+          <a href="#" class="text-secondary font-medium hover:underline">Create a new company account</a>
+        </div>
+      </form>
+
+      <div class="relative my-4">
+        <div class="absolute inset-0 flex items-center"><div class="w-full border-t border-border"></div></div>
+        <div class="relative flex justify-center text-xs"><span class="bg-white px-2 text-text-secondary">Or continue with</span></div>
+      </div>
+
+      <button class="w-full border border-border rounded py-2 flex items-center justify-center text-sm font-medium hover:bg-gray-50">
+        <svg class="h-4 w-4 mr-2" viewBox="0 0 24 24"><path fill="#EA4335" d="M12 5.04c1.67 0 3.2.58 4.38 1.69l3.27-3.27C17.67 1.61 14.99 1 12 1 7.35 1 3.39 3.67 1.45 7.56l3.89 3.02c.9-2.73 3.44-4.54 6.66-4.54z"/><path fill="#4285F4" d="M23.49 12.27c0-.81-.07-1.59-.2-2.36H12v4.51h6.46c-.29 1.48-1.14 2.73-2.4 3.58l3.73 2.89c2.18-2.01 3.7-4.99 3.7-8.62z"/><path fill="#FBBC05" d="M5.34 14.61c-.24-.72-.38-1.49-.38-2.29s.14-1.57.38-2.29L1.45 7.02C.52 8.89 0 10.96 0 13.11s.52 4.22 1.45 6.09l3.89-3.59z"/><path fill="#34A853" d="M12 23c3.24 0 5.97-1.07 7.96-2.91l-3.73-2.89c-1.04.7-2.37 1.11-4.23 1.11-3.22 0-5.76-1.81-6.66-4.54L1.45 16.8C3.39 20.33 7.35 23 12 23z"/></svg>
+        Sign up with Google
+      </button>
+    </div>
+  </div>
+  
+
+</body>
+</html>

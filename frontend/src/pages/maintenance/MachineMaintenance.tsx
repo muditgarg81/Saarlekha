@@ -1,0 +1,656 @@
+import React, { useState, useEffect } from 'react';
+import api from '../../utils/api';
+import { useAuth } from '../../context/AuthContext';
+import { Plus, Check, X, AlertTriangle, Wrench, Trash2, Edit, MoreVertical } from 'lucide-react';
+import { ExportBar } from '../../utils/export';
+import type { ExportOptions } from '../../utils/export';
+import clsx from 'clsx';
+
+interface Machine {
+  id: string;
+  name: string;
+  type: string;
+}
+
+export function MachineMaintenance() {
+  const [machines, setMachines] = useState<Machine[]>([]);
+  const [format, setFormat] = useState<any>(null);
+  const [records, setRecords] = useState<any[]>([]);
+  const [departments, setDepartments] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const { user } = useAuth();
+
+  // Selected Record Modal State
+  const [selectedRecord, setSelectedRecord] = useState<any>(null);
+
+  // Multiselect state
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+
+  // Entry state
+  const [showEntry, setShowEntry] = useState(false);
+  const [selectedMachineId, setSelectedMachineId] = useState('');
+  const [selectedDepartmentId, setSelectedDepartmentId] = useState('');
+  const [entryDate, setEntryDate] = useState('');
+  const [entryStatus, setEntryStatus] = useState('completed');
+  const [maintenanceTypes, setMaintenanceTypes] = useState<any[]>([]);
+  const [selectedMaintType, setSelectedMaintType] = useState('');
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [entryPayload, setEntryPayload] = useState<Record<string, any>>({});
+  const [activeDropdown, setActiveDropdown] = useState<{ id: string; top: number; left: number } | null>(null);
+
+  useEffect(() => { fetchData(); }, []);
+
+  useEffect(() => {
+    if (!activeDropdown) return;
+    const handleScroll = () => {
+      setActiveDropdown(null);
+    };
+    window.addEventListener('scroll', handleScroll, true);
+    window.addEventListener('resize', handleScroll);
+    return () => {
+      window.removeEventListener('scroll', handleScroll, true);
+      window.removeEventListener('resize', handleScroll);
+    };
+  }, [activeDropdown]);
+
+  const fetchData = async () => {
+    try {
+      const [mRes, fRes, rRes, dRes, mtRes] = await Promise.all([
+        api.get('/machines'),
+        api.get('/reports/formats'),
+        api.get('/reports/entries?type=MAINTENANCE'),
+        api.get('/departments'),
+        api.get('/maintenance-types')
+      ]);
+      setMachines(mRes.data);
+      setDepartments(dRes.data);
+      setMaintenanceTypes(mtRes.data);
+      if (dRes.data.length > 0) {
+        setSelectedDepartmentId(dRes.data[0].id);
+      }
+      
+      const maintFormat = fRes.data.find((f: any) => f.type === 'MAINTENANCE');
+      if (maintFormat) {
+        setFormat(maintFormat);
+      } else {
+        // If not found, create default maintenance columns format
+        await api.post('/reports/formats', {
+          name: 'Machine Maintenance Columns',
+          type: 'MAINTENANCE',
+          initialFields: []
+        });
+        const refreshRes = await api.get('/reports/formats');
+        const refreshedFormat = refreshRes.data.find((f: any) => f.type === 'MAINTENANCE');
+        if (refreshedFormat) {
+          setFormat(refreshedFormat);
+        }
+      }
+
+      setRecords(rRes.data);
+      setSelectedIds([]);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const canModify = (record: any) => {
+    return user?.role !== 'OPERATIONS' || record.submitted_by === user?.id;
+  };
+
+  const handleToggleSelect = (id: string) => {
+    setSelectedIds(prev =>
+      prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
+    );
+  };
+
+  const handleToggleSelectAll = () => {
+    const modifiableRecords = records.filter(r => canModify(r));
+    if (selectedIds.length === modifiableRecords.length) {
+      setSelectedIds([]);
+    } else {
+      setSelectedIds(modifiableRecords.map(r => r.id));
+    }
+  };
+
+  const handleStartEdit = (record: any) => {
+    setSelectedMachineId(record.payload?._machine_id || '');
+    setSelectedDepartmentId(record.department_id || '');
+    
+    if (record.entry_date) {
+      const d = new Date(record.entry_date);
+      const dateStr = d.toISOString().split('T')[0];
+      setEntryDate(dateStr);
+    } else {
+      setEntryDate('');
+    }
+    
+    setEntryStatus(record.payload?._status || 'completed');
+    setSelectedMaintType(record.payload?._maintenance_type || '');
+    
+    const payloadFields: Record<string, any> = {};
+    if (record.payload) {
+      Object.entries(record.payload).forEach(([k, v]) => {
+        if (!k.startsWith('_')) {
+          payloadFields[k] = v;
+        }
+      });
+    }
+    setEntryPayload(payloadFields);
+    setEditingId(record.id);
+    setShowEntry(true);
+  };
+
+  const handleCancelEdit = () => {
+    setEditingId(null);
+    setSelectedMachineId('');
+    if (departments.length > 0) {
+      setSelectedDepartmentId(departments[0].id);
+    }
+    setEntryDate('');
+    setEntryStatus('completed');
+    setSelectedMaintType('');
+    setEntryPayload({});
+    setShowEntry(false);
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!window.confirm('Are you sure you want to delete this maintenance log?')) return;
+    try {
+      await api.delete(`/reports/entries/${id}`);
+      setSelectedIds(prev => prev.filter(x => x !== id));
+      fetchData();
+    } catch (err: any) {
+      alert(err.response?.data?.error || 'Failed to delete maintenance log');
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedIds.length === 0) return;
+    if (!window.confirm(`Are you sure you want to delete ${selectedIds.length} maintenance logs?`)) return;
+    try {
+      await api.post('/reports/entries/bulk-delete', { ids: selectedIds });
+      setSelectedIds([]);
+      fetchData();
+    } catch (err: any) {
+      alert(err.response?.data?.error || 'Failed to bulk delete maintenance logs');
+    }
+  };
+
+  const handleSubmitEntry = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!format || !format.versions?.[0]) {
+      alert('Maintenance checklist format is not configured.');
+      return;
+    }
+    const machine = machines.find(m => m.id === selectedMachineId);
+
+    try {
+      if (editingId) {
+        await api.put(`/reports/entries/${editingId}`, {
+          department_id: selectedDepartmentId,
+          entry_date: entryDate,
+          payload: {
+            ...entryPayload,
+            _machine: machine?.name || 'N/A',
+            _machine_id: selectedMachineId,
+            _status: entryStatus,
+            _maintenance_type: selectedMaintType
+          }
+        });
+        alert('Maintenance record updated successfully!');
+      } else {
+        await api.post('/reports/entries', {
+          format_version_id: format.versions[0].id,
+          department_id: selectedDepartmentId,
+          entry_date: entryDate,
+          payload: {
+            ...entryPayload,
+            _machine: machine?.name || 'N/A',
+            _machine_id: selectedMachineId,
+            _status: entryStatus,
+            _maintenance_type: selectedMaintType
+          }
+        });
+        alert('Maintenance logged successfully!');
+      }
+      setShowEntry(false);
+      setSelectedMachineId('');
+      if (departments.length > 0) {
+        setSelectedDepartmentId(departments[0].id);
+      }
+      setEntryDate('');
+      setEntryStatus('completed');
+      setSelectedMaintType('');
+      setEntryPayload({});
+      setEditingId(null);
+      fetchData();
+    } catch (err: any) {
+      alert(err.response?.data?.error || 'Failed to submit maintenance entry');
+    }
+  };
+
+  const getStatusBadge = (status: string) => {
+    const normalized = (status || 'completed').toLowerCase();
+    switch (normalized) {
+      case 'completed':
+        return (
+          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-800 border border-green-200">
+            <Check className="mr-1 h-3 w-3" /> Completed
+          </span>
+        );
+      case 'open':
+        return (
+          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-800 border border-blue-200">
+            <Wrench className="mr-1 h-3 w-3" /> Open
+          </span>
+        );
+      case 'partially completed':
+        return (
+          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-yellow-100 text-yellow-800 border border-yellow-200">
+            <AlertTriangle className="mr-1 h-3 w-3" /> Partially Completed
+          </span>
+        );
+      case 'parts missing':
+        return (
+          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-red-100 text-red-800 border border-red-200">
+            <X className="mr-1 h-3 w-3" /> Parts Missing
+          </span>
+        );
+      default:
+        return (
+          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-gray-100 text-gray-800 border border-gray-200">
+            {status}
+          </span>
+        );
+    }
+  };
+
+  const fields = format?.versions?.[0]?.fields_schema || [];
+
+  if (loading) return <div className="p-4">Loading...</div>;
+
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-semibold text-text-primary">Machine Maintenance</h1>
+          <p className="text-sm text-text-secondary mt-1">Log and view machine maintenance checklist execution reports.</p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            onClick={() => {
+              if (editingId) {
+                handleCancelEdit();
+              } else {
+                setShowEntry(!showEntry);
+              }
+            }}
+            className="inline-flex items-center px-4 py-2 bg-primary text-white text-sm font-medium rounded-md hover:bg-primary-light font-semibold shadow-sm gap-1.5"
+          >
+            <Plus className="h-4 w-4" /> {editingId ? 'Cancel Edit' : 'Log Maintenance'}
+          </button>
+          <ExportBar
+            loading={loading}
+            opts={{
+              title: selectedIds.length > 0 ? 'Selected Machine Maintenance Logs' : 'Machine Maintenance Logs',
+              subtitle: selectedIds.length > 0 ? `Exported ${selectedIds.length} selected items` : 'All Maintenance Records',
+              filename: `maintenance_${selectedIds.length > 0 ? 'selected' : 'all'}`,
+              columns: [
+                { header: 'Date', key: 'date' },
+                { header: 'Machine', key: 'machine' },
+                { header: 'Department', key: 'department' },
+                { header: 'Maintenance Type', key: 'maintType' },
+                ...fields.map((f: any) => ({ header: f.name, key: f.name })),
+                { header: 'Status', key: 'status' }
+              ],
+              rows: (selectedIds.length > 0 ? records.filter(r => selectedIds.includes(r.id)) : records).map(r => ({
+                date: new Date(r.entry_date).toLocaleDateString(),
+                machine: r.payload?._machine || 'N/A',
+                department: r.department?.name || 'N/A',
+                maintType: r.payload?._maintenance_type || '—',
+                ...Object.fromEntries(
+                  fields.map((f: any) => {
+                    const val = r.payload?.[f.name];
+                    let displayVal = val;
+                    if (f.type === 'boolean') {
+                      displayVal = val === 'ok' ? 'OK' : val === 'issue' ? 'Issue' : val;
+                    }
+                    return [f.name, displayVal ?? '—'];
+                  })
+                ),
+                status: r.payload?._status || 'completed'
+              }))
+            } as ExportOptions}
+          />
+        </div>
+      </div>
+
+      {/* Log Entry Form */}
+      {showEntry && (
+        <div className="bg-white p-6 rounded-card border border-border shadow-sm animate-in fade-in duration-100">
+          <h3 className="text-lg font-medium text-text-primary mb-4">Log Maintenance Activity</h3>
+          <form onSubmit={handleSubmitEntry} className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-text-secondary">Machine</label>
+                <select required className="mt-1 block w-full border border-border rounded-md px-3 py-2 text-sm bg-white" value={selectedMachineId} onChange={e => setSelectedMachineId(e.target.value)}>
+                  <option value="">Select Machine</option>
+                  {machines.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-text-secondary">Department</label>
+                <select required className="mt-1 block w-full border border-border rounded-md px-3 py-2 text-sm bg-white" value={selectedDepartmentId} onChange={e => setSelectedDepartmentId(e.target.value)}>
+                  {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-text-secondary">Maintenance Date</label>
+                <input required type="date" className="mt-1 block w-full border border-border rounded-md px-3 py-2 text-sm" value={entryDate} onChange={e => setEntryDate(e.target.value)} />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-text-secondary">Maintenance Type</label>
+                <select required className="mt-1 block w-full border border-border rounded-md px-3 py-2 text-sm bg-white" value={selectedMaintType} onChange={e => setSelectedMaintType(e.target.value)}>
+                  <option value="">Select Maintenance Type</option>
+                  {maintenanceTypes.map(t => <option key={t.id} value={t.name}>{t.name}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-text-secondary">Status</label>
+                <select required className="mt-1 block w-full border border-border rounded-md px-3 py-2 text-sm bg-white" value={entryStatus} onChange={e => setEntryStatus(e.target.value)}>
+                  <option value="completed">completed</option>
+                  <option value="open">open</option>
+                  <option value="partially completed">partially completed</option>
+                  <option value="parts missing">parts missing</option>
+                </select>
+              </div>
+            </div>
+
+            {format?.versions?.[0]?.fields_schema?.map((field: any, idx: number) => (
+              <div key={idx}>
+                <label className="block text-sm font-medium text-text-secondary">{field.name} {field.unit && `(${field.unit})`}</label>
+                {field.type === 'boolean' ? (
+                  <select required className="mt-1 block w-full border border-border rounded-md px-3 py-2 text-sm bg-white" value={entryPayload[field.name] || ''} onChange={e => setEntryPayload(p => ({ ...p, [field.name]: e.target.value }))}>
+                    <option value="">Select</option>
+                    <option value="ok">OK ✓</option>
+                    <option value="issue">Issue Found</option>
+                  </select>
+                ) : (
+                  <input type={field.type === 'number' ? 'number' : 'text'} step="any" required className="mt-1 block w-full border border-border rounded-md px-3 py-2 text-sm" value={entryPayload[field.name] || ''} onChange={e => setEntryPayload(p => ({ ...p, [field.name]: e.target.value }))} />
+                )}
+              </div>
+            ))}
+
+            <div className="pt-2 flex gap-2">
+              <button type="submit" className="bg-primary text-white px-4 py-2 rounded-md text-sm font-semibold hover:bg-primary-light shadow-sm">
+                {editingId ? 'Save Changes' : 'Submit Record'}
+              </button>
+              {editingId && (
+                <button
+                  type="button"
+                  onClick={handleCancelEdit}
+                  className="bg-gray-100 text-text-secondary px-4 py-2 rounded-md text-sm font-semibold hover:bg-gray-200"
+                >
+                  Cancel Edit
+                </button>
+              )}
+            </div>
+          </form>
+        </div>
+      )}
+
+      {/* Records Table */}
+      <div className="bg-white rounded-card border border-border shadow-sm overflow-hidden">
+        <div className="px-6 py-4 border-b border-border flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <h2 className="text-base font-semibold text-text-primary">Maintenance Log</h2>
+            {selectedIds.length > 0 && (
+              <button
+                onClick={handleBulkDelete}
+                className="inline-flex items-center px-3 py-1 bg-red-600 hover:bg-red-700 text-white text-xs font-semibold rounded shadow-sm gap-1 transition-colors"
+              >
+                Delete Selected ({selectedIds.length})
+              </button>
+            )}
+          </div>
+          <span className="text-sm text-text-secondary">{records.length} records</span>
+        </div>
+
+        {records.length === 0 ? (
+          <div className="p-12 text-center">
+            <Wrench className="mx-auto h-12 w-12 text-gray-300 mb-4" />
+            <p className="text-text-secondary">No maintenance records yet. Use "Log Maintenance" to start.</p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-border">
+              <thead className="bg-surface">
+                <tr>
+                  <th className="w-12 px-6 py-3 text-left">
+                    <input
+                      type="checkbox"
+                      checked={records.filter(r => canModify(r)).length > 0 && selectedIds.length === records.filter(r => canModify(r)).length}
+                      onChange={handleToggleSelectAll}
+                      className="rounded border-border text-primary focus:ring-primary h-4 w-4 cursor-pointer"
+                    />
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase">Date</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase">Machine</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase">Department</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase">Maintenance Type</th>
+                  {fields.map((field: any, idx: number) => (
+                    <th key={idx} className="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase">
+                      {field.name}{field.unit ? ` (${field.unit})` : ''}
+                    </th>
+                  ))}
+                  <th className="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase">Status</th>
+                  <th className="px-6 py-3 text-right text-xs font-medium text-text-secondary uppercase w-24">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-border">
+                {records.map(record => {
+                  const modifiable = canModify(record);
+                  return (
+                    <tr 
+                      key={record.id} 
+                      onClick={() => setSelectedRecord(record)}
+                      className="hover:bg-surface/50 cursor-pointer transition-colors"
+                      title="Click to view details"
+                    >
+                      <td className="w-12 px-6 py-4" onClick={(e) => e.stopPropagation()}>
+                        <input
+                          type="checkbox"
+                          disabled={!modifiable}
+                          checked={selectedIds.includes(record.id)}
+                          onChange={() => handleToggleSelect(record.id)}
+                          className={clsx(
+                            "rounded h-4 w-4 cursor-pointer",
+                            modifiable 
+                              ? "border-border text-primary focus:ring-primary" 
+                              : "border-gray-200 text-gray-300 cursor-not-allowed opacity-55"
+                          )}
+                        />
+                      </td>
+                      <td className="px-6 py-4 text-sm text-text-primary tabular-nums">{new Date(record.entry_date).toLocaleDateString()}</td>
+                      <td className="px-6 py-4 text-sm text-text-secondary font-semibold">{record.payload?._machine || 'N/A'}</td>
+                      <td className="px-6 py-4 text-sm text-text-secondary">{record.department?.name || 'N/A'}</td>
+                      <td className="px-6 py-4 text-sm text-text-secondary font-medium">{record.payload?._maintenance_type || '—'}</td>
+                      {fields.map((field: any, idx: number) => {
+                        const val = record.payload?.[field.name];
+                        let displayVal = val;
+                        if (field.type === 'boolean') {
+                          displayVal = val === 'ok' ? 'OK ✓' : val === 'issue' ? 'Issue ⚠' : val;
+                        }
+                        return (
+                          <td key={idx} className="px-6 py-4 whitespace-nowrap text-sm text-text-primary font-medium">
+                            {displayVal !== null && displayVal !== undefined && displayVal !== '' ? String(displayVal) : '—'}
+                          </td>
+                        );
+                      })}
+                      <td className="px-6 py-4">
+                        {getStatusBadge(record.payload?._status)}
+                      </td>
+                      <td className="px-6 py-4 text-right whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                        {modifiable && (
+                          <div className="relative inline-block text-left">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (activeDropdown?.id === record.id) {
+                                  setActiveDropdown(null);
+                                } else {
+                                  const rect = e.currentTarget.getBoundingClientRect();
+                                  setActiveDropdown({
+                                    id: record.id,
+                                    top: rect.bottom + 4,
+                                    left: rect.right - 112
+                                  });
+                                }
+                              }}
+                              className="p-1 rounded-md text-text-secondary hover:bg-surface hover:text-text-primary transition-colors focus:outline-none"
+                              title="Actions"
+                            >
+                              <MoreVertical className="h-4 w-4" />
+                            </button>
+
+                            {activeDropdown?.id === record.id && (
+                              <>
+                                <div 
+                                  className="fixed inset-0 z-40" 
+                                  onClick={() => setActiveDropdown(null)} 
+                                />
+                                <div 
+                                  style={{
+                                    position: 'fixed',
+                                    top: activeDropdown ? `${activeDropdown.top}px` : undefined,
+                                    left: activeDropdown ? `${activeDropdown.left}px` : undefined,
+                                  }}
+                                  className="w-28 bg-white rounded-md border border-border shadow-lg z-50 py-1"
+                                >
+                                  <button
+                                    onClick={() => {
+                                      setActiveDropdown(null);
+                                      handleStartEdit(record);
+                                    }}
+                                    className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-text-primary hover:bg-surface transition-colors"
+                                  >
+                                    <Edit className="h-3.5 w-3.5 text-text-secondary" /> Edit
+                                  </button>
+                                  <button
+                                    onClick={() => {
+                                      setActiveDropdown(null);
+                                      handleDelete(record.id);
+                                    }}
+                                    className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-danger hover:bg-red-50 transition-colors"
+                                  >
+                                    <Trash2 className="h-3.5 w-3.5 text-danger" /> Delete
+                                  </button>
+                                </div>
+                              </>
+                            )}
+                          </div>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {/* Selected Record Modal */}
+      {selectedRecord && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm transition-opacity">
+          <div className="bg-white rounded-card max-w-lg w-full p-6 shadow-xl border border-border flex flex-col max-h-[90vh]">
+            <div className="flex justify-between items-center border-b border-border pb-4 mb-4">
+              <div>
+                <h3 className="text-lg font-bold text-text-primary">Maintenance Log Details</h3>
+                <p className="text-xs text-text-secondary mt-0.5">Machine checklist execution report</p>
+              </div>
+              <button 
+                onClick={() => setSelectedRecord(null)}
+                className="text-text-secondary hover:text-text-primary p-1.5 rounded-full hover:bg-surface transition-colors"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto space-y-4 pr-1">
+              <div className="grid grid-cols-2 gap-4 bg-surface p-4 rounded-lg text-sm border border-border/55">
+                <div>
+                  <span className="block text-xs font-semibold text-text-secondary uppercase">Date</span>
+                  <span className="font-medium text-text-primary tabular-nums mt-0.5 block">{new Date(selectedRecord.entry_date).toLocaleDateString()}</span>
+                </div>
+                <div>
+                  <span className="block text-xs font-semibold text-text-secondary uppercase">Status</span>
+                  <div className="mt-1">
+                    {getStatusBadge(selectedRecord.payload?._status)}
+                  </div>
+                </div>
+                <div>
+                  <span className="block text-xs font-semibold text-text-secondary uppercase">Machine</span>
+                  <span className="font-semibold text-primary mt-0.5 block">{selectedRecord.payload?._machine || 'N/A'}</span>
+                </div>
+                <div>
+                  <span className="block text-xs font-semibold text-text-secondary uppercase">Department</span>
+                  <span className="font-semibold text-text-primary mt-0.5 block">{selectedRecord.department?.name || 'N/A'}</span>
+                </div>
+                <div>
+                  <span className="block text-xs font-semibold text-text-secondary uppercase">Maintenance Type</span>
+                  <span className="font-semibold text-text-primary mt-0.5 block">{selectedRecord.payload?._maintenance_type || '—'}</span>
+                </div>
+                <div>
+                  <span className="block text-xs font-semibold text-text-secondary uppercase">Format Config</span>
+                  <span className="font-medium text-text-primary mt-0.5 block">{selectedRecord.format_version?.format?.name || 'N/A'}</span>
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                <h4 className="text-sm font-semibold text-text-primary border-b border-border/60 pb-1.5 uppercase tracking-wider text-xs">Checklist Items & Logged Values</h4>
+                <div className="divide-y divide-border/40">
+                  {selectedRecord.payload && Object.entries(selectedRecord.payload).filter(([k]) => !k.startsWith('_')).length === 0 ? (
+                    <p className="text-sm text-text-secondary italic py-2">No payload parameters logged for this checklist.</p>
+                  ) : (
+                    Object.entries(selectedRecord.payload || {})
+                      .filter(([key]) => !key.startsWith('_'))
+                      .map(([key, val]) => (
+                        <div key={key} className="flex justify-between items-center py-2.5">
+                          <span className="text-sm font-medium text-text-primary">{key}</span>
+                          <div>
+                            {val === 'ok' ? (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-green-50 text-green-700 border border-green-200">
+                                <Check className="mr-1 h-3.5 w-3.5" /> OK
+                              </span>
+                            ) : val === 'issue' ? (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200 animate-pulse">
+                                <AlertTriangle className="mr-1 h-3.5 w-3.5" /> Issue Found
+                              </span>
+                            ) : (
+                              <span className="text-sm font-mono text-text-secondary font-semibold tabular-nums">{String(val)}</span>
+                            )}
+                          </div>
+                        </div>
+                      ))
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div className="border-t border-border pt-4 mt-6 flex justify-end">
+              <button 
+                onClick={() => setSelectedRecord(null)}
+                className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-text-secondary rounded-md text-sm font-semibold transition-colors"
+              >
+                Close Details
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

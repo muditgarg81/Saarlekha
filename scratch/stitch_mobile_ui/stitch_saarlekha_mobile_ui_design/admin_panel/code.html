@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>SaarLekha - Admin Panel</title>
+<!-- Fonts -->
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&amp;family=Inter:wght@400;500;600&amp;family=JetBrains+Mono:wght@500&amp;display=swap" rel="stylesheet"/>
+<!-- Icons -->
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Tailwind -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-tertiary-fixed": "#191c1e",
+                        "secondary-fixed": "#90f3ee",
+                        "on-secondary-fixed": "#00201f",
+                        "on-tertiary-container": "#cacdcf",
+                        "on-surface": "#0d1c2e",
+                        "on-error": "#ffffff",
+                        "on-primary-fixed-variant": "#094b6f",
+                        "inverse-on-surface": "#eaf1ff",
+                        "primary": "#004366",
+                        "inverse-surface": "#233144",
+                        "error-container": "#ffdad6",
+                        "tertiary-fixed-dim": "#c4c7c9",
+                        "tertiary-fixed": "#e0e3e5",
+                        "on-secondary-container": "#00706d",
+                        "surface-container-low": "#eff4ff",
+                        "surface-bright": "#f8f9ff",
+                        "background": "#f8f9ff",
+                        "surface-container-highest": "#d5e3fc",
+                        "outline": "#71787f",
+                        "on-secondary": "#ffffff",
+                        "on-error-container": "#93000a",
+                        "tertiary-container": "#545759",
+                        "on-primary": "#ffffff",
+                        "surface-container-lowest": "#ffffff",
+                        "error": "#ba1a1a",
+                        "surface-variant": "#d5e3fc",
+                        "primary-container": "#235b80",
+                        "on-primary-fixed": "#001e30",
+                        "primary-fixed": "#cbe6ff",
+                        "inverse-primary": "#99ccf7",
+                        "tertiary": "#3c4042",
+                        "surface": "#f8f9ff",
+                        "surface-container-high": "#dce9ff",
+                        "secondary": "#006a67",
+                        "on-primary-container": "#9fd2fd",
+                        "on-secondary-fixed-variant": "#00504d",
+                        "surface-tint": "#2d6388",
+                        "on-background": "#0d1c2e",
+                        "primary-fixed-dim": "#99ccf7",
+                        "secondary-container": "#90f3ee",
+                        "surface-dim": "#ccdbf3",
+                        "outline-variant": "#c1c7cf",
+                        "secondary-fixed-dim": "#73d7d2",
+                        "on-tertiary": "#ffffff",
+                        "on-surface-variant": "#41474e",
+                        "on-tertiary-fixed-variant": "#444749",
+                        "surface-container": "#e6eeff"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "fontFamily": {
+                        "headline-lg": ["Hanken Grotesk"],
+                        "label-md": ["JetBrains Mono"],
+                        "headline-md": ["Hanken Grotesk"],
+                        "body-md": ["Inter"],
+                        "headline-sm": ["Hanken Grotesk"],
+                        "headline-lg-mobile": ["Hanken Grotesk"],
+                        "body-lg": ["Inter"]
+                    },
+                    "fontSize": {
+                        "headline-lg": ["30px", {"lineHeight": "38px", "fontWeight": "700"}],
+                        "label-md": ["12px", {"lineHeight": "16px", "letterSpacing": "0.02em", "fontWeight": "500"}],
+                        "headline-md": ["24px", {"lineHeight": "32px", "fontWeight": "600"}],
+                        "body-md": ["14px", {"lineHeight": "20px", "fontWeight": "400"}],
+                        "headline-sm": ["20px", {"lineHeight": "28px", "fontWeight": "600"}],
+                        "headline-lg-mobile": ["24px", {"lineHeight": "32px", "fontWeight": "700"}],
+                        "body-lg": ["16px", {"lineHeight": "24px", "fontWeight": "400"}]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            display: inline-block;
+            vertical-align: middle;
+        }
+        .hide-scrollbar::-webkit-scrollbar { display: none; }
+        .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background text-on-surface font-body-md min-h-screen pb-24">
+<!-- TopAppBar -->
+<header class="flex justify-between items-center px-4 h-16 w-full bg-surface border-b border-outline-variant fixed top-0 z-50">
+<div class="flex items-center gap-3">
+<button class="p-2 rounded-full active:scale-95 transition-transform">
+<span class="material-symbols-outlined text-primary">menu</span>
+</button>
+<h1 class="font-headline-md text-headline-md-mobile font-bold text-primary">SaarLekha</h1>
+</div>
+<div class="flex items-center gap-2">
+<div class="w-10 h-10 rounded-full bg-surface-container-highest flex items-center justify-center border border-outline-variant overflow-hidden">
+<img alt="User" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCfniqj1kWvIx3UhwEaAKjjIhw50lHQpfoXrkoVtINJgwaXjCOoy6x4A85cq6VRJ228tMVxV7trYCd1WwF0dwFqpjy01Ng-7zpE-PrYnmVFV0gXpd4V4nGAoL_rSk8CEZ_kGYp-d2mPfw7zzn6hPFHD9qMITVXw8rQs-xg955E1d3H1i6EZKYvRvJJ3ywcGr5CKNA4KKeQnoBF0WE0kwDmik3DiBN7MF9TUmYJdGTyNRm1FMRawP-lxhY89o6pvRayxmvqG1o4bJtPW"/>
+</div>
+</div>
+</header>
+<!-- Main Canvas -->
+<main class="mt-16 p-4 space-y-6">
+<!-- Header Section -->
+<section class="flex flex-col gap-1">
+<div class="flex items-center gap-2 text-primary font-body-md mb-2">
+<span class="material-symbols-outlined text-sm">arrow_back</span>
+<span>Back to Operations</span>
+</div>
+<h2 class="font-headline-lg-mobile text-headline-lg-mobile text-on-surface">Admin Panel</h2>
+<div class="flex items-center gap-2 mt-2 px-3 py-2 bg-surface-container-low rounded-lg border border-outline-variant">
+<span class="material-symbols-outlined text-primary text-[20px]">factory</span>
+<span class="font-label-md text-on-surface-variant uppercase text-[11px]">CROX OIL &amp; GAS PVT. LTD.</span>
+</div>
+</section>
+<!-- Segmented Control Tabs -->
+<section class="border-b border-outline-variant">
+<div class="flex gap-4 overflow-x-auto hide-scrollbar">
+<button class="whitespace-nowrap px-1 pb-3 text-primary border-b-2 border-primary font-headline-sm text-[16px] transition-all" id="tab-user-mgmt" onclick="switchTab('user-mgmt')">
+                    User Management
+                </button>
+<button class="whitespace-nowrap px-1 pb-3 text-on-surface-variant border-b-2 border-transparent font-headline-sm text-[16px] transition-all" id="tab-departments" onclick="switchTab('departments')">
+                    Departments
+                </button>
+<button class="whitespace-nowrap px-1 pb-3 text-on-surface-variant border-b-2 border-transparent font-headline-sm text-[16px] transition-all" id="tab-company" onclick="switchTab('company')">
+                    Company Details
+                </button>
+</div>
+</section>
+<!-- User Management Content (Default) -->
+<div class="tab-content space-y-6" id="content-user-mgmt">
+<!-- Invite Card -->
+<div class="bg-surface border border-outline-variant rounded-xl p-5 shadow-sm">
+<h3 class="font-headline-sm text-headline-sm text-on-surface mb-4">Invite User</h3>
+<div class="space-y-4">
+<div class="space-y-1.5">
+<label class="block font-body-md font-semibold text-xs text-on-surface-variant uppercase tracking-wider">Email Address</label>
+<input class="w-full bg-white border border-outline-variant rounded px-3 py-2 focus:ring-2 focus:ring-primary outline-none text-body-md transition-all" placeholder="e.g. employee@croxoil.com" type="email"/>
+</div>
+<div class="space-y-1.5">
+<label class="block font-body-md font-semibold text-xs text-on-surface-variant uppercase tracking-wider">Role</label>
+<select class="w-full bg-white border border-outline-variant rounded px-3 py-2 focus:ring-2 focus:ring-primary outline-none text-body-md">
+<option>Operations</option>
+<option>Quality Assurance</option>
+<option>Logistics Manager</option>
+<option>Super Admin</option>
+</select>
+</div>
+<div class="space-y-3">
+<label class="block font-body-md font-semibold text-xs text-on-surface-variant uppercase tracking-wider">Assign Departments</label>
+<div class="grid grid-cols-2 gap-3">
+<label class="flex items-center gap-2 cursor-pointer p-2 bg-surface-container-lowest border border-outline-variant rounded">
+<input class="rounded text-primary focus:ring-primary" type="checkbox"/>
+<span class="text-body-md">FIBC</span>
+</label>
+<label class="flex items-center gap-2 cursor-pointer p-2 bg-surface-container-lowest border border-outline-variant rounded">
+<input class="rounded text-primary focus:ring-primary" type="checkbox"/>
+<span class="text-body-md">Finishing</span>
+</label>
+<label class="flex items-center gap-2 cursor-pointer p-2 bg-surface-container-lowest border border-outline-variant rounded">
+<input class="rounded text-primary focus:ring-primary" type="checkbox"/>
+<span class="text-body-md">Lamination</span>
+</label>
+<label class="flex items-center gap-2 cursor-pointer p-2 bg-surface-container-lowest border border-outline-variant rounded">
+<input class="rounded text-primary focus:ring-primary" type="checkbox"/>
+<span class="text-body-md">Tape plant</span>
+</label>
+</div>
+</div>
+<button class="w-full bg-primary text-on-primary py-3 rounded-lg font-headline-sm text-[16px] active:scale-[0.98] transition-transform">
+                        Generate Invite Link
+                    </button>
+</div>
+</div>
+<!-- Users List -->
+<div class="space-y-3">
+<div class="flex items-center justify-between px-1">
+<h3 class="font-body-md font-bold text-xs text-on-surface-variant uppercase tracking-widest">Active Users (2)</h3>
+<span class="material-symbols-outlined text-primary text-xl">filter_list</span>
+</div>
+<!-- User Card 1 -->
+<div class="bg-surface border border-outline-variant rounded-xl overflow-hidden shadow-sm">
+<div class="p-4 flex items-start gap-4">
+<div class="w-12 h-12 rounded-lg bg-primary-container text-on-primary-container flex items-center justify-center">
+<span class="material-symbols-outlined">person</span>
+</div>
+<div class="flex-1">
+<div class="flex justify-between items-start">
+<span class="font-body-md font-semibold text-on-surface truncate">muditg@croxoilandgas.com</span>
+<span class="material-symbols-outlined text-on-surface-variant text-lg">more_vert</span>
+</div>
+<div class="mt-2 flex flex-wrap gap-2">
+<span class="bg-surface-container-highest text-primary font-label-md text-[10px] px-2 py-0.5 rounded-full border border-primary/20 uppercase">Company Admin</span>
+<span class="text-on-surface-variant font-body-md text-xs">All Departments</span>
+</div>
+</div>
+</div>
+</div>
+<!-- User Card 2 -->
+<div class="bg-surface border border-outline-variant rounded-xl overflow-hidden shadow-sm">
+<div class="p-4 flex items-start gap-4">
+<div class="w-12 h-12 rounded-lg bg-secondary-container text-on-secondary-container flex items-center justify-center">
+<span class="material-symbols-outlined">manufacturing</span>
+</div>
+<div class="flex-1">
+<div class="flex justify-between items-start">
+<span class="font-body-md font-semibold text-on-surface truncate">croxoilandgas@gmail.com</span>
+<span class="material-symbols-outlined text-on-surface-variant text-lg">more_vert</span>
+</div>
+<div class="mt-2 flex flex-wrap gap-2">
+<span class="bg-secondary-fixed text-on-secondary-fixed font-label-md text-[10px] px-2 py-0.5 rounded-full uppercase">Operations</span>
+<span class="text-on-surface-variant font-body-md text-xs">Finishing, Loom</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Departments View (Hidden by default) -->
+<div class="tab-content hidden space-y-6" id="content-departments">
+<div class="bg-surface border border-outline-variant rounded-xl p-5">
+<h3 class="font-headline-sm text-headline-sm text-on-surface mb-4">Add Department</h3>
+<div class="flex gap-2">
+<input class="flex-1 bg-white border border-outline-variant rounded px-3 py-2 outline-none" placeholder="e.g. Quality Control" type="text"/>
+<button class="bg-primary text-on-primary px-4 rounded flex items-center justify-center">
+<span class="material-symbols-outlined">add</span>
+</button>
+</div>
+</div>
+<div class="grid grid-cols-1 gap-3">
+<div class="p-4 bg-surface border border-outline-variant rounded-lg flex items-center justify-between">
+<span class="font-body-md font-semibold">FIBC</span>
+<div class="flex gap-3">
+<span class="material-symbols-outlined text-primary text-xl">edit</span>
+<span class="material-symbols-outlined text-error text-xl">delete</span>
+</div>
+</div>
+<div class="p-4 bg-surface border border-outline-variant rounded-lg flex items-center justify-between">
+<span class="font-body-md font-semibold">Finishing</span>
+<div class="flex gap-3">
+<span class="material-symbols-outlined text-primary text-xl">edit</span>
+<span class="material-symbols-outlined text-error text-xl">delete</span>
+</div>
+</div>
+<div class="p-4 bg-surface border border-outline-variant rounded-lg flex items-center justify-between">
+<span class="font-body-md font-semibold">Loom</span>
+<div class="flex gap-3">
+<span class="material-symbols-outlined text-primary text-xl">edit</span>
+<span class="material-symbols-outlined text-error text-xl">delete</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Company Details View (Hidden by default) -->
+<div class="tab-content hidden space-y-6" id="content-company">
+<div class="p-4 bg-surface-container-low border-l-4 border-primary rounded-r-lg">
+<p class="text-body-md italic text-on-surface-variant">Super Admin View: Displaying and managing all onboarded companies.</p>
+</div>
+<div class="bg-surface border border-outline-variant rounded-xl p-5 space-y-4">
+<div class="flex items-center gap-4">
+<div class="w-14 h-14 bg-surface-container-high rounded border border-outline-variant flex items-center justify-center">
+<span class="material-symbols-outlined text-primary text-3xl">apartment</span>
+</div>
+<div>
+<h4 class="font-headline-sm text-primary">CROX OIL &amp; GAS PVT. LTD.</h4>
+<p class="font-label-md text-[10px] text-on-surface-variant">GST: 27AACC8515C1ZX</p>
+</div>
+</div>
+<div class="pt-4 border-t border-outline-variant space-y-3">
+<div class="flex items-start gap-2">
+<span class="material-symbols-outlined text-on-surface-variant text-sm">location_on</span>
+<span class="text-body-md text-on-surface-variant">A-42/1, MIDC BUTIBORI, BIDGANESHPUR, NAGPUR 441122</span>
+</div>
+<div class="flex justify-between">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-on-surface-variant text-sm">person</span>
+<span class="text-body-md">Mudit Garg</span>
+</div>
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-on-surface-variant text-sm">call</span>
+<span class="text-body-md">7385559440</span>
+</div>
+</div>
+</div>
+<div class="flex gap-3 pt-2">
+<button class="flex-1 bg-primary text-on-primary py-2 rounded-lg font-body-md">Select Company</button>
+<button class="px-4 border border-primary text-primary py-2 rounded-lg font-body-md">Edit</button>
+</div>
+</div>
+<button class="w-full flex items-center justify-center gap-2 py-4 border-2 border-dashed border-outline-variant rounded-xl text-on-surface-variant hover:bg-surface-container-low transition-colors">
+<span class="material-symbols-outlined">add_business</span>
+<span class="font-headline-sm text-[16px]">Add New Company</span>
+</button>
+</div>
+</main>
+<!-- BottomNavBar -->
+<nav class="fixed bottom-0 w-full z-50 flex justify-around items-center h-20 bg-surface border-t border-outline-variant px-2 pb-2">
+<div class="flex flex-col items-center justify-center text-on-surface-variant p-2">
+<span class="material-symbols-outlined">home</span>
+<span class="font-label-md text-label-md">Home</span>
+</div>
+<div class="flex flex-col items-center justify-center text-on-surface-variant p-2">
+<span class="material-symbols-outlined">list_alt</span>
+<span class="font-label-md text-label-md">Masters</span>
+</div>
+<div class="flex flex-col items-center justify-center bg-primary-container text-on-primary-container rounded-full px-4 py-1">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">settings</span>
+<span class="font-label-md text-label-md">Admin</span>
+</div>
+<div class="flex flex-col items-center justify-center text-on-surface-variant p-2">
+<span class="material-symbols-outlined">pending_actions</span>
+<span class="font-label-md text-label-md">Logs</span>
+</div>
+<div class="flex flex-col items-center justify-center text-on-surface-variant p-2">
+<span class="material-symbols-outlined">analytics</span>
+<span class="font-label-md text-label-md">Reports</span>
+</div>
+</nav>
+<script>
+        function switchTab(tabId) {
+            // Update Tab Buttons
+            const tabs = ['user-mgmt', 'departments', 'company'];
+            tabs.forEach(id => {
+                const btn = document.getElementById(`tab-${id}`);
+                const content = document.getElementById(`content-${id}`);
+                
+                if (id === tabId) {
+                    btn.classList.remove('text-on-surface-variant', 'border-transparent');
+                    btn.classList.add('text-primary', 'border-primary');
+                    content.classList.remove('hidden');
+                } else {
+                    btn.classList.add('text-on-surface-variant', 'border-transparent');
+                    btn.classList.remove('text-primary', 'border-primary');
+                    content.classList.add('hidden');
+                }
+            });
+        }
+    </script>
+</body></html>

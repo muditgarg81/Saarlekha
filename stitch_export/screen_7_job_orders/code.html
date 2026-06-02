@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Job Orders Master - Saarlekha</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+          },
+          colors: {
+            primary: {
+              DEFAULT: '#0059bb',
+              light: '#0070ea',
+            },
+            secondary: {
+              DEFAULT: '#006a6a',
+            },
+            surface: '#f9f9ff',
+            border: '#c1c6d7',
+            text: {
+              primary: '#181c23',
+              secondary: '#414754',
+            },
+            danger: '#ba1a1a',
+            success: '#006a6a',
+            pending: '#d97706',
+            rejected: '#ba1a1a',
+          },
+          borderRadius: {
+            card: '0.75rem',
+            input: '0.5rem',
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    body {
+      font-family: 'Inter', sans-serif;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .tnum {
+      font-variant-numeric: tabular-nums;
+    }
+  </style>
+</head>
+<body class="bg-surface text-text-primary min-h-screen flex flex-col justify-between">
+  
+  
+  <!-- Header -->
+  <header class="bg-primary text-white px-4 py-3 sticky top-0 z-50 flex items-center justify-between">
+    <div class="flex items-center gap-3">
+      <button class="text-white hover:text-gray-200">
+        <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
+      </button>
+      <h1 class="text-base font-bold">Job Orders Master</h1>
+    </div>
+    <button class="text-white hover:text-gray-200">
+      <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+    </button>
+  </header>
+
+  <!-- Quick creation form (Inline link overlays) -->
+  <div class="bg-white p-4 border-b border-border shadow-sm text-xs space-y-3">
+    <div class="font-bold uppercase tracking-wider text-text-primary flex justify-between items-center">
+      <span>Create Job Order</span>
+      <div class="flex gap-2">
+        <a href="#" class="text-primary hover:underline font-bold">+ New Customer</a>
+        <span class="text-gray-300">|</span>
+        <a href="#" class="text-primary hover:underline font-bold">+ New Item</a>
+      </div>
+    </div>
+
+    <!-- Inputs -->
+    <div class="grid grid-cols-2 gap-3">
+      <div>
+        <label class="block font-medium text-text-primary">Select Customer</label>
+        <select class="mt-1 block w-full border border-border rounded px-2.5 py-1.5 focus:outline-none bg-white">
+          <option>Crox Oil and Gas</option>
+          <option>Garg Industries</option>
+        </select>
+      </div>
+
+      <div>
+        <label class="block font-medium text-text-primary">Order Quantity</label>
+        <input type="number" placeholder="e.g. 5000" class="mt-1 block w-full border border-border rounded px-2.5 py-1.5 focus:outline-none tnum" />
+      </div>
+    </div>
+  </div>
+
+  <!-- Job Orders List -->
+  <main class="flex-1 p-4 space-y-3 pb-20">
+    <div class="space-y-3">
+      
+      <!-- Job Card 1 -->
+      <div class="bg-white rounded-card border border-border p-4 shadow-sm relative text-xs space-y-2">
+        <div class="flex justify-between items-center border-b border-border pb-1.5">
+          <div class="font-bold text-primary">JOB-2026-001</div>
+          <span class="bg-teal-50 text-secondary px-2 py-0.5 rounded font-bold text-[9px] uppercase">Active</span>
+        </div>
+        <div class="space-y-1">
+          <div class="text-text-secondary">Customer: <span class="font-semibold text-text-primary">Crox Oil and Gas</span></div>
+          <div class="text-text-secondary">Item Description: <span class="font-semibold text-text-primary">Standard Loom Bag v3</span></div>
+          
+          <div class="grid grid-cols-2 gap-2 pt-1 text-[11px] tnum">
+            <div>Order Qty: <span class="font-bold text-text-primary">10,000 pcs</span></div>
+            <div>Production Qty: <span class="font-medium text-text-secondary">5,200 pcs</span></div>
+          </div>
+        </div>
+        
+        <div class="flex gap-2 justify-end pt-2 border-t border-border mt-1">
+          <button class="text-primary font-bold hover:underline">Edit Details</button>
+          <button class="text-danger font-bold hover:underline">Close Order</button>
+        </div>
+      </div>
+
+    </div>
+  </main>
+  
+
+</body>
+</html>
