@@ -116,6 +116,8 @@ exports.authRouter.post('/register', async (req, res) => {
                     address: companyAddress,
                 }
             });
+            // Set current_tenant_id so we can insert AuditLogEntry under RLS WITH CHECK policy
+            await tx.$executeRaw `SELECT set_config('app.current_tenant_id', ${company.id}, true)`;
             const user = await tx.user.create({
                 data: {
                     email,
@@ -249,6 +251,8 @@ exports.authRouter.post('/google', async (req, res) => {
                             address: companyAddress,
                         }
                     });
+                    // Set current_tenant_id so we can insert AuditLogEntry under RLS WITH CHECK policy
+                    await tx.$executeRaw `SELECT set_config('app.current_tenant_id', ${company.id}, true)`;
                     const newUser = await tx.user.create({
                         data: {
                             email,
@@ -409,6 +413,7 @@ exports.authRouter.post('/reset-password', async (req, res) => {
         const hashedPassword = await bcrypt_1.default.hash(password, 12);
         await prisma_1.prisma.$transaction(async (tx) => {
             await tx.$executeRaw `SELECT set_config('app.login_user_id', ${tokenRecord.user_id}, true)`;
+            await tx.$executeRaw `SELECT set_config('app.current_tenant_id', ${user.company_id}, true)`;
             await tx.user.update({
                 where: { id: tokenRecord.user_id },
                 data: { password_hash: hashedPassword }
@@ -471,6 +476,7 @@ exports.authRouter.post('/setup-password', async (req, res) => {
         const hashedPassword = await bcrypt_1.default.hash(password, 12);
         await prisma_1.prisma.$transaction(async (tx) => {
             await tx.$executeRaw `SELECT set_config('app.login_user_id', ${user.id}, true)`;
+            await tx.$executeRaw `SELECT set_config('app.current_tenant_id', ${user.company_id}, true)`;
             await tx.user.update({
                 where: { id: user.id },
                 data: {
