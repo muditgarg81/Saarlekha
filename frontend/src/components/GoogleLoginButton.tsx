@@ -15,7 +15,7 @@ interface GoogleLoginButtonProps {
 export function GoogleLoginButton({ onSuccess, onError, buttonText = 'Continue with Google' }: GoogleLoginButtonProps) {
   const [showMockModal, setShowMockModal] = useState(false);
   const [mockEmail, setMockEmail] = useState('');
-  const clientId = 'placeholder'; // Using default dev placeholder
+  const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID || 'placeholder';
   
   useEffect(() => {
     // If client ID is set and not placeholder, load Google script
