@@ -28,7 +28,6 @@ local.properties
 # Secrets & Keystores
 *.keystore
 *.jks
-*password*
 
 # Editors & IDEs
 .vscode/

@@ -26,4 +26,4 @@ dist-ssr
 # Keystores and secrets
 *.keystore
 *.jks
-*password*
+
