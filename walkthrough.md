@@ -455,3 +455,12 @@ ALL RLS TENANT ISOLATION TESTS PASSED! 🎉
 - **Compilation**:
   - Bumped configurations in [build.gradle](file:///c:/claude/Saarlekha/frontend/android/app/build.gradle) to `versionCode 11` and `versionName "2.0"`.
   - Compiled and signed the release Android App Bundle: [app-release.aab](file:///c:/claude/Saarlekha/frontend/android/app/build/outputs/bundle/release/app-release.aab).
+
+### 38. Brand Logo Text Cleanup (v2.1)
+- **Asset Modification**:
+  - Cleaned the small "Option 4" text label at the bottom of the logo badge.
+  - Used a Python script with the Pillow library to copy a clean patch of background from the bottom-left of [logo.png](file:///c:/claude/Saarlekha/frontend/public/logo.png) and paste it over the centered text coordinates (`x=175` to `x=335`, `y=455` to `y=490`).
+  - This seamlessly removed the text while preserving the exact gradient and texture of the original design.
+- **Compilation**:
+  - Bumped configurations in [build.gradle](file:///c:/claude/Saarlekha/frontend/android/app/build.gradle) to `versionCode 12` and `versionName "2.1"`.
+  - Compiled, synced, and signed the fresh release Android App Bundle: [app-release.aab](file:///c:/claude/Saarlekha/frontend/android/app/build/outputs/bundle/release/app-release.aab).
