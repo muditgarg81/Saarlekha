@@ -9,9 +9,11 @@ const formatBaseUrl = (url: string) => {
 };
 
 export const getApiBaseURL = () => {
-  const customUrl = localStorage.getItem('api_server_url');
-  if (customUrl) {
-    return formatBaseUrl(customUrl);
+  if (import.meta.env.DEV) {
+    const customUrl = localStorage.getItem('api_server_url');
+    if (customUrl) {
+      return formatBaseUrl(customUrl);
+    }
   }
   const envUrl = import.meta.env.VITE_API_URL;
   if (envUrl) {

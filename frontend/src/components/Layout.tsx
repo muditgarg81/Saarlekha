@@ -401,81 +401,18 @@ export function PrivateLayout() {
 
 export function PublicLayout() {
   const { isAuthenticated } = useAuth();
-  const [showSettings, setShowSettings] = useState(false);
-  const [serverUrl, setServerUrl] = useState(localStorage.getItem('api_server_url') || 'http://localhost:5000');
-  const [successMsg, setSuccessMsg] = useState('');
 
   if (isAuthenticated) {
     return <Navigate to="/" replace />;
   }
 
-  const handleSaveSettings = (e: React.FormEvent) => {
-    e.preventDefault();
-    updateApiBaseURL(serverUrl);
-    setSuccessMsg('Server URL updated successfully!');
-    setTimeout(() => {
-      setSuccessMsg('');
-      setShowSettings(false);
-    }, 2000);
-  };
-
   return (
     <div className="min-h-screen bg-surface flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-md w-full space-y-8 bg-white p-8 rounded-card shadow-sm border border-border relative">
-        {import.meta.env.DEV && (
-          <button
-            onClick={() => setShowSettings(!showSettings)}
-            className="absolute top-4 right-4 text-gray-400 hover:text-primary transition-colors"
-            title="Server Settings"
-          >
-            <Settings className="h-5 w-5" />
-          </button>
-        )}
-
         <div className="text-center">
           <h2 className="text-3xl font-extrabold text-primary">Saarlekha</h2>
           <p className="mt-2 text-sm text-text-secondary">Operations Reporting Platform</p>
         </div>
-
-        {import.meta.env.DEV && showSettings && (
-          <form onSubmit={handleSaveSettings} className="space-y-4 bg-gray-50 p-4 rounded-md border border-border mt-4 text-left">
-            <h3 className="text-sm font-semibold text-text-primary">Server Settings</h3>
-            <p className="text-xs text-text-secondary">
-              If running on mobile/emulator, change the Server URL/IP to point to the backend server.
-            </p>
-            <div>
-              <label className="block text-xs font-medium text-text-primary">Backend Server URL</label>
-              <input
-                type="text"
-                required
-                placeholder="e.g. 192.168.1.100:5000"
-                className="mt-1 block w-full border border-border rounded-md shadow-sm py-1.5 px-3 focus:outline-none focus:ring-primary focus:border-primary text-xs"
-                value={serverUrl}
-                onChange={(e) => setServerUrl(e.target.value)}
-              />
-            </div>
-            {successMsg && (
-              <div className="text-xs text-green-600 font-medium">
-                {successMsg}
-              </div>
-            )}
-            <div className="flex gap-2 justify-end">
-              <button
-                type="button"
-                onClick={() => setShowSettings(false)}
-                className="py-1 px-3 border border-border rounded-md text-xs font-medium text-text-secondary bg-white hover:bg-gray-50"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                className="py-1 px-3 border border-transparent rounded-md text-xs font-medium text-white bg-primary hover:bg-primary-light"
-              >
-                Save
-              </button>
-            </div>
-          </form>
-        )}
 
         <Outlet />
       </div>
