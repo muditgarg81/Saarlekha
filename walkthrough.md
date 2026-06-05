@@ -443,3 +443,15 @@ ALL RLS TENANT ISOLATION TESTS PASSED! 🎉
   - Compiled and synced production assets with `npm.cmd run build` and `npx.cmd cap sync android`.
   - Compiled and signed the release Android App Bundle: [app-release.aab](file:///c:/claude/Saarlekha/frontend/android/app/build/outputs/bundle/release/app-release.aab).
 
+### 37. Brand Logo Integration (Option 4 / Shield Emblem - v2.0)
+- **Asset Generation**:
+  - Cropped the selected Option 4 (bottom-right quadrant of `saarlekha_logo_redone_1780663665203.png`, representing the premium glowing shield badge with gear and manpower outlines) to a clean 512x512 PNG asset.
+  - Overwrote [logo.png](file:///c:/claude/Saarlekha/frontend/public/logo.png) inside the frontend public asset directory.
+- **UI Integration**:
+  - Modified [Layout.tsx](file:///c:/claude/Saarlekha/frontend/src/components/Layout.tsx) to integrate the new brand logo asset across key components:
+    - **Login Container**: Placed the logo icon dynamically above the "Saarlekha" heading to personalize the sign-in and registration landing flows.
+    - **Sidebar Navigation**: Added a rounded brand icon next to the "Saarlekha" brand text in the desktop/mobile sidebar header layout.
+    - **Mobile Top Bar**: Integrated a small logo icon in the sticky top header for consistent mobile identity representation.
+- **Compilation**:
+  - Bumped configurations in [build.gradle](file:///c:/claude/Saarlekha/frontend/android/app/build.gradle) to `versionCode 11` and `versionName "2.0"`.
+  - Compiled and signed the release Android App Bundle: [app-release.aab](file:///c:/claude/Saarlekha/frontend/android/app/build/outputs/bundle/release/app-release.aab).
