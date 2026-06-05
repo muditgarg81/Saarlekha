@@ -464,3 +464,15 @@ ALL RLS TENANT ISOLATION TESTS PASSED! 🎉
 - **Compilation**:
   - Bumped configurations in [build.gradle](file:///c:/claude/Saarlekha/frontend/android/app/build.gradle) to `versionCode 12` and `versionName "2.1"`.
   - Compiled, synced, and signed the fresh release Android App Bundle: [app-release.aab](file:///c:/claude/Saarlekha/frontend/android/app/build/outputs/bundle/release/app-release.aab).
+
+### 39. App Launcher Icons Integration (v2.2)
+- **Background Color Configuration**:
+  - Modified [ic_launcher_background.xml](file:///c:/claude/Saarlekha/frontend/android/app/src/main/res/values/ic_launcher_background.xml) to change the adaptive background color from white (`#FFFFFF`) to `#20303D` (matching the dark background of our brand logo).
+- **Launcher Icon Asset Generation**:
+  - Wrote a Python script utilizing Pillow to generate the Android launcher assets across all screen density directories (`mdpi`, `hdpi`, `xhdpi`, `xxhdpi`, `xxxhdpi`):
+    - **Standard Icons (`ic_launcher.png`)**: Resized the brand logo with its dark background to standard launcher sizes.
+    - **Round Icons (`ic_launcher_round.png`)**: Cropped the standard launcher icons to perfect circles with transparent outer boundaries.
+    - **Adaptive Foreground Icons (`ic_launcher_foreground.png`)**: Isolated the glowing shield graphics from the background (making background pixels transparent), downscaled the shield to `65%` of the canvas bounds to align with Android's system safe zone templates, and centered it on a `512x512` transparent canvas before resizing to adaptive density requirements.
+- **Compilation**:
+  - Bumped build variables in [build.gradle](file:///c:/claude/Saarlekha/frontend/android/app/build.gradle) to `versionCode 13` and `versionName "2.2"`.
+  - Compiled and signed the release Android App Bundle: [app-release.aab](file:///c:/claude/Saarlekha/frontend/android/app/build/outputs/bundle/release/app-release.aab).
