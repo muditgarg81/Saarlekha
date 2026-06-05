@@ -365,6 +365,7 @@ export function ReportBuilder() {
                             <option value="machine">Machine/Loom (Dropdown)</option>
                             <option value="client">Client (Dropdown)</option>
                             <option value="job_order">Job Order Number (Dropdown)</option>
+                            <option value="item">Items (Dropdown)</option>
                           </select>
                         </div>
                         <div>
@@ -429,6 +430,7 @@ export function ReportBuilder() {
                   <option value="machine">Machine/Loom (Dropdown)</option>
                   <option value="client">Client (Dropdown)</option>
                   <option value="job_order">Job Order Number (Dropdown)</option>
+                  <option value="item">Items (Dropdown)</option>
                 </select>
               </div>
               <div>

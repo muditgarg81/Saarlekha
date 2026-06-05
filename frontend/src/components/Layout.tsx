@@ -285,7 +285,7 @@ export function PrivateLayout() {
       )}
 
       {/* ── Main area ── */}
-      <div className="flex-1 md:ml-64 flex flex-col min-h-screen">
+      <div className="flex-1 md:ml-64 flex flex-col min-h-screen min-w-0">
         {/* Desktop top header bar */}
         <header className="hidden md:flex h-14 bg-white border-b border-border items-center justify-between px-8 flex-shrink-0">
           <div className="flex items-center space-x-4 text-text-primary">

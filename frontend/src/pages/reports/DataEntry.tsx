@@ -31,6 +31,7 @@ export function DataEntry() {
   const [machines, setMachines] = useState<{id: string, name: string, type?: string}[]>([]);
   const [customers, setCustomers] = useState<{id: string, name: string}[]>([]);
   const [jobOrders, setJobOrders] = useState<any[]>([]);
+  const [items, setItems] = useState<{id: string, name: string}[]>([]);
   const [loading, setLoading] = useState(true);
   
   const [searchParams] = useSearchParams();
@@ -87,13 +88,14 @@ export function DataEntry() {
 
   const fetchData = async () => {
     try {
-      const [formatsRes, deptsRes, manpowerRes, machinesRes, customersRes, jobOrdersRes] = await Promise.all([
+      const [formatsRes, deptsRes, manpowerRes, machinesRes, customersRes, jobOrdersRes, itemsRes] = await Promise.all([
         api.get('/reports/formats'),
         api.get('/departments'),
         api.get('/manpower'),
         api.get('/machines'),
         api.get('/customers'),
-        api.get('/job-orders')
+        api.get('/job-orders'),
+        api.get('/items?status=ACTIVE')
       ]);
       setFormats(formatsRes.data);
       setDepartments(deptsRes.data);
@@ -101,6 +103,7 @@ export function DataEntry() {
       setMachines(machinesRes.data);
       setCustomers(customersRes.data);
       setJobOrders(jobOrdersRes.data);
+      setItems(itemsRes.data);
     } catch (err) {
       console.error(err);
     } finally {
@@ -252,7 +255,7 @@ export function DataEntry() {
   if (loading) return <div className="p-4 text-text-secondary">Loading...</div>;
 
   return (
-    <div className="space-y-6 max-w-5xl mx-auto">
+    <div className="space-y-6 max-w-5xl mx-auto w-full px-1 sm:px-0">
       <div className="flex items-center border-b border-border pb-4 mb-6">
         <FileText className="h-8 w-8 text-primary mr-3" />
         <div>
@@ -265,7 +268,7 @@ export function DataEntry() {
         </div>
       </div>
 
-      <div className="bg-white p-6 rounded-card border border-border shadow-sm space-y-8">
+      <div className="bg-white p-4 sm:p-6 rounded-card border border-border shadow-sm space-y-6 sm:space-y-8">
         {editingSavedEntry && (
           <div className="bg-blue-50 border border-blue-200 text-primary p-3 rounded-md text-xs font-semibold flex items-center justify-between">
             <span>You are editing a saved report entry. Format and department cannot be modified.</span>
@@ -279,7 +282,7 @@ export function DataEntry() {
           </div>
         )}
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pb-6 border-b border-border">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 pb-6 border-b border-border">
           <div>
             <label className="block text-sm font-semibold text-text-secondary uppercase mb-2">Select Department</label>
             <select 
@@ -346,7 +349,7 @@ export function DataEntry() {
               {activeSchema.length === 0 ? (
                 <p className="text-text-secondary italic">This format has no fields defined yet.</p>
               ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 bg-surface p-6 rounded-lg border border-border">
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 sm:gap-6 bg-surface p-4 sm:p-6 rounded-lg border border-border w-full max-w-full overflow-hidden">
                   {activeSchema.map((field, idx) => {
                     const isOperatorField = field.type === 'operator' || 
                       field.name.toLowerCase() === 'operator' || 
@@ -362,7 +365,7 @@ export function DataEntry() {
                       field.name.toLowerCase() === 'loom number';
                       
                     return (
-                      <div key={idx} className="flex flex-col">
+                      <div key={idx} className="flex flex-col min-w-0">
                         <label className="block text-xs font-semibold text-text-secondary uppercase mb-1">
                           {field.name} {field.unit && <span className="text-primary text-[10px] ml-1">({field.unit})</span>}
                         </label>
@@ -438,6 +441,18 @@ export function DataEntry() {
                               <option key={jo.id} value={jo.order_number}>
                                 {jo.order_number} {jo.customer?.name ? `(${jo.customer.name})` : ''}{jo.item?.name || jo.custom_item ? ` - ${jo.item?.name || jo.custom_item}` : ''}
                               </option>
+                            ))}
+                          </select>
+                        ) : field.type === 'item' ? (
+                          <select 
+                            required
+                            className="mt-1 block w-full border border-border bg-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                            value={payload[field.name] !== undefined ? String(payload[field.name]) : ''}
+                            onChange={e => handleFieldChange(field.name, e.target.value)}
+                          >
+                            <option value="">Select Item...</option>
+                            {items.map(it => (
+                              <option key={it.id} value={it.name}>{it.name}</option>
                             ))}
                           </select>
                         ) : field.type === 'dropdown' ? (
