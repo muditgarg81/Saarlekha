@@ -37,11 +37,18 @@ interface DashboardData {
 function EfficiencyBadge({ value }: { value: string | null }) {
   if (!value || value === 'N/A') return <span className="text-text-secondary font-mono text-sm">N/A</span>;
   const num = parseFloat(value);
+  
+  let colorClass = 'text-red-600';
+  if (num > 100) {
+    colorClass = 'text-green-600';
+  } else if (num >= 80) {
+    colorClass = 'text-blue-600';
+  } else if (num >= 50) {
+    colorClass = 'text-orange-500';
+  }
+
   return (
-    <span className={clsx(
-      'font-mono text-sm font-semibold tabular-nums',
-      num >= 100 ? 'text-green-600' : num >= 80 ? 'text-primary' : 'text-amber-600'
-    )}>
+    <span className={clsx('font-mono text-sm font-semibold tabular-nums', colorClass)}>
       {value}%
     </span>
   );
