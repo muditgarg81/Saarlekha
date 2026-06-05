@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import api from '../../utils/api';
 import { useAuth } from '../../context/AuthContext';
-import { Plus, ListPlus, Settings2, Trash2, Edit2, Check, X, GripVertical } from 'lucide-react';
+import { Plus, ListPlus, Settings2, Trash2, Edit2, Check, X, GripVertical, ArrowLeft } from 'lucide-react';
 import clsx from 'clsx';
 import { injectStandardFields, isStandardField } from '../../utils/standards';
 
@@ -301,11 +301,28 @@ export function ReportBuilder() {
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-2xl font-semibold text-text-primary">Report Builder</h1>
-          <p className="text-sm text-text-secondary mt-1">Design data entry formats for Quality, Production, and Maintenance.</p>
+        <div className="flex items-center">
+          {activeFormat && (
+            <button
+              onClick={() => setActiveFormat(null)}
+              className="mr-4 p-2 rounded-full hover:bg-gray-100 transition-colors border border-border bg-white shadow-sm flex items-center justify-center"
+              title="Back to Formats List"
+            >
+              <ArrowLeft className="h-5 w-5 text-text-secondary hover:text-text-primary" />
+            </button>
+          )}
+          <div>
+            <h1 className="text-2xl font-semibold text-text-primary">
+              {activeFormat ? `Edit Format: ${activeFormat.name}` : 'Report Builder'}
+            </h1>
+            <p className="text-sm text-text-secondary mt-1">
+              {activeFormat 
+                ? `Design fields for the ${activeFormat.name} report format.` 
+                : 'Design data entry formats for Quality, Production, and Maintenance.'}
+            </p>
+          </div>
         </div>
-        {isAdmin && (
+        {!activeFormat && isAdmin && (
           <button 
             onClick={() => setShowNewFormat(!showNewFormat)}
             className="inline-flex items-center px-4 py-2 bg-primary text-white text-sm font-medium rounded-md hover:bg-primary-light transition-colors"
@@ -606,42 +623,44 @@ export function ReportBuilder() {
       )}
 
       {/* Formats List */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {formats.map((format) => (
-          <div key={format.id} className="bg-white rounded-card border border-border shadow-sm p-6 relative flex flex-col hover:shadow-md transition-shadow">
-            {isAdmin && format.type !== 'JOB_ORDER' && format.type !== 'MAINTENANCE' && (
-              <button 
-                onClick={() => handleDeleteFormat(format.id, format.name)} 
-                className="absolute top-4 right-4 text-danger hover:text-red-900 p-1 rounded hover:bg-red-50 transition-colors"
-                title="Delete Format"
-              >
-                <Trash2 className="h-4 w-4" />
-              </button>
-            )}
-            <div className="flex-1">
-              <h3 className="text-lg font-bold text-text-primary mb-1 truncate pr-8">{format.name}</h3>
-              <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-blue-100 text-blue-800 uppercase tracking-wide mb-4">
-                {format.type}
-              </span>
-              <div className="text-sm text-text-secondary">
-                <p>Latest Version: v{format.versions[0]?.version_num || 0}</p>
-                <p>Fields: {format.versions[0]?.fields_schema?.length || 0}</p>
-              </div>
-            </div>
-            
-            {isAdmin && (
-              <div className="mt-6 pt-4 border-t border-border flex justify-between items-center">
+      {!activeFormat && (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {formats.map((format) => (
+            <div key={format.id} className="bg-white rounded-card border border-border shadow-sm p-6 relative flex flex-col hover:shadow-md transition-shadow">
+              {isAdmin && format.type !== 'JOB_ORDER' && format.type !== 'MAINTENANCE' && (
                 <button 
-                  onClick={() => handleStartEditFormat(format)}
-                  className="text-primary hover:text-primary-light text-sm font-semibold inline-flex items-center"
+                  onClick={() => handleDeleteFormat(format.id, format.name)} 
+                  className="absolute top-4 right-4 text-danger hover:text-red-900 p-1 rounded hover:bg-red-50 transition-colors"
+                  title="Delete Format"
                 >
-                  <ListPlus className="mr-1 h-4 w-4" /> Edit Fields
+                  <Trash2 className="h-4 w-4" />
                 </button>
+              )}
+              <div className="flex-1">
+                <h3 className="text-lg font-bold text-text-primary mb-1 truncate pr-8">{format.name}</h3>
+                <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-blue-100 text-blue-800 uppercase tracking-wide mb-4">
+                  {format.type}
+                </span>
+                <div className="text-sm text-text-secondary">
+                  <p>Latest Version: v{format.versions[0]?.version_num || 0}</p>
+                  <p>Fields: {format.versions[0]?.fields_schema?.length || 0}</p>
+                </div>
               </div>
-            )}
-          </div>
-        ))}
-      </div>
+              
+              {isAdmin && (
+                <div className="mt-6 pt-4 border-t border-border flex justify-between items-center">
+                  <button 
+                    onClick={() => handleStartEditFormat(format)}
+                    className="text-primary hover:text-primary-light text-sm font-semibold inline-flex items-center"
+                  >
+                    <ListPlus className="mr-1 h-4 w-4" /> Edit Fields
+                  </button>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
