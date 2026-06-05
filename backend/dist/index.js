@@ -39,6 +39,9 @@ app.use('/api/production', production_1.productionRouter);
 app.use('/api/dashboard', dashboard_1.dashboardRouter);
 app.use('/api/audit', audit_1.auditRouter);
 app.use('/api/maintenance-types', maintenanceTypes_1.maintenanceTypesRouter);
+app.get('/api/health', (req, res) => {
+    res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
+});
 app.get('/health', (req, res) => {
     res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
 });
