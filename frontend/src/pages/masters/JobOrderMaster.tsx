@@ -88,6 +88,7 @@ export function JobOrderMaster() {
     else if (operator === '-') result = leftVal - rightVal;
     else if (operator === '*') result = leftVal * rightVal;
     else if (operator === '/') result = rightVal !== 0 ? leftVal / rightVal : 0;
+    else if (operator === '%') result = rightVal !== 0 ? (leftVal / rightVal) * 100 : 0;
     
     return Math.round((result + Number.EPSILON) * 1000) / 1000;
   };

@@ -425,6 +425,7 @@ export function JobOrderColumnsMaster() {
                             <option value="-">-</option>
                             <option value="*">*</option>
                             <option value="/">/</option>
+                            <option value="%">% (Percentage)</option>
                           </select>
                           <select 
                             className="border border-border rounded px-2 py-1 bg-white"
@@ -545,6 +546,7 @@ export function JobOrderColumnsMaster() {
                     <option value="-">-</option>
                     <option value="*">*</option>
                     <option value="/">/</option>
+                    <option value="%">% (Percentage)</option>
                   </select>
                   <select 
                     className="border border-border rounded px-3 py-2 bg-white"

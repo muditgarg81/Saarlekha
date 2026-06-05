@@ -156,6 +156,7 @@ export function DataEntry() {
       case '-': result = leftVal - rightVal; break;
       case '*': result = leftVal * rightVal; break;
       case '/': result = rightVal === 0 ? 0 : leftVal / rightVal; break;
+      case '%': result = rightVal === 0 ? 0 : (leftVal / rightVal) * 100; break;
       default: result = 0;
     }
 
