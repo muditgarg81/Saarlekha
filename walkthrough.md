@@ -419,6 +419,17 @@ ALL RLS TENANT ISOLATION TESTS PASSED! 🎉
 - **Search Panel UI**:
   - Integrated a clean search input bar directly above the main table. Renders with a Lucide `Search` icon, clear search controls, and a results counter matching the standard master pages styling.
 
+### 35. Double Columns Glitch Resolution
+- **Issue**: Standard reporting views for **Machine Production** and **Other Production** (under "All Formats" mode) showed duplicate `Date` and `Department` columns, as well as duplicate `Logged By` / `By` columns. This was caused by dynamically mapping the list of unique fields (which could contain standard fields saved in DB templates) alongside hardcoded static layout columns.
+- **Fix in ProductionDetail**:
+  - Modified [ProductionDetail.tsx](file:///c:/claude/Saarlekha/frontend/src/pages/reports/ProductionDetail.tsx) to filter out standard fields (`Date`, `Department`, `Logged By`, `Submitted By`) from the dynamic `displayFields` array when no specific format is selected (`selectedFormatId` is empty).
+- **Fix in OtherProduction**:
+  - Modified [OtherProduction.tsx](file:///c:/claude/Saarlekha/frontend/src/pages/reports/OtherProduction.tsx) to filter out standard fields from the dynamic `allUniqueFields` array when no specific format is selected.
+- **Fix in QualityDetail**:
+  - Modified [QualityDetail.tsx](file:///c:/claude/Saarlekha/frontend/src/pages/reports/QualityDetail.tsx) to filter out standard fields from `allUniqueFields` mapped in the general quality export options.
+- **Verification**:
+  - Successfully ran `npm.cmd run build` to confirm all frontend static builds compile without warnings or errors.
+
 
 
 

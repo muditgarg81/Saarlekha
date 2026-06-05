@@ -207,6 +207,9 @@ export function ProductionDetail() {
       const versionFields = fmt.versions[0]?.fields_schema || [];
       versionFields.forEach(f => {
         const key = f.name.toLowerCase().trim();
+        if (key === 'date' || key === 'department' || key === 'logged by' || key === 'submitted by') {
+          return;
+        }
         if (!fieldMap.has(key)) {
           fieldMap.set(key, f);
         }
