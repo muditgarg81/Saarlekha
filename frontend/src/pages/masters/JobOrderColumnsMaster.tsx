@@ -10,6 +10,11 @@ interface FormatField {
   unit?: string;
   open?: boolean;
   options?: string[];
+  formula?: {
+    left: string;
+    operator: string;
+    right: string;
+  };
 }
 
 interface FormatVersion {
