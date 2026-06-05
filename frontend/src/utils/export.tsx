@@ -88,31 +88,83 @@ export function exportExcel(opts: ExportOptions) {
 // ─── PDF ─────────────────────────────────────────────────────────────────────
 
 export function exportPDF(opts: ExportOptions) {
-  const doc = new jsPDF({ orientation: opts.columns.length > 5 ? 'landscape' : 'portrait' });
+  const colCount = opts.columns.length;
+  
+  let orientation: 'portrait' | 'landscape' = 'portrait';
+  let format = 'a4';
+  let fontSize = 9;
+  let cellPadding = 3;
+  let titleSize = 16;
+  let subSize = 10;
+  let metaSize = 8;
+  let titleY = 18;
+  let subY = 26;
+  let metaY = 32;
+  let startY = 38;
 
-  // Header block
-  doc.setFontSize(16);
-  doc.setTextColor(0, 89, 187); // Industrial Blue
-  doc.text(opts.title, 14, 18);
-
-  if (opts.subtitle) {
-    doc.setFontSize(10);
-    doc.setTextColor(65, 71, 84); // text-secondary
-    doc.text(opts.subtitle, 14, 26);
+  if (colCount > 5) {
+    orientation = 'landscape';
+    if (colCount > 15) {
+      format = 'a1';
+      fontSize = 6.5;
+      cellPadding = 1.5;
+      titleSize = 28;
+      subSize = 16;
+      metaSize = 11;
+      titleY = 36;
+      subY = 54;
+      metaY = 68;
+      startY = 80;
+    } else if (colCount > 11) {
+      format = 'a2';
+      fontSize = 7.5;
+      cellPadding = 2;
+      titleSize = 24;
+      subSize = 14;
+      metaSize = 10;
+      titleY = 28;
+      subY = 42;
+      metaY = 52;
+      startY = 62;
+    } else if (colCount > 7) {
+      format = 'a3';
+      fontSize = 8.5;
+      cellPadding = 2.5;
+      titleSize = 20;
+      subSize = 12;
+      metaSize = 9;
+      titleY = 22;
+      subY = 32;
+      metaY = 40;
+      startY = 48;
+    }
   }
 
-  doc.setFontSize(8);
+  const doc = new jsPDF({ orientation, format });
+
+  // Header block
+  doc.setFontSize(titleSize);
+  doc.setTextColor(0, 89, 187); // Industrial Blue
+  doc.text(opts.title, 14, titleY);
+
+  if (opts.subtitle) {
+    doc.setFontSize(subSize);
+    doc.setTextColor(65, 71, 84); // text-secondary
+    doc.text(opts.subtitle, 14, subY);
+  }
+
+  doc.setFontSize(metaSize);
   doc.setTextColor(65, 71, 84);
-  doc.text(`Generated: ${new Date().toLocaleString()}  |  Saarlekha Operations Reporting`, 14, 32);
+  doc.text(`Generated: ${new Date().toLocaleString()}  |  Saarlekha Operations Reporting`, 14, metaY);
 
   // Table
   autoTable(doc, {
-    startY: 38,
+    startY: startY,
     head: [opts.columns.map(c => c.header)],
     body: opts.rows.map(row => opts.columns.map(c => String(row[c.key] ?? ''))),
     styles: {
-      fontSize: 9,
-      cellPadding: 3,
+      fontSize: fontSize,
+      cellPadding: cellPadding,
       font: 'helvetica',
     },
     headStyles: {
