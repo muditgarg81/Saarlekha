@@ -4,6 +4,7 @@ exports.jobOrdersRouter = void 0;
 const express_1 = require("express");
 const auth_1 = require("../middleware/auth");
 const prisma_1 = require("../db/prisma");
+const sync_1 = require("../utils/sync");
 exports.jobOrdersRouter = (0, express_1.Router)();
 exports.jobOrdersRouter.use(auth_1.authenticate);
 exports.jobOrdersRouter.get('/', async (req, res) => {
@@ -11,6 +12,8 @@ exports.jobOrdersRouter.get('/', async (req, res) => {
     const prismaTenant = (0, prisma_1.getTenantPrisma)(tenantId);
     const user = req.user;
     try {
+        // Run a fast, 3-query in-memory check to keep all job order production quantities synchronized
+        await (0, sync_1.syncAllJobOrdersProduction)(prismaTenant, tenantId);
         const where = { company_id: tenantId };
         if (user.role === 'OPERATIONS') {
             const userDepts = await prismaTenant.userDepartment.findMany({

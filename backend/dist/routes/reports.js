@@ -400,6 +400,18 @@ exports.reportsRouter.delete('/entries/:id', async (req, res) => {
                     details: { deleted_payload: existing.payload }
                 }
             });
+            // Recalculate job order production quantity if applicable
+            const payload = existing.payload;
+            if (payload && typeof payload === 'object') {
+                const joKey = Object.keys(payload).find(k => {
+                    const l = k.toLowerCase().replace(/[^a-z0-9]/g, '');
+                    return l.startsWith('joborder') || l === 'joborderno' || l === 'jobordernumber' || l === 'joborderid' || l === 'order';
+                });
+                if (joKey && payload[joKey]) {
+                    const jobOrderNumber = String(payload[joKey]).trim();
+                    await (0, sync_1.syncJobOrderProduction)(tx, tenantId, jobOrderNumber);
+                }
+            }
         });
         res.json({ message: 'Report entry deleted successfully' });
     }
@@ -444,6 +456,23 @@ exports.reportsRouter.post('/entries/bulk-delete', async (req, res) => {
                     details: { deleted_ids: ids }
                 }
             });
+            // Recalculate job order production quantities for any affected job orders
+            const affectedJobOrders = new Set();
+            existing.forEach(e => {
+                const payload = e.payload;
+                if (payload && typeof payload === 'object') {
+                    const joKey = Object.keys(payload).find(k => {
+                        const l = k.toLowerCase().replace(/[^a-z0-9]/g, '');
+                        return l.startsWith('joborder') || l === 'joborderno' || l === 'jobordernumber' || l === 'joborderid' || l === 'order';
+                    });
+                    if (joKey && payload[joKey]) {
+                        affectedJobOrders.add(String(payload[joKey]).trim());
+                    }
+                }
+            });
+            for (const joNum of affectedJobOrders) {
+                await (0, sync_1.syncJobOrderProduction)(tx, tenantId, joNum);
+            }
         });
         res.json({ message: 'Report entries deleted successfully' });
     }

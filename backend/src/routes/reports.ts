@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { authenticate, requireRole } from '../middleware/auth';
 import { getTenantPrisma } from '../db/prisma';
-import { syncReportEntryToProduction } from '../utils/sync';
+import { syncReportEntryToProduction, syncJobOrderProduction } from '../utils/sync';
 
 export const reportsRouter = Router();
 reportsRouter.use(authenticate);
@@ -440,6 +440,19 @@ reportsRouter.delete('/entries/:id', async (req, res) => {
           details: { deleted_payload: existing.payload }
         }
       });
+
+      // Recalculate job order production quantity if applicable
+      const payload = existing.payload as Record<string, any>;
+      if (payload && typeof payload === 'object') {
+        const joKey = Object.keys(payload).find(k => {
+          const l = k.toLowerCase().replace(/[^a-z0-9]/g, '');
+          return l.startsWith('joborder') || l === 'joborderno' || l === 'jobordernumber' || l === 'joborderid' || l === 'order';
+        });
+        if (joKey && payload[joKey]) {
+          const jobOrderNumber = String(payload[joKey]).trim();
+          await syncJobOrderProduction(tx, tenantId!, jobOrderNumber);
+        }
+      }
     });
 
     res.json({ message: 'Report entry deleted successfully' });
@@ -491,6 +504,25 @@ reportsRouter.post('/entries/bulk-delete', async (req, res) => {
           details: { deleted_ids: ids }
         }
       });
+
+      // Recalculate job order production quantities for any affected job orders
+      const affectedJobOrders = new Set<string>();
+      existing.forEach(e => {
+        const payload = e.payload as Record<string, any>;
+        if (payload && typeof payload === 'object') {
+          const joKey = Object.keys(payload).find(k => {
+            const l = k.toLowerCase().replace(/[^a-z0-9]/g, '');
+            return l.startsWith('joborder') || l === 'joborderno' || l === 'jobordernumber' || l === 'joborderid' || l === 'order';
+          });
+          if (joKey && payload[joKey]) {
+            affectedJobOrders.add(String(payload[joKey]).trim());
+          }
+        }
+      });
+
+      for (const joNum of affectedJobOrders) {
+        await syncJobOrderProduction(tx, tenantId!, joNum);
+      }
     });
 
     res.json({ message: 'Report entries deleted successfully' });

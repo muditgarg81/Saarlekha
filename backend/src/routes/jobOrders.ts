@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { authenticate, requireRole } from '../middleware/auth';
 import { getTenantPrisma } from '../db/prisma';
+import { syncAllJobOrdersProduction } from '../utils/sync';
 
 export const jobOrdersRouter = Router();
 jobOrdersRouter.use(authenticate);
@@ -11,6 +12,9 @@ jobOrdersRouter.get('/', async (req, res) => {
   const user = req.user!;
 
   try {
+    // Run a fast, 3-query in-memory check to keep all job order production quantities synchronized
+    await syncAllJobOrdersProduction(prismaTenant, tenantId!);
+
     const where: any = { company_id: tenantId! };
 
     if (user.role === 'OPERATIONS') {
