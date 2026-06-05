@@ -17,7 +17,7 @@ export const getApiBaseURL = () => {
   if (envUrl) {
     return envUrl;
   }
-  return 'http://localhost:5000/api';
+  return 'https://saarlekha.com/api';
 };
 
 const api = axios.create({
