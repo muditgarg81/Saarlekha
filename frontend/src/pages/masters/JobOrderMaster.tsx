@@ -982,21 +982,27 @@ export function JobOrderMaster() {
                     />
                   </th>
                 )}
-                <th className="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase">Order #</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase">Customer</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase">Department</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase">Item Description</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase font-bold text-primary">Order Qty</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase font-bold text-primary">Units</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase font-bold text-primary">Production</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase font-bold text-primary">Units</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase">Status</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase">Timeline</th>
-                {joSchema.map((field, idx) => (
-                  <th key={idx} className="px-6 py-3 text-left text-xs font-semibold text-text-secondary uppercase">
-                     {field.name}{field.unit ? ` (${field.unit})` : ''}
-                  </th>
-                ))}
+                {joSchema.map((field, idx) => {
+                  const normName = field.name.toLowerCase().trim();
+                  const isPrimaryBold = [
+                    'order qty',
+                    'order units',
+                    'production qty',
+                    'production units'
+                  ].includes(normName);
+                  
+                  return (
+                    <th 
+                      key={idx} 
+                      className={clsx(
+                        "px-6 py-3 text-left text-xs uppercase tracking-wider",
+                        isPrimaryBold ? "font-bold text-primary" : "font-semibold text-text-secondary"
+                      )}
+                    >
+                      {field.name}{field.unit ? ` (${field.unit})` : ''}
+                    </th>
+                  );
+                })}
                 {(isAdmin || isOperations) && <th className="px-6 py-3 text-right text-xs font-semibold text-text-secondary uppercase w-24">Actions</th>}
               </tr>
             </thead>
