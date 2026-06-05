@@ -237,7 +237,10 @@ export function PrivateLayout() {
     <div className="flex flex-col h-full">
       {/* Logo */}
       <div className="h-16 flex items-center justify-between px-6 border-b border-border flex-shrink-0">
-        <span className="font-bold text-primary text-xl tracking-tight">Saarlekha</span>
+        <div className="flex items-center gap-2">
+          <img src="/logo.png" alt="Saarlekha Logo" className="h-8 w-8 rounded-md shadow-xs border border-border/15" />
+          <span className="font-bold text-primary text-xl tracking-tight">Saarlekha</span>
+        </div>
         <button className="md:hidden text-text-secondary" onClick={() => setSidebarOpen(false)}>
           <X className="h-5 w-5" />
         </button>
@@ -339,13 +342,16 @@ export function PrivateLayout() {
                 <ArrowLeft className="h-3.5 w-3.5" /> Back
               </button>
             )}
-            <div className="flex flex-col">
-              <span className="font-bold text-primary text-base leading-none">Saarlekha</span>
-              {selectedCompanyName && (
-                <span className="text-[10px] text-text-secondary font-semibold mt-0.5 uppercase tracking-wider truncate max-w-[140px]">
-                  {selectedCompanyName}
-                </span>
-              )}
+            <div className="flex items-center gap-1.5">
+              <img src="/logo.png" alt="Saarlekha Logo" className="h-6 w-6 rounded-md shadow-xs border border-border/15" />
+              <div className="flex flex-col">
+                <span className="font-bold text-primary text-base leading-none">Saarlekha</span>
+                {selectedCompanyName && (
+                  <span className="text-[10px] text-text-secondary font-semibold mt-0.5 uppercase tracking-wider truncate max-w-[120px]">
+                    {selectedCompanyName}
+                  </span>
+                )}
+              </div>
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -409,7 +415,8 @@ export function PublicLayout() {
   return (
     <div className="min-h-screen bg-surface flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-md w-full space-y-8 bg-white p-8 rounded-card shadow-sm border border-border relative">
-        <div className="text-center">
+        <div className="text-center flex flex-col items-center">
+          <img src="/logo.png" alt="Saarlekha Logo" className="h-16 w-16 mb-4 rounded-xl shadow-sm border border-border/10" />
           <h2 className="text-3xl font-extrabold text-primary">Saarlekha</h2>
           <p className="mt-2 text-sm text-text-secondary">Operations Reporting Platform</p>
         </div>

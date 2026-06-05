@@ -430,10 +430,16 @@ ALL RLS TENANT ISOLATION TESTS PASSED! 🎉
 - **Verification**:
   - Successfully ran `npm.cmd run build` to confirm all frontend static builds compile without warnings or errors.
 
-
-
-
-
-
-
+### 36. Production API URL Correction & Android App Compilation (v1.9)
+- **Problem**: 
+  - Login on mobile failed because the production fallback API domain was set to `https://saarlekha.com/api`.
+  - The root domain is hosted on Vercel, which has router rules rewriting all path patterns `/(.*)` (including `/api/*`) to `/index.html` (the SPA layout).
+  - This caused the mobile app to receive the HTML page shell instead of the database-backed JSON API responses when logging in.
+- **Resolution**:
+  - Updated the API base configuration to point directly to `https://api.saarlekha.com/api` (the true production API server hosted on Render).
+  - Modified [src/utils/api.ts](file:///c:/claude/Saarlekha/frontend/src/utils/api.ts), [.env](file:///c:/claude/Saarlekha/frontend/.env), and [.env.example](file:///c:/claude/Saarlekha/frontend/.env.example) to use `https://api.saarlekha.com/api`.
+- **App Compilation**:
+  - Incremented configuration settings in [build.gradle](file:///c:/claude/Saarlekha/frontend/android/app/build.gradle) to `versionCode 10` and `versionName "1.9"`.
+  - Compiled and synced production assets with `npm.cmd run build` and `npx.cmd cap sync android`.
+  - Compiled and signed the release Android App Bundle: [app-release.aab](file:///c:/claude/Saarlekha/frontend/android/app/build/outputs/bundle/release/app-release.aab).
 
