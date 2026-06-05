@@ -19,7 +19,7 @@ export const getApiBaseURL = () => {
   if (envUrl) {
     return envUrl;
   }
-  return 'https://saarlekha.com/api';
+  return 'https://api.saarlekha.com/api';
 };
 
 const api = axios.create({
