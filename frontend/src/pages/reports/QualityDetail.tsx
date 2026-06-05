@@ -4,6 +4,7 @@ import api from '../../utils/api';
 import { useAuth } from '../../context/AuthContext';
 import { ExportBar } from '../../utils/export';
 import type { ExportOptions } from '../../utils/export';
+import { injectStandardFields } from '../../utils/standards';
 import { ShieldCheck, Plus, ClipboardList, Trash2, MoreVertical, Edit, ChevronDown, ChevronUp } from 'lucide-react';
 import clsx from 'clsx';
 
@@ -84,6 +85,20 @@ export function QualityDetail() {
     };
   }, [activeDropdown]);
 
+  const getFieldValue = (entry: ReportEntry, fieldName: string) => {
+    const norm = fieldName.toLowerCase().trim();
+    if (norm === 'date') {
+      return new Date(entry.entry_date).toLocaleDateString();
+    }
+    if (norm === 'department') {
+      return entry.department?.name ?? '';
+    }
+    if (norm === 'logged by' || norm === 'submitted by') {
+      return entry.submitter?.email ?? '';
+    }
+    return entry.payload?.[fieldName] !== undefined ? String(entry.payload[fieldName]) : '—';
+  };
+
   // Group entries by format ID
   const groupedEntries = useMemo(() => {
     const groups: Record<string, {
@@ -102,7 +117,7 @@ export function QualityDetail() {
         groups[formatId] = {
           formatId,
           formatName: format.name,
-          fields: entry.format_version.fields_schema || [],
+          fields: injectStandardFields(entry.format_version.fields_schema || [], 'REPORT'),
           entries: []
         };
       }
@@ -287,14 +302,11 @@ export function QualityDetail() {
                                 className="rounded border-border text-primary focus:ring-primary h-4 w-4 cursor-pointer"
                               />
                             </th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase">Date</th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase">Department</th>
                             {group.fields.map(f => (
                               <th key={f.name} className="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase">
                                 {f.name}{f.unit ? ` (${f.unit})` : ''}
                               </th>
                             ))}
-                            <th className="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase">By</th>
                             <th className="px-6 py-3 text-right text-xs font-medium text-text-secondary uppercase w-20">Actions</th>
                           </tr>
                         </thead>
@@ -321,33 +333,27 @@ export function QualityDetail() {
                                     )}
                                   />
                                 </td>
-                                <td className="px-6 py-3 text-sm text-text-primary tabular-nums">
-                                  {new Date(entry.entry_date).toLocaleDateString()}
-                                </td>
-                                <td className="px-6 py-3 text-sm text-text-secondary">{entry.department?.name}</td>
                                 {group.fields.map(f => {
-                                  const val = entry.payload?.[f.name];
-                                  const displayVal = val !== undefined && val !== null ? String(val) : '—';
+                                  const val = getFieldValue(entry, f.name);
                                   const l = f.name.toLowerCase().replace(/[^a-z0-9]/g, '');
                                   const isJobOrder = l.startsWith('joborder') || l === 'joborderno' || l === 'jobordernumber' || l === 'joborderid' || l === 'order';
                                   
                                   return (
                                     <td key={f.name} className="px-6 py-3 text-sm text-text-primary tabular-nums">
-                                      {isJobOrder && val ? (
+                                      {isJobOrder && val && val !== '—' ? (
                                         <Link 
                                           to={`/job-orders/summary/${encodeURIComponent(String(val))}`}
                                           className="text-primary hover:underline font-semibold"
                                           onClick={(e) => e.stopPropagation()}
                                         >
-                                          {displayVal}
+                                          {val}
                                         </Link>
                                       ) : (
-                                        displayVal
+                                        val
                                       )}
                                     </td>
                                   );
                                 })}
-                                <td className="px-6 py-3 text-sm text-text-secondary">{entry.submitter?.email}</td>
                                 <td className="px-6 py-3 text-right" onClick={(e) => e.stopPropagation()}>
                                   <div className="relative inline-block text-left">
                                     <button

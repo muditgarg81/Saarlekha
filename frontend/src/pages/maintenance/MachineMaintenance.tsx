@@ -5,6 +5,7 @@ import { Plus, Check, X, AlertTriangle, Wrench, Trash2, Edit, MoreVertical } fro
 import { ExportBar } from '../../utils/export';
 import type { ExportOptions } from '../../utils/export';
 import clsx from 'clsx';
+import { injectStandardFields } from '../../utils/standards';
 
 interface Machine {
   id: string;
@@ -267,7 +268,9 @@ export function MachineMaintenance() {
     }
   };
 
-  const fields = format?.versions?.[0]?.fields_schema || [];
+  const fields = format
+    ? injectStandardFields(format.versions[0]?.fields_schema || [], 'MAINTENANCE')
+    : [];
 
   if (loading) return <div className="p-4">Loading...</div>;
 
@@ -298,30 +301,34 @@ export function MachineMaintenance() {
               subtitle: selectedIds.length > 0 ? `Exported ${selectedIds.length} selected items` : 'All Maintenance Records',
               filename: `maintenance_${selectedIds.length > 0 ? 'selected' : 'all'}`,
               columns: [
-                { header: 'Date', key: 'date' },
-                { header: 'Machine', key: 'machine' },
                 { header: 'Department', key: 'department' },
-                { header: 'Maintenance Type', key: 'maintType' },
-                ...fields.map((f: any) => ({ header: f.name, key: f.name })),
-                { header: 'Status', key: 'status' }
+                ...fields.map((f: any) => ({ header: f.name + (f.unit ? ` (${f.unit})` : ''), key: f.name }))
               ],
-              rows: (selectedIds.length > 0 ? records.filter(r => selectedIds.includes(r.id)) : records).map(r => ({
-                date: new Date(r.entry_date).toLocaleDateString(),
-                machine: r.payload?._machine || 'N/A',
-                department: r.department?.name || 'N/A',
-                maintType: r.payload?._maintenance_type || '—',
-                ...Object.fromEntries(
-                  fields.map((f: any) => {
+              rows: (selectedIds.length > 0 ? records.filter(r => selectedIds.includes(r.id)) : records).map(r => {
+                const rowData: Record<string, any> = {
+                  department: r.department?.name || 'N/A'
+                };
+                fields.forEach((f: any) => {
+                  const normName = f.name.toLowerCase().trim();
+                  if (normName === 'maintenance date') {
+                    rowData[f.name] = new Date(r.entry_date).toLocaleDateString();
+                  } else if (normName === 'machine') {
+                    rowData[f.name] = r.payload?._machine || 'N/A';
+                  } else if (normName === 'maintenance type') {
+                    rowData[f.name] = r.payload?._maintenance_type || '—';
+                  } else if (normName === 'status') {
+                    rowData[f.name] = r.payload?._status || 'completed';
+                  } else {
                     const val = r.payload?.[f.name];
                     let displayVal = val;
                     if (f.type === 'boolean') {
                       displayVal = val === 'ok' ? 'OK' : val === 'issue' ? 'Issue' : val;
                     }
-                    return [f.name, displayVal ?? '—'];
-                  })
-                ),
-                status: r.payload?._status || 'completed'
-              }))
+                    rowData[f.name] = displayVal !== null && displayVal !== undefined && displayVal !== '' ? String(displayVal) : '—';
+                  }
+                });
+                return rowData;
+              })
             } as ExportOptions}
           />
         </div>
@@ -332,56 +339,82 @@ export function MachineMaintenance() {
         <div className="bg-white p-6 rounded-card border border-border shadow-sm animate-in fade-in duration-100">
           <h3 className="text-lg font-medium text-text-primary mb-4">Log Maintenance Activity</h3>
           <form onSubmit={handleSubmitEntry} className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-text-secondary">Machine</label>
-                <select required className="mt-1 block w-full border border-border rounded-md px-3 py-2 text-sm bg-white" value={selectedMachineId} onChange={e => setSelectedMachineId(e.target.value)}>
-                  <option value="">Select Machine</option>
-                  {machines.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-text-secondary">Department</label>
+                <label className="block text-sm font-semibold text-text-secondary uppercase">Department</label>
                 <select required className="mt-1 block w-full border border-border rounded-md px-3 py-2 text-sm bg-white" value={selectedDepartmentId} onChange={e => setSelectedDepartmentId(e.target.value)}>
                   {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
                 </select>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-text-secondary">Maintenance Date</label>
-                <input required type="date" className="mt-1 block w-full border border-border rounded-md px-3 py-2 text-sm" value={entryDate} onChange={e => setEntryDate(e.target.value)} />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-text-secondary">Maintenance Type</label>
-                <select required className="mt-1 block w-full border border-border rounded-md px-3 py-2 text-sm bg-white" value={selectedMaintType} onChange={e => setSelectedMaintType(e.target.value)}>
-                  <option value="">Select Maintenance Type</option>
-                  {maintenanceTypes.map(t => <option key={t.id} value={t.name}>{t.name}</option>)}
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-text-secondary">Status</label>
-                <select required className="mt-1 block w-full border border-border rounded-md px-3 py-2 text-sm bg-white" value={entryStatus} onChange={e => setEntryStatus(e.target.value)}>
-                  <option value="completed">completed</option>
-                  <option value="open">open</option>
-                  <option value="partially completed">partially completed</option>
-                  <option value="parts missing">parts missing</option>
-                </select>
-              </div>
             </div>
 
-            {format?.versions?.[0]?.fields_schema?.map((field: any, idx: number) => (
-              <div key={idx}>
-                <label className="block text-sm font-medium text-text-secondary">{field.name} {field.unit && `(${field.unit})`}</label>
-                {field.type === 'boolean' ? (
-                  <select required className="mt-1 block w-full border border-border rounded-md px-3 py-2 text-sm bg-white" value={entryPayload[field.name] || ''} onChange={e => setEntryPayload(p => ({ ...p, [field.name]: e.target.value }))}>
-                    <option value="">Select</option>
-                    <option value="ok">OK ✓</option>
-                    <option value="issue">Issue Found</option>
-                  </select>
-                ) : (
-                  <input type={field.type === 'number' ? 'number' : 'text'} step="any" required className="mt-1 block w-full border border-border rounded-md px-3 py-2 text-sm" value={entryPayload[field.name] || ''} onChange={e => setEntryPayload(p => ({ ...p, [field.name]: e.target.value }))} />
-                )}
-              </div>
-            ))}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {fields.map((field: any, idx: number) => {
+                const normName = field.name.toLowerCase().trim();
+                
+                if (normName === 'maintenance date') {
+                  return (
+                    <div key={idx}>
+                      <label className="block text-sm font-semibold text-text-secondary uppercase">Maintenance Date</label>
+                      <input required type="date" className="mt-1 block w-full border border-border rounded-md px-3 py-2 text-sm" value={entryDate} onChange={e => setEntryDate(e.target.value)} />
+                    </div>
+                  );
+                }
+                
+                if (normName === 'machine') {
+                  return (
+                    <div key={idx}>
+                      <label className="block text-sm font-semibold text-text-secondary uppercase">Machine</label>
+                      <select required className="mt-1 block w-full border border-border rounded-md px-3 py-2 text-sm bg-white font-semibold" value={selectedMachineId} onChange={e => setSelectedMachineId(e.target.value)}>
+                        <option value="">Select Machine</option>
+                        {machines.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
+                      </select>
+                    </div>
+                  );
+                }
+                
+                if (normName === 'maintenance type') {
+                  return (
+                    <div key={idx}>
+                      <label className="block text-sm font-semibold text-text-secondary uppercase">Maintenance Type</label>
+                      <select required className="mt-1 block w-full border border-border rounded-md px-3 py-2 text-sm bg-white font-semibold" value={selectedMaintType} onChange={e => setSelectedMaintType(e.target.value)}>
+                        <option value="">Select Maintenance Type</option>
+                        {maintenanceTypes.map(t => <option key={t.id} value={t.name}>{t.name}</option>)}
+                      </select>
+                    </div>
+                  );
+                }
+                
+                if (normName === 'status') {
+                  return (
+                    <div key={idx}>
+                      <label className="block text-sm font-semibold text-text-secondary uppercase">Status</label>
+                      <select required className="mt-1 block w-full border border-border rounded-md px-3 py-2 text-sm bg-white font-semibold" value={entryStatus} onChange={e => setEntryStatus(e.target.value)}>
+                        <option value="completed">completed</option>
+                        <option value="open">open</option>
+                        <option value="partially completed">partially completed</option>
+                        <option value="parts missing">parts missing</option>
+                      </select>
+                    </div>
+                  );
+                }
+                
+                return (
+                  <div key={idx}>
+                    <label className="block text-sm font-semibold text-text-secondary uppercase">{field.name} {field.unit && `(${field.unit})`}</label>
+                    {field.type === 'boolean' ? (
+                      <select required className="mt-1 block w-full border border-border rounded-md px-3 py-2 text-sm bg-white font-semibold text-text-primary" value={entryPayload[field.name] || ''} onChange={e => setEntryPayload(p => ({ ...p, [field.name]: e.target.value }))}>
+                        <option value="">Select</option>
+                        <option value="ok">OK ✓</option>
+                        <option value="issue">Issue Found</option>
+                      </select>
+                    ) : (
+                      <input type={field.type === 'number' ? 'number' : 'text'} step="any" required className="mt-1 block w-full border border-border rounded-md px-3 py-2 text-sm font-semibold" value={entryPayload[field.name] || ''} onChange={e => setEntryPayload(p => ({ ...p, [field.name]: e.target.value }))} />
+                    )}
+                  </div>
+                );
+              })}
+            </div>
 
             <div className="pt-2 flex gap-2">
               <button type="submit" className="bg-primary text-white px-4 py-2 rounded-md text-sm font-semibold hover:bg-primary-light shadow-sm">
@@ -436,17 +469,13 @@ export function MachineMaintenance() {
                       className="rounded border-border text-primary focus:ring-primary h-4 w-4 cursor-pointer"
                     />
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase">Date</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase">Machine</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase">Department</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase">Maintenance Type</th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-text-secondary uppercase">Department</th>
                   {fields.map((field: any, idx: number) => (
-                    <th key={idx} className="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase">
+                    <th key={idx} className="px-6 py-3 text-left text-xs font-semibold text-text-secondary uppercase">
                       {field.name}{field.unit ? ` (${field.unit})` : ''}
                     </th>
                   ))}
-                  <th className="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase">Status</th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-text-secondary uppercase w-24">Actions</th>
+                  <th className="px-6 py-3 text-right text-xs font-semibold text-text-secondary uppercase w-24">Actions</th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-border">
@@ -473,11 +502,38 @@ export function MachineMaintenance() {
                           )}
                         />
                       </td>
-                      <td className="px-6 py-4 text-sm text-text-primary tabular-nums">{new Date(record.entry_date).toLocaleDateString()}</td>
-                      <td className="px-6 py-4 text-sm text-text-secondary font-semibold">{record.payload?._machine || 'N/A'}</td>
                       <td className="px-6 py-4 text-sm text-text-secondary">{record.department?.name || 'N/A'}</td>
-                      <td className="px-6 py-4 text-sm text-text-secondary font-medium">{record.payload?._maintenance_type || '—'}</td>
                       {fields.map((field: any, idx: number) => {
+                        const normName = field.name.toLowerCase().trim();
+                        if (normName === 'maintenance date') {
+                          return (
+                            <td key={idx} className="px-6 py-4 text-sm text-text-primary font-medium tabular-nums">
+                              {new Date(record.entry_date).toLocaleDateString()}
+                            </td>
+                          );
+                        }
+                        if (normName === 'machine') {
+                          return (
+                            <td key={idx} className="px-6 py-4 text-sm text-text-secondary font-semibold">
+                              {record.payload?._machine || 'N/A'}
+                            </td>
+                          );
+                        }
+                        if (normName === 'maintenance type') {
+                          return (
+                            <td key={idx} className="px-6 py-4 text-sm text-text-secondary font-medium">
+                              {record.payload?._maintenance_type || '—'}
+                            </td>
+                          );
+                        }
+                        if (normName === 'status') {
+                          return (
+                            <td key={idx} className="px-6 py-4">
+                              {getStatusBadge(record.payload?._status)}
+                            </td>
+                          );
+                        }
+                        
                         const val = record.payload?.[field.name];
                         let displayVal = val;
                         if (field.type === 'boolean') {
@@ -489,9 +545,6 @@ export function MachineMaintenance() {
                           </td>
                         );
                       })}
-                      <td className="px-6 py-4">
-                        {getStatusBadge(record.payload?._status)}
-                      </td>
                       <td className="px-6 py-4 text-right whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
                         {modifiable && (
                           <div className="relative inline-block text-left">
@@ -610,32 +663,45 @@ export function MachineMaintenance() {
               </div>
 
               <div className="space-y-3">
-                <h4 className="text-sm font-semibold text-text-primary border-b border-border/60 pb-1.5 uppercase tracking-wider text-xs">Checklist Items & Logged Values</h4>
+                <h4 className="text-sm font-semibold text-text-primary border-b border-border/60 pb-1.5 uppercase tracking-wider text-xs">Logged Values (in Schema Sequence)</h4>
                 <div className="divide-y divide-border/40">
-                  {selectedRecord.payload && Object.entries(selectedRecord.payload).filter(([k]) => !k.startsWith('_')).length === 0 ? (
-                    <p className="text-sm text-text-secondary italic py-2">No payload parameters logged for this checklist.</p>
-                  ) : (
-                    Object.entries(selectedRecord.payload || {})
-                      .filter(([key]) => !key.startsWith('_'))
-                      .map(([key, val]) => (
-                        <div key={key} className="flex justify-between items-center py-2.5">
-                          <span className="text-sm font-medium text-text-primary">{key}</span>
-                          <div>
-                            {val === 'ok' ? (
-                              <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-green-50 text-green-700 border border-green-200">
-                                <Check className="mr-1 h-3.5 w-3.5" /> OK
-                              </span>
-                            ) : val === 'issue' ? (
-                              <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200 animate-pulse">
-                                <AlertTriangle className="mr-1 h-3.5 w-3.5" /> Issue Found
-                              </span>
-                            ) : (
-                              <span className="text-sm font-mono text-text-secondary font-semibold tabular-nums">{String(val)}</span>
-                            )}
-                          </div>
-                        </div>
-                      ))
-                  )}
+                  {fields.map((f: any) => {
+                    const normName = f.name.toLowerCase().trim();
+                    let displayVal: React.ReactNode = '—';
+                    if (normName === 'maintenance date') {
+                      displayVal = <span className="text-sm font-mono text-text-secondary font-semibold tabular-nums">{new Date(selectedRecord.entry_date).toLocaleDateString()}</span>;
+                    } else if (normName === 'machine') {
+                      displayVal = <span className="font-semibold text-primary">{selectedRecord.payload?._machine || 'N/A'}</span>;
+                    } else if (normName === 'maintenance type') {
+                      displayVal = <span className="font-semibold text-text-primary">{selectedRecord.payload?._maintenance_type || '—'}</span>;
+                    } else if (normName === 'status') {
+                      displayVal = getStatusBadge(selectedRecord.payload?._status);
+                    } else {
+                      const val = selectedRecord.payload?.[f.name];
+                      if (f.type === 'boolean') {
+                        displayVal = val === 'ok' ? (
+                          <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-green-50 text-green-700 border border-green-200">
+                            <Check className="mr-1 h-3.5 w-3.5" /> OK
+                          </span>
+                        ) : val === 'issue' ? (
+                          <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200 animate-pulse">
+                            <AlertTriangle className="mr-1 h-3.5 w-3.5" /> Issue Found
+                          </span>
+                        ) : (
+                          <span className="text-sm font-mono text-text-secondary font-semibold tabular-nums">{String(val)}</span>
+                        );
+                      } else {
+                        displayVal = <span className="text-sm font-mono text-text-secondary font-semibold tabular-nums">{val !== null && val !== undefined && val !== '' ? String(val) : '—'}</span>;
+                      }
+                    }
+
+                    return (
+                      <div key={f.name} className="flex justify-between items-center py-2.5">
+                        <span className="text-sm font-medium text-text-primary">{f.name} {f.unit && `(${f.unit})`}</span>
+                        <div>{displayVal}</div>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             </div>

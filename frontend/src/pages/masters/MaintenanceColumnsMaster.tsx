@@ -3,6 +3,7 @@ import api from '../../utils/api';
 import { useAuth } from '../../context/AuthContext';
 import { Plus, ListPlus, Settings2, Trash2, Edit2, Check, X, ClipboardList, GripVertical } from 'lucide-react';
 import clsx from 'clsx';
+import { injectStandardFields, isStandardField } from '../../utils/standards';
 
 interface FormatField {
   name: string;
@@ -145,9 +146,19 @@ export function MaintenanceColumnsMaster() {
     e.preventDefault();
     if (!format || !newFieldName.trim()) return;
 
-    const currentFields = format.versions[0]?.fields_schema || [];
-    const updatedFields = [...currentFields, { 
-      name: newFieldName.trim(), 
+    const trimmedName = newFieldName.trim();
+    if (isStandardField(trimmedName, 'MAINTENANCE')) {
+      alert(`"${trimmedName}" is a standard built-in column on all maintenance logs. Do not recreate it.`);
+      return;
+    }
+
+    if (fields.some(f => f.name.toLowerCase() === trimmedName.toLowerCase())) {
+      alert('A column with this name already exists.');
+      return;
+    }
+
+    const updatedFields = [...fields, { 
+      name: trimmedName, 
       type: newFieldType, 
       unit: newFieldUnit.trim() ? newFieldUnit.trim() : undefined,
       open: newFieldOpen
@@ -178,8 +189,7 @@ export function MaintenanceColumnsMaster() {
     if (!format) return;
     if (!confirm('Are you sure you want to delete this checklist column? This will apply to new entries.')) return;
 
-    const currentFields = [...(format.versions[0]?.fields_schema || [])];
-    currentFields.splice(idxToDelete, 1);
+    const currentFields = fields.filter((_, i) => i !== idxToDelete);
 
     try {
       await api.post(`/reports/formats/${format.id}/versions`, {
@@ -215,9 +225,20 @@ export function MaintenanceColumnsMaster() {
   const handleSaveEditField = async (idxToSave: number) => {
     if (!format || !editingFieldName.trim()) return;
 
-    const currentFields = [...(format.versions[0]?.fields_schema || [])];
+    const trimmedName = editingFieldName.trim();
+    if (isStandardField(trimmedName, 'MAINTENANCE')) {
+      alert(`"${trimmedName}" is a standard built-in column on all maintenance logs. Do not rename to it.`);
+      return;
+    }
+
+    const currentFields = [...fields];
+    if (currentFields.some((f, i) => i !== idxToSave && f.name.toLowerCase() === trimmedName.toLowerCase())) {
+      alert('Another column with this name already exists.');
+      return;
+    }
+
     currentFields[idxToSave] = {
-      name: editingFieldName.trim(),
+      name: trimmedName,
       type: editingFieldType,
       unit: editingFieldUnit.trim() ? editingFieldUnit.trim() : undefined,
       open: editingFieldOpen
@@ -254,7 +275,7 @@ export function MaintenanceColumnsMaster() {
     e.preventDefault();
     if (draggedIdx === null || draggedIdx === targetIndex || !format) return;
 
-    const currentFields = [...(format.versions[0]?.fields_schema || [])];
+    const currentFields = [...fields];
     // Remove the dragged item
     const [draggedItem] = currentFields.splice(draggedIdx, 1);
     // Insert it at the target position
@@ -278,7 +299,8 @@ export function MaintenanceColumnsMaster() {
 
   if (loading) return <div className="p-4">Loading Maintenance Column Master...</div>;
 
-  const fields = format?.versions[0]?.fields_schema || [];
+  const rawFields = format?.versions[0]?.fields_schema || [];
+  const fields = injectStandardFields(rawFields, 'MAINTENANCE');
 
   return (
     <div className="space-y-6 max-w-4xl mx-auto">
@@ -361,10 +383,12 @@ export function MaintenanceColumnsMaster() {
                   <>
                     <div className="flex-1">
                       <span className="font-medium text-text-primary">{f.name}</span>
-                      <span className="ml-2 text-xs text-text-secondary uppercase px-2 py-0.5 bg-gray-100 rounded">{f.type === 'boolean' ? 'OK/Issue' : f.type}</span>
+                      <span className="ml-2 text-xs text-text-secondary uppercase px-2 py-0.5 bg-gray-100 rounded">
+                        {isStandardField(f.name, 'MAINTENANCE') ? 'Standard' : (f.type === 'boolean' ? 'OK/Issue' : f.type)}
+                      </span>
                       {f.unit && <span className="ml-2 text-xs text-secondary">({f.unit})</span>}
                     </div>
-                    {isAdmin && (
+                    {isAdmin && !isStandardField(f.name, 'MAINTENANCE') && (
                       <div className="flex gap-2">
                         <button type="button" onClick={() => handleStartEditField(idx, f)} className="text-primary hover:text-primary-light p-1 rounded hover:bg-blue-50" title="Edit Column"><Edit2 className="h-4 w-4" /></button>
                         <button type="button" onClick={() => handleDeleteField(idx)} className="text-danger hover:text-red-900 p-1 rounded hover:bg-red-50" title="Delete Column"><Trash2 className="h-4 w-4" /></button>

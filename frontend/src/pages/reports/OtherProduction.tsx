@@ -4,6 +4,7 @@ import api from '../../utils/api';
 import { useAuth } from '../../context/AuthContext';
 import { ExportBar } from '../../utils/export';
 import type { ExportOptions } from '../../utils/export';
+import { injectStandardFields } from '../../utils/standards';
 import { FileSpreadsheet, Plus, Trash2, MoreVertical, Edit } from 'lucide-react';
 import clsx from 'clsx';
 
@@ -169,28 +170,57 @@ export function OtherProduction() {
     return Array.from(fieldMap.values());
   }, [formats]);
 
-  const displayFields = selectedFormatId ? activeFields : allUniqueFields;
+  const getFieldValue = (entry: ReportEntry, fieldName: string) => {
+    const norm = fieldName.toLowerCase().trim();
+    if (norm === 'date') {
+      return new Date(entry.entry_date).toLocaleDateString();
+    }
+    if (norm === 'department') {
+      return entry.department?.name ?? '';
+    }
+    if (norm === 'logged by' || norm === 'submitted by') {
+      return entry.submitter?.email ?? '';
+    }
+    return entry.payload?.[fieldName] !== undefined ? String(entry.payload[fieldName]) : '—';
+  };
+
+  const displayFields = React.useMemo(() => {
+    if (selectedFormatId) {
+      return injectStandardFields(activeFields, 'REPORT');
+    }
+    return allUniqueFields;
+  }, [selectedFormatId, activeFields, allUniqueFields]);
 
   // Export Columns definition
-  const exportColumns = [
-    { header: 'Date', key: 'date' },
-    { header: 'Format', key: 'format' },
-    { header: 'Department', key: 'department' },
-    { header: 'Submitted By', key: 'submittedBy' },
-    ...displayFields.map(f => ({ header: f.name + (f.unit ? ` (${f.unit})` : ''), key: f.name }))
-  ];
+  const exportColumns = selectedFormatId
+    ? displayFields.map(f => ({ header: f.name + (f.unit ? ` (${f.unit})` : ''), key: f.name }))
+    : [
+        { header: 'Date', key: 'date' },
+        { header: 'Format', key: 'format' },
+        { header: 'Department', key: 'department' },
+        { header: 'Submitted By', key: 'submittedBy' },
+        ...displayFields.map(f => ({ header: f.name + (f.unit ? ` (${f.unit})` : ''), key: f.name }))
+      ];
 
   const exportRows = (selectedIds.length > 0 ? entries.filter(e => selectedIds.includes(e.id)) : entries).map(e => {
-    const rowData: Record<string, any> = {
-      date: new Date(e.entry_date).toLocaleDateString(),
-      format: e.format_version?.format?.name ?? '',
-      department: e.department?.name ?? '',
-      submittedBy: e.submitter?.email ?? '',
-    };
-    displayFields.forEach(f => {
-      rowData[f.name] = e.payload?.[f.name] ?? '';
-    });
-    return rowData;
+    if (selectedFormatId) {
+      const rowData: Record<string, any> = {};
+      displayFields.forEach(f => {
+        rowData[f.name] = getFieldValue(e, f.name);
+      });
+      return rowData;
+    } else {
+      const rowData: Record<string, any> = {
+        date: new Date(e.entry_date).toLocaleDateString(),
+        format: e.format_version?.format?.name ?? '',
+        department: e.department?.name ?? '',
+        submittedBy: e.submitter?.email ?? '',
+      };
+      displayFields.forEach(f => {
+        rowData[f.name] = e.payload?.[f.name] ?? '';
+      });
+      return rowData;
+    }
   });
 
   return (
@@ -267,16 +297,24 @@ export function OtherProduction() {
                       className="rounded border-border text-primary focus:ring-primary h-4 w-4 cursor-pointer"
                     />
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase">Date</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase">Department</th>
-                  
-                  {displayFields.map(f => (
-                    <th key={f.name} className="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase">
-                      {f.name}{f.unit ? ` (${f.unit})` : ''}
-                    </th>
-                  ))}
-                  
-                  <th className="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase">By</th>
+                  {selectedFormatId ? (
+                    displayFields.map(f => (
+                      <th key={f.name} className="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase">
+                        {f.name}{f.unit ? ` (${f.unit})` : ''}
+                      </th>
+                    ))
+                  ) : (
+                    <>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase">Date</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase">Department</th>
+                      {displayFields.map(f => (
+                        <th key={f.name} className="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase">
+                          {f.name}{f.unit ? ` (${f.unit})` : ''}
+                        </th>
+                      ))}
+                      <th className="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase">By</th>
+                    </>
+                  )}
                   <th className="px-6 py-3 text-right text-xs font-medium text-text-secondary uppercase w-20">Actions</th>
                 </tr>
               </thead>
@@ -303,35 +341,59 @@ export function OtherProduction() {
                           )}
                         />
                       </td>
-                      <td className="px-6 py-3 text-sm text-text-primary tabular-nums">
-                        {new Date(entry.entry_date).toLocaleDateString()}
-                      </td>
-                      <td className="px-6 py-3 text-sm text-text-secondary">{entry.department?.name}</td>
-                      
-                      {displayFields.map(f => {
-                        const val = entry.payload?.[f.name];
-                        const displayVal = val !== undefined && val !== null ? String(val) : '—';
-                        const l = f.name.toLowerCase().replace(/[^a-z0-9]/g, '');
-                        const isJobOrder = l.startsWith('joborder') || l === 'joborderno' || l === 'jobordernumber' || l === 'joborderid' || l === 'order';
-                        
-                        return (
-                          <td key={f.name} className="px-6 py-3 text-sm text-text-primary tabular-nums">
-                            {isJobOrder && val ? (
-                              <Link 
-                                to={`/job-orders/summary/${encodeURIComponent(String(val))}`}
-                                className="text-primary hover:underline font-semibold"
-                                onClick={(e) => e.stopPropagation()}
-                              >
-                                {displayVal}
-                              </Link>
-                            ) : (
-                              displayVal
-                            )}
+                      {selectedFormatId ? (
+                        displayFields.map(f => {
+                          const val = getFieldValue(entry, f.name);
+                          const l = f.name.toLowerCase().replace(/[^a-z0-9]/g, '');
+                          const isJobOrder = l.startsWith('joborder') || l === 'joborderno' || l === 'jobordernumber' || l === 'joborderid' || l === 'order';
+                          
+                          return (
+                            <td key={f.name} className="px-6 py-3 text-sm text-text-primary tabular-nums">
+                              {isJobOrder && val && val !== '—' ? (
+                                <Link 
+                                  to={`/job-orders/summary/${encodeURIComponent(String(val))}`}
+                                  className="text-primary hover:underline font-semibold"
+                                  onClick={(e) => e.stopPropagation()}
+                                >
+                                  {val}
+                                </Link>
+                              ) : (
+                                val
+                              )}
+                            </td>
+                          );
+                        })
+                      ) : (
+                        <>
+                          <td className="px-6 py-3 text-sm text-text-primary tabular-nums">
+                            {new Date(entry.entry_date).toLocaleDateString()}
                           </td>
-                        );
-                      })}
-                      
-                      <td className="px-6 py-3 text-sm text-text-secondary">{entry.submitter?.email}</td>
+                          <td className="px-6 py-3 text-sm text-text-secondary">{entry.department?.name}</td>
+                          {displayFields.map(f => {
+                            const val = entry.payload?.[f.name];
+                            const displayVal = val !== undefined && val !== null ? String(val) : '—';
+                            const l = f.name.toLowerCase().replace(/[^a-z0-9]/g, '');
+                            const isJobOrder = l.startsWith('joborder') || l === 'joborderno' || l === 'jobordernumber' || l === 'joborderid' || l === 'order';
+                            
+                            return (
+                              <td key={f.name} className="px-6 py-3 text-sm text-text-primary tabular-nums">
+                                {isJobOrder && val ? (
+                                  <Link 
+                                    to={`/job-orders/summary/${encodeURIComponent(String(val))}`}
+                                    className="text-primary hover:underline font-semibold"
+                                    onClick={(e) => e.stopPropagation()}
+                                  >
+                                    {displayVal}
+                                  </Link>
+                                ) : (
+                                  displayVal
+                                )}
+                              </td>
+                            );
+                          })}
+                          <td className="px-6 py-3 text-sm text-text-secondary">{entry.submitter?.email}</td>
+                        </>
+                      )}
                       <td className="px-6 py-3 text-right" onClick={(e) => e.stopPropagation()}>
                         <div className="relative inline-block text-left">
                           <button

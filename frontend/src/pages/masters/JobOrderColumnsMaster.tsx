@@ -3,6 +3,7 @@ import api from '../../utils/api';
 import { useAuth } from '../../context/AuthContext';
 import { Plus, ListPlus, Settings2, Trash2, Edit2, Check, X, ClipboardList, GripVertical } from 'lucide-react';
 import clsx from 'clsx';
+import { injectStandardFields, isStandardField } from '../../utils/standards';
 
 interface FormatField {
   name: string;
@@ -124,6 +125,17 @@ export function JobOrderColumnsMaster() {
     e.preventDefault();
     if (!format || !newFieldName.trim()) return;
 
+    const trimmedName = newFieldName.trim();
+    if (isStandardField(trimmedName, 'JOB_ORDER')) {
+      alert(`"${trimmedName}" is a standard built-in column on all Job Orders. Do not recreate it.`);
+      return;
+    }
+
+    if (fields.some(f => f.name.toLowerCase() === trimmedName.toLowerCase())) {
+      alert('A column with this name already exists.');
+      return;
+    }
+
     let options: string[] | undefined = undefined;
     if (newFieldType === 'dropdown') {
       const parsed = newFieldOptions.split(',').map(s => s.trim()).filter(Boolean);
@@ -143,9 +155,8 @@ export function JobOrderColumnsMaster() {
       };
     }
 
-    const currentFields = format.versions[0]?.fields_schema || [];
-    const updatedFields = [...currentFields, { 
-      name: newFieldName.trim(), 
+    const updatedFields = [...fields, { 
+      name: trimmedName, 
       type: newFieldType, 
       unit: newFieldUnit.trim() ? newFieldUnit.trim() : undefined,
       open: newFieldOpen,
@@ -197,6 +208,18 @@ export function JobOrderColumnsMaster() {
   const handleSaveEditField = async (idx: number) => {
     if (!format || !editingFieldName.trim()) return;
     
+    const trimmedName = editingFieldName.trim();
+    if (isStandardField(trimmedName, 'JOB_ORDER')) {
+      alert(`"${trimmedName}" is a standard built-in column on all Job Orders. Do not rename to it.`);
+      return;
+    }
+
+    const currentFields = [...fields];
+    if (currentFields.some((f, i) => i !== idx && f.name.toLowerCase() === trimmedName.toLowerCase())) {
+      alert('Another column with this name already exists.');
+      return;
+    }
+
     let options: string[] | undefined = undefined;
     if (editingFieldType === 'dropdown') {
       const parsed = editingFieldOptions.split(',').map(s => s.trim()).filter(Boolean);
@@ -216,9 +239,8 @@ export function JobOrderColumnsMaster() {
       };
     }
 
-    const currentFields = [...(format.versions[0]?.fields_schema || [])];
     currentFields[idx] = { 
-      name: editingFieldName.trim(), 
+      name: trimmedName, 
       type: editingFieldType, 
       unit: editingFieldUnit.trim() ? editingFieldUnit.trim() : undefined,
       open: editingFieldOpen,
@@ -249,7 +271,7 @@ export function JobOrderColumnsMaster() {
     if (!format) return;
     if (!confirm('Are you sure you want to delete this column? Existing job order custom values will not be deleted but won\'t display here.')) return;
 
-    const currentFields = (format.versions[0]?.fields_schema || []).filter((_, i) => i !== idx);
+    const currentFields = fields.filter((_, i) => i !== idx);
 
     try {
       await api.post(`/reports/formats/${format.id}/versions`, {
@@ -284,7 +306,7 @@ export function JobOrderColumnsMaster() {
     if (draggedIdx === null || draggedIdx === targetIndex) return;
 
     if (!format) return;
-    const currentFields = [...(format.versions[0]?.fields_schema || [])];
+    const currentFields = [...fields];
     
     // Remove the dragged item
     const [draggedItem] = currentFields.splice(draggedIdx, 1);
@@ -309,7 +331,8 @@ export function JobOrderColumnsMaster() {
 
   if (loading) return <div className="p-4">Loading Job Order Column Master...</div>;
 
-  const fields = format?.versions[0]?.fields_schema || [];
+  const rawFields = format?.versions[0]?.fields_schema || [];
+  const fields = injectStandardFields(rawFields, 'JOB_ORDER');
 
   return (
     <div className="space-y-6 max-w-4xl mx-auto">
@@ -321,34 +344,7 @@ export function JobOrderColumnsMaster() {
         </div>
       </div>
 
-      {/* Standard / Static Columns list */}
-      <div className="bg-white p-6 rounded-card border border-border shadow-sm space-y-3">
-        <h3 className="text-sm font-bold text-text-primary uppercase tracking-wider">Standard Built-in Columns (Static)</h3>
-        <p className="text-xs text-text-secondary">
-          These columns are standard on all Job Orders. Do not recreate them as custom columns:
-        </p>
-        <div className="flex flex-wrap gap-2 pt-1">
-          {[
-            'Order Number',
-            'Customer',
-            'Department',
-            'Item Description',
-            'Start Date',
-            'End/Target Date',
-            'Status',
-            'Order Qty',
-            'Order Units',
-            'Production Qty',
-            'Production Units'
-          ].map(col => (
-            <span key={col} className="px-3 py-1 bg-gray-50 border border-border rounded text-xs font-semibold text-text-secondary select-none">
-              {col}
-            </span>
-          ))}
-        </div>
-      </div>
-
-      <div className="bg-white p-6 rounded-card border border-border shadow-sm space-y-6">
+<div className="bg-white p-6 rounded-card border border-border shadow-sm space-y-6">
         <h3 className="text-lg font-semibold text-text-primary">Defined Job Order Columns</h3>
         
         {fields.length === 0 ? (
@@ -451,12 +447,16 @@ export function JobOrderColumnsMaster() {
                   <>
                     <div className="flex-1">
                       <span className="font-medium text-text-primary">{f.name}</span>
-                      <span className="ml-2 text-xs text-text-secondary uppercase px-2 py-0.5 bg-gray-100 rounded">{f.type}</span>
+                      <span className="ml-2 text-xs text-text-secondary uppercase px-2 py-0.5 bg-gray-100 rounded">
+                        {isStandardField(f.name, 'JOB_ORDER') ? 'Standard' : f.type}
+                      </span>
                       {f.unit && <span className="ml-2 text-xs text-secondary">({f.unit})</span>}
-                      {f.open ? (
-                        <span className="ml-2 text-xs text-green-700 font-semibold px-2.5 py-0.5 bg-green-50 border border-green-200 rounded-full">Open (Ops Entry)</span>
-                      ) : (
-                        <span className="ml-2 text-xs text-gray-500 font-medium px-2.5 py-0.5 bg-gray-50 border border-gray-200 rounded-full">Admin Only</span>
+                      {!isStandardField(f.name, 'JOB_ORDER') && (
+                        f.open ? (
+                          <span className="ml-2 text-xs text-green-700 font-semibold px-2.5 py-0.5 bg-green-50 border border-green-200 rounded-full">Open (Ops Entry)</span>
+                        ) : (
+                          <span className="ml-2 text-xs text-gray-500 font-medium px-2.5 py-0.5 bg-gray-50 border border-gray-200 rounded-full">Admin Only</span>
+                        )
                       )}
                       {f.type === 'dropdown' && f.options && (
                         <div className="text-xs text-text-secondary mt-1 font-medium bg-gray-50 px-2 py-1 rounded border border-border/40 inline-block w-full">
@@ -469,7 +469,7 @@ export function JobOrderColumnsMaster() {
                         </div>
                       )}
                     </div>
-                    {isAdmin && (
+                    {isAdmin && !isStandardField(f.name, 'JOB_ORDER') && (
                       <div className="flex gap-2">
                         <button type="button" onClick={() => handleStartEditField(idx, f)} className="text-primary hover:text-primary-light p-1 rounded hover:bg-blue-50" title="Edit Column"><Edit2 className="h-4 w-4" /></button>
                         <button type="button" onClick={() => handleDeleteField(idx)} className="text-danger hover:text-red-900 p-1 rounded hover:bg-red-50" title="Delete Column"><Trash2 className="h-4 w-4" /></button>

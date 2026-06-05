@@ -4,6 +4,7 @@ import api from '../../utils/api';
 import { useAuth } from '../../context/AuthContext';
 import { ExportBar } from '../../utils/export';
 import type { ExportOptions } from '../../utils/export';
+import { injectStandardFields } from '../../utils/standards';
 import { FileSpreadsheet, Plus, ClipboardList, Trash2 } from 'lucide-react';
 import clsx from 'clsx';
 
@@ -112,17 +113,26 @@ export function GeneralDetail() {
 
   // Get active format fields for table headers and dynamic rows
   const activeFormat = formats.find(f => f.id === selectedFormatId);
-  const activeFields = activeFormat?.versions[0]?.fields_schema || [];
+  const activeFieldsRaw = activeFormat?.versions[0]?.fields_schema || [];
+  const activeFields = selectedFormatId ? injectStandardFields(activeFieldsRaw, 'REPORT') : [];
+
+  const getFieldValue = (entry: ReportEntry, fieldName: string) => {
+    const norm = fieldName.toLowerCase().trim();
+    if (norm === 'date') {
+      return new Date(entry.entry_date).toLocaleDateString();
+    }
+    if (norm === 'department') {
+      return entry.department?.name ?? '';
+    }
+    if (norm === 'logged by' || norm === 'submitted by') {
+      return entry.submitter?.email ?? '';
+    }
+    return entry.payload?.[fieldName] !== undefined ? String(entry.payload[fieldName]) : '—';
+  };
 
   // Export Columns definition
   const exportColumns = selectedFormatId
-    ? [
-        { header: 'Date', key: 'date' },
-        { header: 'Format', key: 'format' },
-        { header: 'Department', key: 'department' },
-        { header: 'Submitted By', key: 'submittedBy' },
-        ...activeFields.map(f => ({ header: f.name + (f.unit ? ` (${f.unit})` : ''), key: f.name }))
-      ]
+    ? activeFields.map(f => ({ header: f.name + (f.unit ? ` (${f.unit})` : ''), key: f.name }))
     : [
         { header: 'Date', key: 'date' },
         { header: 'Format', key: 'format' },
@@ -133,13 +143,11 @@ export function GeneralDetail() {
 
   const exportRows = (selectedIds.length > 0 ? entries.filter(e => selectedIds.includes(e.id)) : entries).map(e => {
     if (selectedFormatId) {
-      return {
-        date: new Date(e.entry_date).toLocaleDateString(),
-        format: e.format_version?.format?.name ?? '',
-        department: e.department?.name ?? '',
-        submittedBy: e.submitter?.email ?? '',
-        ...e.payload
-      };
+      const row: Record<string, any> = {};
+      activeFields.forEach(f => {
+        row[f.name] = getFieldValue(e, f.name);
+      });
+      return row;
     } else {
       const detailsStr = Object.entries(e.payload || {})
         .map(([k, v]) => `${k}: ${v}`)
@@ -228,10 +236,6 @@ export function GeneralDetail() {
                       className="rounded border-border text-primary focus:ring-primary h-4 w-4 cursor-pointer"
                     />
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase">Date</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase">Format</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase">Department</th>
-                  
                   {selectedFormatId ? (
                     activeFields.map(f => (
                       <th key={f.name} className="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase">
@@ -239,10 +243,14 @@ export function GeneralDetail() {
                       </th>
                     ))
                   ) : (
-                    <th className="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase">Logged Details</th>
+                    <>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase">Date</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase">Format</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase">Department</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase">Logged Details</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase">By</th>
+                    </>
                   )}
-                  
-                  <th className="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase">By</th>
                   <th className="px-6 py-3 text-right text-xs font-medium text-text-secondary uppercase w-20">Actions</th>
                 </tr>
               </thead>
@@ -269,27 +277,27 @@ export function GeneralDetail() {
                           )}
                         />
                       </td>
-                      <td className="px-6 py-3 text-sm text-text-primary tabular-nums">
-                        {new Date(entry.entry_date).toLocaleDateString()}
-                      </td>
-                      <td className="px-6 py-3 text-sm text-text-secondary">{entry.format_version?.format?.name}</td>
-                      <td className="px-6 py-3 text-sm text-text-secondary">{entry.department?.name}</td>
-                      
                       {selectedFormatId ? (
                         activeFields.map(f => (
                           <td key={f.name} className="px-6 py-3 text-sm text-text-primary tabular-nums">
-                            {entry.payload?.[f.name] !== undefined ? String(entry.payload[f.name]) : '—'}
+                            {getFieldValue(entry, f.name)}
                           </td>
                         ))
                       ) : (
-                        <td className="px-6 py-3 text-sm text-text-secondary max-w-xs truncate">
-                          {Object.entries(entry.payload || {})
-                            .map(([k, v]) => `${k}: ${v}`)
-                            .join(', ')}
-                        </td>
+                        <>
+                          <td className="px-6 py-3 text-sm text-text-primary tabular-nums">
+                            {new Date(entry.entry_date).toLocaleDateString()}
+                          </td>
+                          <td className="px-6 py-3 text-sm text-text-secondary">{entry.format_version?.format?.name}</td>
+                          <td className="px-6 py-3 text-sm text-text-secondary">{entry.department?.name}</td>
+                          <td className="px-6 py-3 text-sm text-text-secondary max-w-xs truncate">
+                            {Object.entries(entry.payload || {})
+                              .map(([k, v]) => `${k}: ${v}`)
+                              .join(', ')}
+                          </td>
+                          <td className="px-6 py-3 text-sm text-text-secondary">{entry.submitter?.email}</td>
+                        </>
                       )}
-                      
-                      <td className="px-6 py-3 text-sm text-text-secondary">{entry.submitter?.email}</td>
                       <td className="px-6 py-3 text-right">
                         {canDelete && (
                           <button

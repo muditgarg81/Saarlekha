@@ -3,12 +3,18 @@ import api from '../../utils/api';
 import { useAuth } from '../../context/AuthContext';
 import { Plus, ListPlus, Settings2, Trash2, Edit2, Check, X, GripVertical } from 'lucide-react';
 import clsx from 'clsx';
+import { injectStandardFields, isStandardField } from '../../utils/standards';
 
 interface FormatField {
   name: string;
   type: string;
   unit?: string;
   options?: string[];
+  formula?: {
+    left: string;
+    operator: string;
+    right: string;
+  };
 }
 
 interface FormatVersion {
@@ -42,6 +48,9 @@ export function ReportBuilder() {
   const [newFieldType, setNewFieldType] = useState('text');
   const [newFieldUnit, setNewFieldUnit] = useState('');
   const [newFieldOptions, setNewFieldOptions] = useState('');
+  const [newFieldFormulaLeft, setNewFieldFormulaLeft] = useState('');
+  const [newFieldFormulaOperator, setNewFieldFormulaOperator] = useState('-');
+  const [newFieldFormulaRight, setNewFieldFormulaRight] = useState('');
 
   // Editing Field State
   const [editingFieldIdx, setEditingFieldIdx] = useState<number | null>(null);
@@ -49,11 +58,25 @@ export function ReportBuilder() {
   const [editingFieldType, setEditingFieldType] = useState('text');
   const [editingFieldUnit, setEditingFieldUnit] = useState('');
   const [editingFieldOptions, setEditingFieldOptions] = useState('');
+  const [editingFieldFormulaLeft, setEditingFieldFormulaLeft] = useState('');
+  const [editingFieldFormulaOperator, setEditingFieldFormulaOperator] = useState('-');
+  const [editingFieldFormulaRight, setEditingFieldFormulaRight] = useState('');
 
   // Drag and Drop State
   const [draggedIdx, setDraggedIdx] = useState<number | null>(null);
 
   const isAdmin = ['SUPER_ADMIN', 'COMPANY_ADMIN'].includes(user?.role || '');
+
+  const getNumericOperandOptions = (currentFields: FormatField[], excludeIdx?: number | null) => {
+    const list: { value: string; label: string }[] = [];
+    currentFields.forEach((f, idx) => {
+      if (excludeIdx !== undefined && excludeIdx !== null && idx === excludeIdx) return;
+      if (f.type === 'number' || f.type === 'calculated') {
+        list.push({ value: f.name, label: f.name });
+      }
+    });
+    return list;
+  };
 
   useEffect(() => {
     fetchFormats();
@@ -74,7 +97,8 @@ export function ReportBuilder() {
   const handleStartEditFormat = (format: ReportFormat) => {
     setActiveFormat(format);
     setFormatName(format.name);
-    setFields(format.versions[0]?.fields_schema ? [...format.versions[0].fields_schema] : []);
+    const rawFields = format.versions[0]?.fields_schema ? [...format.versions[0].fields_schema] : [];
+    setFields(injectStandardFields(rawFields, format.type));
     setEditingFieldIdx(null);
     setNewFieldName('');
     setNewFieldUnit('');
@@ -101,8 +125,8 @@ export function ReportBuilder() {
     if (!activeFormat || !newFieldName.trim()) return;
 
     const trimmedName = newFieldName.trim();
-    if (trimmedName.toLowerCase() === 'department') {
-      alert('Department is a standard static column on all reports. Do not recreate it as a custom field.');
+    if (isStandardField(trimmedName, activeFormat.type)) {
+      alert(`"${trimmedName}" is a standard built-in column on all reports. Do not recreate it as a custom field.`);
       return;
     }
 
@@ -121,10 +145,26 @@ export function ReportBuilder() {
       options = parsed;
     }
 
-    setFields([...fields, { name: trimmedName, type: newFieldType, unit: newFieldUnit.trim() || undefined, options }]);
+    let formula: any = undefined;
+    if (newFieldType === 'calculated') {
+      if (!newFieldFormulaLeft || !newFieldFormulaRight) {
+        alert('Please define both operands for the formula.');
+        return;
+      }
+      formula = {
+        left: newFieldFormulaLeft,
+        operator: newFieldFormulaOperator,
+        right: newFieldFormulaRight
+      };
+    }
+
+    setFields([...fields, { name: trimmedName, type: newFieldType, unit: newFieldUnit.trim() || undefined, options, formula }]);
     setNewFieldName('');
     setNewFieldUnit('');
     setNewFieldOptions('');
+    setNewFieldFormulaLeft('');
+    setNewFieldFormulaOperator('-');
+    setNewFieldFormulaRight('');
   };
 
   const handleStartEditField = (idx: number, field: FormatField) => {
@@ -133,6 +173,9 @@ export function ReportBuilder() {
     setEditingFieldType(field.type);
     setEditingFieldUnit(field.unit || '');
     setEditingFieldOptions(field.options ? field.options.join(', ') : '');
+    setEditingFieldFormulaLeft(field.formula?.left || '');
+    setEditingFieldFormulaOperator(field.formula?.operator || '-');
+    setEditingFieldFormulaRight(field.formula?.right || '');
   };
 
   const handleCancelEditField = () => {
@@ -144,8 +187,8 @@ export function ReportBuilder() {
     if (!editingFieldName.trim()) return;
 
     const trimmedName = editingFieldName.trim();
-    if (trimmedName.toLowerCase() === 'department') {
-      alert('Department is a standard static column on all reports. Do not recreate it as a custom field.');
+    if (activeFormat && isStandardField(trimmedName, activeFormat.type)) {
+      alert(`"${trimmedName}" is a standard built-in column on all reports. Do not recreate it as a custom field.`);
       return;
     }
 
@@ -164,12 +207,26 @@ export function ReportBuilder() {
       options = parsed;
     }
 
+    let formula: any = undefined;
+    if (editingFieldType === 'calculated') {
+      if (!editingFieldFormulaLeft || !editingFieldFormulaRight) {
+        alert('Please define both operands for the formula.');
+        return;
+      }
+      formula = {
+        left: editingFieldFormulaLeft,
+        operator: editingFieldFormulaOperator,
+        right: editingFieldFormulaRight
+      };
+    }
+
     const updated = [...fields];
     updated[idx] = { 
       name: trimmedName, 
       type: editingFieldType, 
       unit: editingFieldUnit.trim() ? editingFieldUnit.trim() : undefined,
-      options
+      options,
+      formula
     };
     setFields(updated);
     setEditingFieldIdx(null);
@@ -308,21 +365,7 @@ export function ReportBuilder() {
             </div>
           </div>
 
-          {/* Standard Built-in Columns (Static) */}
-          <div className="mb-6 bg-white p-4 rounded-md border border-border shadow-sm space-y-2">
-            <h4 className="text-xs font-bold text-text-primary uppercase tracking-wider">Standard Built-in Columns (Static)</h4>
-            <p className="text-xs text-text-secondary">
-              These fields are captured automatically for any logged report. **Do not** recreate them as custom fields:
-            </p>
-            <div className="flex flex-wrap gap-2 pt-1">
-              {['Date', 'Department', 'Logged By'].map(col => (
-                <span key={col} className="bg-gray-100 border border-gray-200 text-text-secondary text-xs px-2.5 py-0.5 rounded-full font-medium">
-                  {col}
-                </span>
-              ))}
-            </div>
-          </div>
-          
+
           {/* Existing Fields */}
           <div className="mb-6">
             <h4 className="text-sm font-semibold text-text-secondary mb-2 uppercase tracking-wider text-xs">Current Fields</h4>
@@ -366,6 +409,7 @@ export function ReportBuilder() {
                             <option value="client">Client (Dropdown)</option>
                             <option value="job_order">Job Order Number (Dropdown)</option>
                             <option value="item">Items (Dropdown)</option>
+                            <option value="calculated">Calculated (Formula)</option>
                           </select>
                         </div>
                         <div>
@@ -378,6 +422,44 @@ export function ReportBuilder() {
                             <input type="text" placeholder="e.g. Option A, Option B, Option C" className="border border-border rounded px-2 py-1.5 text-sm w-full focus:ring-primary focus:border-primary mt-1 bg-white" value={editingFieldOptions} onChange={e => setEditingFieldOptions(e.target.value)} />
                           </div>
                         )}
+                        {editingFieldType === 'calculated' && (
+                          <div className="w-full mt-2 p-3 bg-gray-50 rounded border border-border/60">
+                            <label className="block text-[10px] font-bold text-text-primary uppercase mb-1">Configure Formula</label>
+                            <div className="flex flex-wrap items-center gap-1.5 text-xs">
+                              <span className="font-semibold text-text-secondary">{editingFieldName || 'Field'} = </span>
+                              <select 
+                                className="border border-border rounded px-2 py-1 bg-white"
+                                value={editingFieldFormulaLeft}
+                                onChange={e => setEditingFieldFormulaLeft(e.target.value)}
+                              >
+                                <option value="">Select Operand...</option>
+                                {getNumericOperandOptions(fields, editingFieldIdx).map(opt => (
+                                  <option key={opt.value} value={opt.value}>{opt.label}</option>
+                                ))}
+                              </select>
+                              <select 
+                                className="border border-border rounded px-2 py-1 bg-white font-bold"
+                                value={editingFieldFormulaOperator}
+                                onChange={e => setEditingFieldFormulaOperator(e.target.value)}
+                              >
+                                <option value="+">+</option>
+                                <option value="-">-</option>
+                                <option value="*">*</option>
+                                <option value="/">/</option>
+                              </select>
+                              <select 
+                                className="border border-border rounded px-2 py-1 bg-white"
+                                value={editingFieldFormulaRight}
+                                onChange={e => setEditingFieldFormulaRight(e.target.value)}
+                              >
+                                <option value="">Select Operand...</option>
+                                {getNumericOperandOptions(fields, editingFieldIdx).map(opt => (
+                                  <option key={opt.value} value={opt.value}>{opt.label}</option>
+                                ))}
+                              </select>
+                            </div>
+                          </div>
+                        )}
                         <div className="flex gap-1.5 ml-2 pb-1">
                           <button type="button" onClick={() => handleSaveEditField(idx)} className="text-green-600 hover:text-green-800 p-1.5 rounded hover:bg-green-50" title="Save Changes"><Check className="h-4 w-4" /></button>
                           <button type="button" onClick={handleCancelEditField} className="text-gray-400 hover:text-gray-600 p-1.5 rounded hover:bg-gray-100" title="Cancel"><X className="h-4 w-4" /></button>
@@ -387,17 +469,28 @@ export function ReportBuilder() {
                       <>
                         <div className="flex-1">
                           <span className="font-medium text-text-primary">{f.name}</span>
-                          <span className="ml-2 text-xs text-text-secondary uppercase px-2 py-0.5 bg-gray-100 rounded">{f.type}</span>
+                          <span className="ml-2 text-xs text-text-secondary uppercase px-2 py-0.5 bg-gray-100 rounded">
+                            {isStandardField(f.name, activeFormat.type) ? 'Standard' : f.type}
+                          </span>
                           {f.unit && <span className="ml-2 text-xs text-secondary">({f.unit})</span>}
                           {f.type === 'dropdown' && f.options && (
                             <div className="text-xs text-text-secondary mt-1 font-medium bg-gray-50 px-2 py-1 rounded border border-border/40 inline-block">
                               Options: {f.options.join(', ')}
                             </div>
                           )}
+                          {f.type === 'calculated' && f.formula && (
+                            <div className="text-xs text-primary mt-1 font-semibold bg-blue-50/70 px-2 py-1 rounded border border-blue-100 inline-block">
+                              Formula: {f.name} = {f.formula.left || '?'} {f.formula.operator} {f.formula.right || '?'}
+                            </div>
+                          )}
                         </div>
                         <div className="flex gap-2">
-                          <button type="button" onClick={() => handleStartEditField(idx, f)} className="text-primary hover:text-primary-light p-1 rounded hover:bg-blue-50" title="Edit field"><Edit2 className="h-4 w-4" /></button>
-                          <button type="button" onClick={() => handleDeleteField(idx)} className="text-danger hover:text-red-900 p-1 rounded hover:bg-red-50" title="Delete field"><Trash2 className="h-4 w-4" /></button>
+                          {!isStandardField(f.name, activeFormat.type) && (
+                            <>
+                              <button type="button" onClick={() => handleStartEditField(idx, f)} className="text-primary hover:text-primary-light p-1 rounded hover:bg-blue-50" title="Edit field"><Edit2 className="h-4 w-4" /></button>
+                              <button type="button" onClick={() => handleDeleteField(idx)} className="text-danger hover:text-red-900 p-1 rounded hover:bg-red-50" title="Delete field"><Trash2 className="h-4 w-4" /></button>
+                            </>
+                          )}
                         </div>
                       </>
                     )}
@@ -431,6 +524,7 @@ export function ReportBuilder() {
                   <option value="client">Client (Dropdown)</option>
                   <option value="job_order">Job Order Number (Dropdown)</option>
                   <option value="item">Items (Dropdown)</option>
+                  <option value="calculated">Calculated (Formula)</option>
                 </select>
               </div>
               <div>
@@ -442,6 +536,44 @@ export function ReportBuilder() {
               <div className="mt-4">
                 <label className="block text-xs font-semibold text-text-secondary uppercase">Dropdown Options (comma-separated)</label>
                 <input required type="text" placeholder="e.g. Option A, Option B, Option C" className="mt-1 block w-full border border-border rounded px-3 py-2 text-sm focus:ring-primary focus:border-primary bg-white font-semibold" value={newFieldOptions} onChange={e => setNewFieldOptions(e.target.value)} />
+              </div>
+            )}
+            {newFieldType === 'calculated' && (
+              <div className="mt-4 p-4 bg-gray-50 rounded border border-border/60">
+                <label className="block text-xs font-bold text-text-primary uppercase mb-2">Configure Formula</label>
+                <div className="flex flex-wrap items-center gap-3 text-sm">
+                  <span className="font-semibold text-text-secondary">{newFieldName || 'Field'} = </span>
+                  <select 
+                    className="border border-border rounded px-3 py-2 bg-white"
+                    value={newFieldFormulaLeft}
+                    onChange={e => setNewFieldFormulaLeft(e.target.value)}
+                  >
+                    <option value="">Select Operand...</option>
+                    {getNumericOperandOptions(fields).map(opt => (
+                      <option key={opt.value} value={opt.value}>{opt.label}</option>
+                    ))}
+                  </select>
+                  <select 
+                    className="border border-border rounded px-3 py-2 bg-white font-bold"
+                    value={newFieldFormulaOperator}
+                    onChange={e => setNewFieldFormulaOperator(e.target.value)}
+                  >
+                    <option value="+">+</option>
+                    <option value="-">-</option>
+                    <option value="*">*</option>
+                    <option value="/">/</option>
+                  </select>
+                  <select 
+                    className="border border-border rounded px-3 py-2 bg-white"
+                    value={newFieldFormulaRight}
+                    onChange={e => setNewFieldFormulaRight(e.target.value)}
+                  >
+                    <option value="">Select Operand...</option>
+                    {getNumericOperandOptions(fields).map(opt => (
+                      <option key={opt.value} value={opt.value}>{opt.label}</option>
+                    ))}
+                  </select>
+                </div>
               </div>
             )}
             <div className="mt-4 flex justify-end">

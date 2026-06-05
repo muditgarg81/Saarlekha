@@ -602,19 +602,42 @@ export function DailyReport() {
 
                           {/* Display Payload Keys */}
                           <div className="flex flex-wrap gap-2.5 pt-1.5 pl-6">
-                            {Object.entries(r.payload)
-                              .filter(([key]) => !key.startsWith('_'))
-                              .map(([key, val]) => (
-                                <div 
-                                  key={key}
-                                  className="bg-surface border border-border rounded px-2.5 py-1 text-xs text-text-primary"
-                                >
-                                  <span className="font-semibold text-text-secondary uppercase text-[10px] tracking-wider block mb-0.5">
-                                    {key}
-                                  </span>
-                                  <span className="font-mono font-medium">{String(val)}</span>
-                                </div>
-                              ))}
+                            {(() => {
+                              const rendered = new Set<string>();
+                              const fields = r.format_version?.fields_schema || [];
+                              const list = fields.map(f => {
+                                const val = r.payload?.[f.name];
+                                if (val === undefined || val === null) return null;
+                                rendered.add(f.name);
+                                return (
+                                  <div 
+                                    key={f.name}
+                                    className="bg-surface border border-border rounded px-2.5 py-1 text-xs text-text-primary"
+                                  >
+                                    <span className="font-semibold text-text-secondary uppercase text-[10px] tracking-wider block mb-0.5">
+                                      {f.name}{f.unit ? ` (${f.unit})` : ''}
+                                    </span>
+                                    <span className="font-mono font-medium">{String(val)}</span>
+                                  </div>
+                                );
+                              }).filter(Boolean);
+
+                              const extra = Object.entries(r.payload || {})
+                                .filter(([key]) => !key.startsWith('_') && !rendered.has(key))
+                                .map(([key, val]) => (
+                                  <div 
+                                    key={key}
+                                    className="bg-surface border border-border rounded px-2.5 py-1 text-xs text-text-primary"
+                                  >
+                                    <span className="font-semibold text-text-secondary uppercase text-[10px] tracking-wider block mb-0.5">
+                                      {key}
+                                    </span>
+                                    <span className="font-mono font-medium">{String(val)}</span>
+                                  </div>
+                                ));
+
+                              return [...list, ...extra];
+                            })()}
                           </div>
                         </div>
                       );

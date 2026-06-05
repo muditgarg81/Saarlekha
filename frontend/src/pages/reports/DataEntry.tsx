@@ -3,12 +3,18 @@ import { useSearchParams } from 'react-router-dom';
 import api from '../../utils/api';
 import { useAuth } from '../../context/AuthContext';
 import { Send, FileText, Trash2, Edit, Plus, X } from 'lucide-react';
+import { injectStandardFields, isStandardField } from '../../utils/standards';
 
 interface FormatField {
   name: string;
   type: string;
   unit?: string;
   options?: string[];
+  formula?: {
+    left: string;
+    operator: string;
+    right: string;
+  };
 }
 
 interface FormatVersion {
@@ -116,7 +122,46 @@ export function DataEntry() {
     : formats;
 
   const activeFormat = formats.find(f => f.id === selectedFormatId);
-  const activeSchema = activeFormat?.versions[0]?.fields_schema || [];
+  const activeSchema = activeFormat
+    ? injectStandardFields(activeFormat.versions[0]?.fields_schema || [], activeFormat.type)
+    : [];
+
+  const evaluateReportCalculatedField = (
+    field: FormatField,
+    currentPayload: Record<string, any>,
+    visited: Set<string> = new Set()
+  ): number => {
+    if (field.type !== 'calculated' || !field.formula) return 0;
+    if (visited.has(field.name)) return 0;
+    visited.add(field.name);
+
+    const { left, operator, right } = field.formula;
+
+    const getVal = (fieldName: string): number => {
+      const targetField = activeSchema.find(f => f.name === fieldName);
+      if (targetField && targetField.type === 'calculated') {
+        return evaluateReportCalculatedField(targetField, currentPayload, visited);
+      }
+      const v = currentPayload[fieldName];
+      if (v === '' || v === undefined || v === null) return 0;
+      return Number(v) || 0;
+    };
+
+    const leftVal = getVal(left);
+    const rightVal = getVal(right);
+
+    let result = 0;
+    switch (operator) {
+      case '+': result = leftVal + rightVal; break;
+      case '-': result = leftVal - rightVal; break;
+      case '*': result = leftVal * rightVal; break;
+      case '/': result = rightVal === 0 ? 0 : leftVal / rightVal; break;
+      default: result = 0;
+    }
+
+    visited.delete(field.name);
+    return result;
+  };
 
   const handleFieldChange = (fieldName: string, value: any) => {
     setPayload(prev => ({ ...prev, [fieldName]: value }));
@@ -128,6 +173,8 @@ export function DataEntry() {
 
     // Validate inputs
     const missingFields = activeSchema.filter(field => {
+      if (field.type === 'calculated') return false;
+      if (isStandardField(field.name, activeFormat?.type || 'REPORT')) return false;
       const val = payload[field.name];
       return val === undefined || val === null || val === '';
     });
@@ -137,9 +184,17 @@ export function DataEntry() {
       return;
     }
 
+    // Compute all calculated field values
+    const finalPayload = { ...payload };
+    activeSchema.forEach(field => {
+      if (field.type === 'calculated') {
+        finalPayload[field.name] = evaluateReportCalculatedField(field, payload);
+      }
+    });
+
     try {
       await api.put(`/reports/entries/${entryId}`, {
-        payload,
+        payload: finalPayload,
         department_id: selectedDepartment
       });
       alert('Report entry updated successfully!');
@@ -170,6 +225,8 @@ export function DataEntry() {
 
     // Validate inputs
     const missingFields = activeSchema.filter(field => {
+      if (field.type === 'calculated') return false;
+      if (isStandardField(field.name, activeFormat?.type || 'REPORT')) return false;
       const val = payload[field.name];
       return val === undefined || val === null || val === '';
     });
@@ -179,15 +236,23 @@ export function DataEntry() {
       return;
     }
 
+    // Compute all calculated field values
+    const finalPayload = { ...payload };
+    activeSchema.forEach(field => {
+      if (field.type === 'calculated') {
+        finalPayload[field.name] = evaluateReportCalculatedField(field, payload);
+      }
+    });
+
     if (editingIndex !== null) {
       // Update existing row
       const updated = [...batchEntries];
-      updated[editingIndex] = payload;
+      updated[editingIndex] = finalPayload;
       setBatchEntries(updated);
       setEditingIndex(null);
     } else {
       // Add new row
-      setBatchEntries([...batchEntries, payload]);
+      setBatchEntries([...batchEntries, finalPayload]);
     }
 
     // Reset current form inputs
@@ -351,6 +416,53 @@ export function DataEntry() {
               ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 sm:gap-6 bg-surface p-4 sm:p-6 rounded-lg border border-border w-full max-w-full overflow-hidden">
                   {activeSchema.map((field, idx) => {
+                    const normName = field.name.toLowerCase().trim();
+                    if (normName === 'date') {
+                      return (
+                        <div key={idx} className="flex flex-col min-w-0">
+                          <label className="block text-xs font-semibold text-text-secondary uppercase mb-1">
+                            Date
+                          </label>
+                          <input
+                            type="date"
+                            disabled
+                            className="mt-1 block w-full border border-border bg-gray-50 rounded-lg px-3 py-2 text-sm text-text-secondary font-semibold cursor-not-allowed"
+                            value={editingSavedEntry ? new Date(editingSavedEntry.entry_date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]}
+                          />
+                        </div>
+                      );
+                    }
+                    if (normName === 'department') {
+                      return (
+                        <div key={idx} className="flex flex-col min-w-0">
+                          <label className="block text-xs font-semibold text-text-secondary uppercase mb-1">
+                            Department
+                          </label>
+                          <input
+                            type="text"
+                            disabled
+                            className="mt-1 block w-full border border-border bg-gray-50 rounded-lg px-3 py-2 text-sm text-text-secondary font-semibold cursor-not-allowed"
+                            value={departments.find(d => d.id === selectedDepartment)?.name || ''}
+                          />
+                        </div>
+                      );
+                    }
+                    if (normName === 'logged by') {
+                      return (
+                        <div key={idx} className="flex flex-col min-w-0">
+                          <label className="block text-xs font-semibold text-text-secondary uppercase mb-1">
+                            Logged By
+                          </label>
+                          <input
+                            type="text"
+                            disabled
+                            className="mt-1 block w-full border border-border bg-gray-50 rounded-lg px-3 py-2 text-sm text-text-secondary font-semibold cursor-not-allowed"
+                            value={editingSavedEntry ? (editingSavedEntry.submitter?.email || '') : (user?.email || '')}
+                          />
+                        </div>
+                      );
+                    }
+
                     const isOperatorField = field.type === 'operator' || 
                       field.name.toLowerCase() === 'operator' || 
                       field.name.toLowerCase() === 'operator name' || 
@@ -478,6 +590,24 @@ export function DataEntry() {
                             <option value="true">Yes</option>
                             <option value="false">No</option>
                           </select>
+                        ) : field.type === 'calculated' ? (
+                          <div className="relative mt-1">
+                            <input
+                              type="text"
+                              readOnly
+                              disabled
+                              className="block w-full border border-border bg-gray-50 rounded-lg px-3 py-2 text-sm text-text-secondary font-semibold cursor-not-allowed"
+                              value={(() => {
+                                const val = evaluateReportCalculatedField(field, payload);
+                                return isNaN(val) || !isFinite(val) ? '0' : String(Number(val.toFixed(4)));
+                              })()}
+                            />
+                            {field.formula && (
+                              <span className="text-[10px] text-primary/70 font-medium block mt-1">
+                                Formula: {field.formula.left} {field.formula.operator} {field.formula.right}
+                              </span>
+                            )}
+                          </div>
                         ) : (
                           <input
                             type={field.type === 'number' ? 'number' : field.type === 'date' ? 'date' : 'text'}
@@ -564,14 +694,20 @@ export function DataEntry() {
                         <tr key={index} className={editingIndex === index ? 'bg-primary/5' : 'hover:bg-surface transition-colors'}>
                           <td className="px-4 py-3 font-medium text-text-secondary">{index + 1}</td>
                           {activeSchema.map((field, idx) => {
-                            const val = entry[field.name];
-                            let displayVal = val;
-                            if (field.type === 'boolean') {
-                              displayVal = val === true ? 'Yes' : val === false ? 'No' : '';
+                            const normName = field.name.toLowerCase().trim();
+                            let displayVal = entry[field.name];
+                            if (normName === 'date') {
+                              displayVal = new Date().toLocaleDateString();
+                            } else if (normName === 'department') {
+                              displayVal = departments.find(d => d.id === selectedDepartment)?.name || '';
+                            } else if (normName === 'logged by') {
+                              displayVal = user?.email || '';
+                            } else if (field.type === 'boolean') {
+                              displayVal = displayVal === true ? 'Yes' : displayVal === false ? 'No' : '';
                             }
                             return (
                               <td key={idx} className="px-4 py-3 text-text-primary font-medium">
-                                {displayVal !== null && displayVal !== undefined ? String(displayVal) : 'N/A'}
+                                {displayVal !== null && displayVal !== undefined && displayVal !== '' ? String(displayVal) : '—'}
                               </td>
                             );
                           })}

@@ -4,6 +4,7 @@ import api from '../../utils/api';
 import { useAuth } from '../../context/AuthContext';
 import { ExportBar } from '../../utils/export';
 import type { ExportOptions } from '../../utils/export';
+import { injectStandardFields } from '../../utils/standards';
 import { Plus, TrendingUp, Trash2, MoreVertical, Edit } from 'lucide-react';
 import clsx from 'clsx';
 
@@ -84,6 +85,7 @@ export function ProductionDetail() {
 
   const [entries, setEntries] = useState<ReportEntry[]>([]);
   const [formats, setFormats] = useState<ReportFormat[]>([]);
+  const [selectedFormatId, setSelectedFormatId] = useState<string>('');
   const [loading, setLoading] = useState(true);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [activeDropdown, setActiveDropdown] = useState<{ id: string; top: number; left: number } | null>(null);
@@ -111,10 +113,15 @@ export function ProductionDetail() {
     setLoading(true);
     try {
       const params: any = { startDate, endDate };
+      if (selectedFormatId) {
+        params.formatId = selectedFormatId;
+      }
       const res = await api.get('/reports/entries', { params });
       
       // Filter entries client-side to keep only formats visible on this page
-      const visibleFormatIds = new Set(formats.map(f => f.id));
+      const visibleFormatIds = selectedFormatId
+        ? new Set([selectedFormatId])
+        : new Set(formats.map(f => f.id));
       const filteredEntries = res.data.filter((e: any) => {
         return visibleFormatIds.has(e.format_version?.format?.id);
       });
@@ -126,7 +133,7 @@ export function ProductionDetail() {
     } finally {
       setLoading(false);
     }
-  }, [startDate, endDate, formats]);
+  }, [startDate, endDate, formats, selectedFormatId]);
 
   useEffect(() => {
     fetchFormats();
@@ -180,6 +187,11 @@ export function ProductionDetail() {
 
   // Gather unique fields for headers across all machine+operator formats
   const displayFields: { name: string; type: string; unit?: string }[] = React.useMemo(() => {
+    if (selectedFormatId) {
+      const fmt = formats.find(f => f.id === selectedFormatId);
+      const raw = fmt?.versions[0]?.fields_schema || [];
+      return injectStandardFields(raw, 'REPORT');
+    }
     const fieldMap = new Map<string, { name: string; type: string; unit?: string }>();
     formats.forEach(fmt => {
       const versionFields = fmt.versions[0]?.fields_schema || [];
@@ -191,33 +203,61 @@ export function ProductionDetail() {
       });
     });
     return Array.from(fieldMap.values());
-  }, [formats]);
+  }, [formats, selectedFormatId]);
 
-  const exportColumns = [
-    { header: 'Date', key: 'date' },
-    { header: 'Format', key: 'format' },
-    { header: 'Department', key: 'department' },
-    { header: 'Submitted By', key: 'submittedBy' },
-    ...displayFields.map(f => ({ header: f.name + (f.unit ? ` (${f.unit})` : ''), key: f.name })),
-    { header: 'Efficiency %', key: 'efficiency' }
-  ];
+  const getFieldValue = (entry: ReportEntry, fieldName: string) => {
+    const norm = fieldName.toLowerCase().trim();
+    if (norm === 'date') {
+      return new Date(entry.entry_date).toLocaleDateString();
+    }
+    if (norm === 'department') {
+      return entry.department?.name ?? '';
+    }
+    if (norm === 'logged by' || norm === 'submitted by') {
+      return entry.submitter?.email ?? '';
+    }
+    return entry.payload?.[fieldName] !== undefined ? String(entry.payload[fieldName]) : '—';
+  };
+
+  const exportColumns = selectedFormatId
+    ? [
+        ...displayFields.map(f => ({ header: f.name + (f.unit ? ` (${f.unit})` : ''), key: f.name })),
+        { header: 'Efficiency %', key: 'efficiency' }
+      ]
+    : [
+        { header: 'Date', key: 'date' },
+        { header: 'Format', key: 'format' },
+        { header: 'Department', key: 'department' },
+        ...displayFields.map(f => ({ header: f.name + (f.unit ? ` (${f.unit})` : ''), key: f.name })),
+        { header: 'Efficiency %', key: 'efficiency' },
+        { header: 'Submitted By', key: 'submittedBy' }
+      ];
 
   const exportRows = (selectedIds.length > 0 ? entries.filter(e => selectedIds.includes(e.id)) : entries).map(e => {
-    const rowData: Record<string, any> = {
-      date: new Date(e.entry_date).toLocaleDateString(),
-      format: e.format_version?.format?.name ?? '',
-      department: e.department?.name ?? '',
-      submittedBy: e.submitter?.email ?? '',
-    };
-    displayFields.forEach(f => {
-      rowData[f.name] = e.payload?.[f.name] ?? '';
-    });
-    
-    // Compute efficiency
-    const eff = calculateRowEfficiency(e.payload);
-    rowData['efficiency'] = eff ? `${eff}%` : 'N/A';
-    
-    return rowData;
+    if (selectedFormatId) {
+      const rowData: Record<string, any> = {};
+      displayFields.forEach(f => {
+        rowData[f.name] = getFieldValue(e, f.name);
+      });
+      // Compute efficiency
+      const eff = calculateRowEfficiency(e.payload);
+      rowData['efficiency'] = eff ? `${eff}%` : 'N/A';
+      return rowData;
+    } else {
+      const rowData: Record<string, any> = {
+        date: new Date(e.entry_date).toLocaleDateString(),
+        format: e.format_version?.format?.name ?? '',
+        department: e.department?.name ?? '',
+        submittedBy: e.submitter?.email ?? '',
+      };
+      displayFields.forEach(f => {
+        rowData[f.name] = e.payload?.[f.name] ?? '';
+      });
+      // Compute efficiency
+      const eff = calculateRowEfficiency(e.payload);
+      rowData['efficiency'] = eff ? `${eff}%` : 'N/A';
+      return rowData;
+    }
   });
 
   return (
@@ -229,6 +269,17 @@ export function ProductionDetail() {
         </h1>
         
         <div className="flex flex-wrap items-center gap-2">
+          <select 
+            value={selectedFormatId} 
+            onChange={e => setSelectedFormatId(e.target.value)}
+            className="border border-border bg-white rounded-md px-3 py-2 text-sm shadow-sm outline-none"
+          >
+            <option value="">All Production Formats</option>
+            {formats.map(f => (
+              <option key={f.id} value={f.id}>{f.name}</option>
+            ))}
+          </select>
+
           <div className="flex items-center gap-2 bg-white border border-border rounded-md px-3 py-2 shadow-sm text-sm">
             <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="outline-none bg-transparent" />
             <span className="text-text-secondary">→</span>
@@ -279,28 +330,37 @@ export function ProductionDetail() {
                     className="rounded border-border text-primary focus:ring-primary h-4 w-4 cursor-pointer"
                   />
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase">Date</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase">Department</th>
-                {displayFields.map(f => (
-                  <th key={f.name} className="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase">
-                    {f.name}{f.unit ? ` (${f.unit})` : ''}
-                  </th>
-                ))}
-                <th className="px-6 py-3 text-right text-xs font-medium text-text-secondary uppercase">Efficiency %</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase">By</th>
+                {selectedFormatId ? (
+                  displayFields.map(f => (
+                    <th key={f.name} className="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase">
+                      {f.name}{f.unit ? ` (${f.unit})` : ''}
+                    </th>
+                  ))
+                ) : (
+                  <>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase">Date</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase">Department</th>
+                    {displayFields.map(f => (
+                      <th key={f.name} className="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase">
+                        {f.name}{f.unit ? ` (${f.unit})` : ''}
+                      </th>
+                    ))}
+                    <th className="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase">By</th>
+                  </>
+                )}
                 <th className="px-6 py-3 text-right text-xs font-medium text-text-secondary uppercase w-20">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border bg-white">
               {loading ? (
                 <tr>
-                  <td colSpan={displayFields.length + 6} className="px-6 py-8 text-center text-sm text-text-secondary animate-pulse">
+                  <td colSpan={selectedFormatId ? displayFields.length + 3 : displayFields.length + 6} className="px-6 py-8 text-center text-sm text-text-secondary animate-pulse">
                     Loading records...
                   </td>
                 </tr>
               ) : entries.length === 0 ? (
                 <tr>
-                  <td colSpan={displayFields.length + 6} className="px-6 py-8 text-center text-sm text-text-secondary">
+                  <td colSpan={selectedFormatId ? displayFields.length + 3 : displayFields.length + 6} className="px-6 py-8 text-center text-sm text-text-secondary">
                     No records in this period.
                   </td>
                 </tr>
@@ -328,36 +388,62 @@ export function ProductionDetail() {
                           )}
                         />
                       </td>
-                      <td className="px-6 py-3 text-sm text-text-primary tabular-nums">
-                        {new Date(entry.entry_date).toLocaleDateString()}
-                      </td>
-                      <td className="px-6 py-3 text-sm text-text-secondary">{entry.department?.name}</td>
-                      {displayFields.map(f => {
-                        const val = entry.payload?.[f.name];
-                        const displayVal = val !== undefined && val !== null ? String(val) : '—';
-                        const l = f.name.toLowerCase().replace(/[^a-z0-9]/g, '');
-                        const isJobOrder = l.startsWith('joborder') || l === 'joborderno' || l === 'jobordernumber' || l === 'joborderid' || l === 'order';
-                        
-                        return (
-                          <td key={f.name} className="px-6 py-3 text-sm text-text-primary tabular-nums">
-                            {isJobOrder && val ? (
-                              <Link 
-                                to={`/job-orders/summary/${encodeURIComponent(String(val))}`}
-                                className="text-primary hover:underline font-semibold"
-                                onClick={(e) => e.stopPropagation()}
-                              >
-                                {displayVal}
-                              </Link>
-                            ) : (
-                              displayVal
-                            )}
+                      {selectedFormatId ? (
+                        displayFields.map(f => {
+                          const val = getFieldValue(entry, f.name);
+                          const l = f.name.toLowerCase().replace(/[^a-z0-9]/g, '');
+                          const isJobOrder = l.startsWith('joborder') || l === 'joborderno' || l === 'jobordernumber' || l === 'joborderid' || l === 'order';
+                          
+                          return (
+                            <td key={f.name} className="px-6 py-3 text-sm text-text-primary tabular-nums">
+                              {isJobOrder && val && val !== '—' ? (
+                                <Link 
+                                  to={`/job-orders/summary/${encodeURIComponent(String(val))}`}
+                                  className="text-primary hover:underline font-semibold"
+                                  onClick={(e) => e.stopPropagation()}
+                                >
+                                  {val}
+                                </Link>
+                              ) : (
+                                val
+                              )}
+                            </td>
+                          );
+                        })
+                      ) : (
+                        <>
+                          <td className="px-6 py-3 text-sm text-text-primary tabular-nums">
+                            {new Date(entry.entry_date).toLocaleDateString()}
                           </td>
-                        );
-                      })}
+                          <td className="px-6 py-3 text-sm text-text-secondary">{entry.department?.name}</td>
+                          {displayFields.map(f => {
+                            const val = entry.payload?.[f.name];
+                            const displayVal = val !== undefined && val !== null ? String(val) : '—';
+                            const l = f.name.toLowerCase().replace(/[^a-z0-9]/g, '');
+                            const isJobOrder = l.startsWith('joborder') || l === 'joborderno' || l === 'jobordernumber' || l === 'joborderid' || l === 'order';
+                            
+                            return (
+                              <td key={f.name} className="px-6 py-3 text-sm text-text-primary tabular-nums">
+                                {isJobOrder && val ? (
+                                  <Link 
+                                    to={`/job-orders/summary/${encodeURIComponent(String(val))}`}
+                                    className="text-primary hover:underline font-semibold"
+                                    onClick={(e) => e.stopPropagation()}
+                                  >
+                                    {displayVal}
+                                  </Link>
+                                ) : (
+                                  displayVal
+                                )}
+                              </td>
+                            );
+                          })}
+                          <td className="px-6 py-3 text-sm text-text-secondary">{entry.submitter?.email}</td>
+                        </>
+                      )}
                       <td className="px-6 py-3 text-right">
                         <EfficiencyBadge value={eff} />
                       </td>
-                      <td className="px-6 py-3 text-sm text-text-secondary">{entry.submitter?.email}</td>
                       <td className="px-6 py-3 text-right" onClick={(e) => e.stopPropagation()}>
                         <div className="relative inline-block text-left">
                           <button
