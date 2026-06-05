@@ -214,7 +214,9 @@ export function JobOrderMaster() {
     return searchableFields.some(fieldVal =>
       fieldVal.toLowerCase().includes(term)
     );
-  });
+  }).sort((a, b) => 
+    (a.order_number || '').localeCompare(b.order_number || '', undefined, { numeric: true, sensitivity: 'base' })
+  );
 
   const getExportData = () => {
     const columns = joSchema.map(field => ({
@@ -307,7 +309,10 @@ export function JobOrderMaster() {
         api.get('/departments'),
         api.get('/items?status=ACTIVE')
       ]);
-      setOrders(ordRes.data);
+      const sortedOrders = (ordRes.data || []).sort((a: any, b: any) =>
+        (a.order_number || '').localeCompare(b.order_number || '', undefined, { numeric: true, sensitivity: 'base' })
+      );
+      setOrders(sortedOrders);
       setCustomers(custRes.data);
       setDepartments(deptRes.data);
       setItemsMaster(itemsRes.data);

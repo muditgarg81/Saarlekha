@@ -32,6 +32,9 @@ jobOrdersRouter.get('/', async (req, res) => {
         customer: { select: { name: true } },
         department: { select: { name: true } },
         item: { select: { name: true } }
+      },
+      orderBy: {
+        order_number: 'asc'
       }
     });
     res.json(orders);

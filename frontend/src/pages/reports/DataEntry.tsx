@@ -103,12 +103,15 @@ export function DataEntry() {
         api.get('/job-orders'),
         api.get('/items?status=ACTIVE')
       ]);
+      const sortedJobOrders = (jobOrdersRes.data || []).sort((a: any, b: any) =>
+        (a.order_number || '').localeCompare(b.order_number || '', undefined, { numeric: true, sensitivity: 'base' })
+      );
       setFormats(formatsRes.data);
       setDepartments(deptsRes.data);
       setManpower(manpowerRes.data);
       setMachines(machinesRes.data);
       setCustomers(customersRes.data);
-      setJobOrders(jobOrdersRes.data);
+      setJobOrders(sortedJobOrders);
       setItems(itemsRes.data);
     } catch (err) {
       console.error(err);
