@@ -44,6 +44,11 @@ interface FormatField {
   unit?: string;
   open?: boolean;
   options?: string[];
+  formula?: {
+    left: string;
+    operator: string;
+    right: string;
+  };
 }
 
 export function JobOrderMaster() {
@@ -53,6 +58,45 @@ export function JobOrderMaster() {
   const [itemsMaster, setItemsMaster] = useState<Item[]>([]);
   const [joSchema, setJoSchema] = useState<FormatField[]>([]);
   const [loading, setLoading] = useState(true);
+
+  const evaluateCalculatedField = (field: FormatField, record: any) => {
+    if (field.type !== 'calculated' || !field.formula) return 0;
+    const { left, operator, right } = field.formula;
+
+    const getVal = (opName: string) => {
+      if (opName === 'order_qty') {
+        const v = record.order_qty;
+        return v === '' || v === undefined || v === null ? 0 : Number(v);
+      }
+      if (opName === 'production_qty') {
+        const v = record.production_qty;
+        return v === '' || v === undefined || v === null ? 0 : Number(v);
+      }
+      // Custom field
+      const customData = record.custom_data || {};
+      const customVal = customData[opName];
+      if (customVal === '' || customVal === undefined || customVal === null) return 0;
+      return Number(customVal) || 0;
+    };
+
+    const leftVal = getVal(left);
+    const rightVal = getVal(right);
+
+    let result = 0;
+    if (operator === '+') result = leftVal + rightVal;
+    else if (operator === '-') result = leftVal - rightVal;
+    else if (operator === '*') result = leftVal * rightVal;
+    else if (operator === '/') result = rightVal !== 0 ? leftVal / rightVal : 0;
+    
+    return Math.round((result + Number.EPSILON) * 1000) / 1000;
+  };
+
+  const getOperandLabel = (val?: string) => {
+    if (!val) return '';
+    if (val === 'order_qty') return 'Order Qty';
+    if (val === 'production_qty') return 'Production Qty';
+    return val;
+  };
 
   // Quick inline creation modals state
   const [showAddCustomerModal, setShowAddCustomerModal] = useState(false);
@@ -143,7 +187,10 @@ export function JobOrderMaster() {
 
     // Add custom columns display values based on schemas
     joSchema.forEach(field => {
-      const val = order.custom_data?.[field.name];
+      let val = order.custom_data?.[field.name];
+      if (field.type === 'calculated') {
+        val = evaluateCalculatedField(field, order);
+      }
       if (val !== null && val !== undefined) {
         if (field.type === 'boolean') {
           searchableFields.push(val === true ? 'Yes' : val === false ? 'No' : '');
@@ -206,7 +253,11 @@ export function JobOrderMaster() {
       };
 
       joSchema.forEach(field => {
-        rowObj[`custom_${field.name}`] = order.custom_data?.[field.name] ?? '';
+        if (field.type === 'calculated') {
+          rowObj[`custom_${field.name}`] = evaluateCalculatedField(field, order);
+        } else {
+          rowObj[`custom_${field.name}`] = order.custom_data?.[field.name] ?? '';
+        }
       });
 
       return rowObj;
@@ -794,6 +845,15 @@ export function JobOrderMaster() {
                               <option key={d.id} value={d.name}>{d.name}</option>
                             ))}
                           </select>
+                        ) : field.type === 'calculated' ? (
+                          <div>
+                            <div className="bg-gray-100 border border-border/60 rounded-md px-3 py-2 text-sm font-semibold text-primary select-none cursor-not-allowed">
+                              {evaluateCalculatedField(field, formData)}
+                            </div>
+                            <span className="text-[10px] text-text-secondary italic">
+                              Auto-computed: {getOperandLabel(field.formula?.left)} {field.formula?.operator} {getOperandLabel(field.formula?.right)}
+                            </span>
+                          </div>
                         ) : (
                           <input
                             type={field.type === 'number' ? 'number' : field.type === 'date' ? 'date' : 'text'}
@@ -949,13 +1009,16 @@ export function JobOrderMaster() {
                     {order.start_date ? new Date(order.start_date).toLocaleDateString() : 'N/A'} - {order.end_date ? new Date(order.end_date).toLocaleDateString() : 'N/A'}
                   </td>
                   {joSchema.map((field, idx) => {
-                    const val = order.custom_data?.[field.name];
+                    let val = order.custom_data?.[field.name];
+                    if (field.type === 'calculated') {
+                      val = evaluateCalculatedField(field, order);
+                    }
                     let displayVal = val;
                     if (field.type === 'boolean') {
                       displayVal = val === true ? 'Yes' : val === false ? 'No' : '';
                     }
                     return (
-                      <td key={idx} className="px-6 py-4 whitespace-nowrap text-sm text-text-primary font-medium tabular-nums">
+                      <td key={idx} className="px-6 py-4 whitespace-nowrap text-sm text-text-primary font-semibold tabular-nums">
                         {displayVal !== null && displayVal !== undefined ? String(displayVal) : '—'}
                       </td>
                     );
