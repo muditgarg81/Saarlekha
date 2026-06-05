@@ -348,6 +348,7 @@ export function ProductionDetail() {
                     <th className="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase">By</th>
                   </>
                 )}
+                <th className="px-6 py-3 text-right text-xs font-medium text-text-secondary uppercase">Efficiency %</th>
                 <th className="px-6 py-3 text-right text-xs font-medium text-text-secondary uppercase w-20">Actions</th>
               </tr>
             </thead>
