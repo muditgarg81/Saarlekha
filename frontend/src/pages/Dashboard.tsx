@@ -205,28 +205,40 @@ export function Dashboard() {
     }))
   });
 
-  const handleOperatorExport = (format: 'Excel' | 'PDF' | 'CSV' | 'TXT') => {
+  const handleOperatorExport = async (format: 'Excel' | 'PDF' | 'CSV' | 'TXT') => {
     const opts = getOperatorExportOpts();
-    if (format === 'Excel') exportExcel(opts);
-    else if (format === 'PDF') exportPDF(opts);
-    else if (format === 'CSV') exportCSV(opts);
-    else if (format === 'TXT') exportTXT(opts);
+    try {
+      if (format === 'Excel') await exportExcel(opts);
+      else if (format === 'PDF') await exportPDF(opts);
+      else if (format === 'CSV') await exportCSV(opts);
+      else if (format === 'TXT') await exportTXT(opts);
+    } catch (err) {
+      console.error('Operator export failed:', err);
+    }
   };
 
-  const handleMachineExport = (format: 'Excel' | 'PDF' | 'CSV' | 'TXT') => {
+  const handleMachineExport = async (format: 'Excel' | 'PDF' | 'CSV' | 'TXT') => {
     const opts = getMachineExportOpts();
-    if (format === 'Excel') exportExcel(opts);
-    else if (format === 'PDF') exportPDF(opts);
-    else if (format === 'CSV') exportCSV(opts);
-    else if (format === 'TXT') exportTXT(opts);
+    try {
+      if (format === 'Excel') await exportExcel(opts);
+      else if (format === 'PDF') await exportPDF(opts);
+      else if (format === 'CSV') await exportCSV(opts);
+      else if (format === 'TXT') await exportTXT(opts);
+    } catch (err) {
+      console.error('Machine export failed:', err);
+    }
   };
 
-  const handleMaintenanceExport = (format: 'Excel' | 'PDF' | 'CSV' | 'TXT') => {
+  const handleMaintenanceExport = async (format: 'Excel' | 'PDF' | 'CSV' | 'TXT') => {
     const opts = getMaintenanceExportOpts();
-    if (format === 'Excel') exportExcel(opts);
-    else if (format === 'PDF') exportPDF(opts);
-    else if (format === 'CSV') exportCSV(opts);
-    else if (format === 'TXT') exportTXT(opts);
+    try {
+      if (format === 'Excel') await exportExcel(opts);
+      else if (format === 'PDF') await exportPDF(opts);
+      else if (format === 'CSV') await exportCSV(opts);
+      else if (format === 'TXT') await exportTXT(opts);
+    } catch (err) {
+      console.error('Maintenance export failed:', err);
+    }
   };
 
   const fetchDashboard = useCallback(async () => {

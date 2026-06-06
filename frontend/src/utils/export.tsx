@@ -8,6 +8,9 @@
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { Capacitor } from '@capacitor/core';
+import { Filesystem, Directory } from '@capacitor/filesystem';
+import { Share } from '@capacitor/share';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -26,7 +29,7 @@ export interface ExportOptions {
 
 // ─── CSV ────────────────────────────────────────────────────────────────────
 
-export function exportCSV(opts: ExportOptions) {
+export async function exportCSV(opts: ExportOptions) {
   const header = opts.columns.map(c => `"${c.header}"`).join(',');
   const body = opts.rows.map(row =>
     opts.columns.map(c => {
@@ -35,12 +38,12 @@ export function exportCSV(opts: ExportOptions) {
     }).join(',')
   );
   const csv = [header, ...body].join('\n');
-  trigger(new Blob([csv], { type: 'text/csv;charset=utf-8;' }), `${opts.filename}.csv`);
+  await saveAndShare(new Blob([csv], { type: 'text/csv;charset=utf-8;' }), `${opts.filename}.csv`);
 }
 
 // ─── TXT ────────────────────────────────────────────────────────────────────
 
-export function exportTXT(opts: ExportOptions) {
+export async function exportTXT(opts: ExportOptions) {
   const lines: string[] = [
     opts.title,
     opts.subtitle ?? '',
@@ -53,12 +56,12 @@ export function exportTXT(opts: ExportOptions) {
     '─'.repeat(60),
     `Exported: ${new Date().toLocaleString()}`,
   ];
-  trigger(new Blob([lines.join('\n')], { type: 'text/plain;charset=utf-8;' }), `${opts.filename}.txt`);
+  await saveAndShare(new Blob([lines.join('\n')], { type: 'text/plain;charset=utf-8;' }), `${opts.filename}.txt`);
 }
 
 // ─── Excel (.xlsx) ───────────────────────────────────────────────────────────
 
-export function exportExcel(opts: ExportOptions) {
+export async function exportExcel(opts: ExportOptions) {
   const wsData = [
     opts.columns.map(c => c.header),  // header row
     ...opts.rows.map(row => opts.columns.map(c => row[c.key] ?? ''))
@@ -82,12 +85,14 @@ export function exportExcel(opts: ExportOptions) {
   const metaWs = XLSX.utils.aoa_to_sheet(metaData);
   XLSX.utils.book_append_sheet(wb, metaWs, 'Info');
 
-  XLSX.writeFile(wb, `${opts.filename}.xlsx`);
+  const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+  const blob = new Blob([wbout], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+  await saveAndShare(blob, `${opts.filename}.xlsx`);
 }
 
 // ─── PDF ─────────────────────────────────────────────────────────────────────
 
-export function exportPDF(opts: ExportOptions) {
+export async function exportPDF(opts: ExportOptions) {
   const colCount = opts.columns.length;
   
   let orientation: 'portrait' | 'landscape' = 'portrait';
@@ -193,10 +198,24 @@ export function exportPDF(opts: ExportOptions) {
     );
   }
 
-  doc.save(`${opts.filename}.pdf`);
+  const blob = doc.output('blob');
+  await saveAndShare(blob, `${opts.filename}.pdf`);
 }
 
-// ─── Helper ──────────────────────────────────────────────────────────────────
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+function blobToBase64(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = reject;
+    reader.onload = () => {
+      const result = reader.result as string;
+      const base64 = result.substring(result.indexOf(',') + 1);
+      resolve(base64);
+    };
+    reader.readAsDataURL(blob);
+  });
+}
 
 function trigger(blob: Blob, filename: string) {
   const url = URL.createObjectURL(blob);
@@ -205,6 +224,28 @@ function trigger(blob: Blob, filename: string) {
   a.download = filename;
   a.click();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+async function saveAndShare(blob: Blob, filename: string) {
+  if (Capacitor.isNativePlatform()) {
+    try {
+      const base64Data = await blobToBase64(blob);
+      const result = await Filesystem.writeFile({
+        path: filename,
+        data: base64Data,
+        directory: Directory.Cache,
+      });
+      await Share.share({
+        title: `Share ${filename}`,
+        url: result.uri,
+      });
+    } catch (err) {
+      console.error('Error during native save/share:', err);
+      trigger(blob, filename);
+    }
+  } else {
+    trigger(blob, filename);
+  }
 }
 
 // ─── Shared Export Button Bar ─────────────────────────────────────────────────
@@ -254,9 +295,13 @@ export function ExportBar({ opts, loading }: ExportBarProps) {
               <button
                 key={label}
                 type="button"
-                onClick={() => {
-                  fn(opts);
+                onClick={async () => {
                   setIsOpen(false);
+                  try {
+                    await fn(opts);
+                  } catch (e) {
+                    console.error(`Export failed for format ${label}:`, e);
+                  }
                 }}
                 className={`w-full text-left px-4 py-2 text-xs font-semibold text-text-secondary transition-colors ${hoverColor}`}
               >
