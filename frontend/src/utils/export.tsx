@@ -80,7 +80,7 @@ export async function exportExcel(opts: ExportOptions) {
     ['Report', opts.title],
     ['Period', opts.subtitle ?? ''],
     ['Generated', new Date().toLocaleString()],
-    ['Platform', 'Saarlekha — Operations Reporting'],
+    ['Platform', 'SaarLekha - Operations Reporting'],
   ];
   const metaWs = XLSX.utils.aoa_to_sheet(metaData);
   XLSX.utils.book_append_sheet(wb, metaWs, 'Info');
@@ -160,7 +160,7 @@ export async function exportPDF(opts: ExportOptions) {
 
   doc.setFontSize(metaSize);
   doc.setTextColor(65, 71, 84);
-  doc.text(`Generated: ${new Date().toLocaleString()}  |  Saarlekha Operations Reporting`, 14, metaY);
+  doc.text(`Generated: ${new Date().toLocaleString()}  |  SaarLekha - Operations Reporting`, 14, metaY);
 
   // Table
   autoTable(doc, {

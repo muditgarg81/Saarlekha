@@ -26,8 +26,8 @@ export default defineConfig({
         ]
       },
       manifest: {
-        name: 'Saarlekha',
-        short_name: 'Saarlekha',
+        name: 'SaarLekha - Operations Reporting',
+        short_name: 'SaarLekha',
         description: 'Internal operations reporting platform for manufacturing',
         theme_color: '#0059bb',
         background_color: '#f9f9ff',
