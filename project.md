@@ -1,12 +1,12 @@
-# Saarlekha — Technical & Architectural Specifications
+# SaarLekha - Operations Reporting — Technical & Architectural Specifications
 
-This document serves as the comprehensive, single source of truth for the **Saarlekha** operations reporting platform. It outlines the system architecture, database design, modules, business logic, calculations, and security configurations implemented across the repository.
+This document serves as the comprehensive, single source of truth for the **SaarLekha - Operations Reporting** platform. It outlines the system architecture, database design, modules, business logic, calculations, and security configurations implemented across the repository.
 
 ---
 
 ## 1. System Architecture
 
-Saarlekha is designed as a secure, multi-tenant operations logging and metrics dashboard for manufacturing enterprises. It runs as a responsive web app and is wrapped into a native mobile app using Capacitor.
+SaarLekha - Operations Reporting is designed as a secure, multi-tenant operations logging and metrics dashboard for manufacturing enterprises. It runs as a responsive web app and is wrapped into a native mobile app using Capacitor.
 
 ```mermaid
 graph TD
@@ -216,7 +216,7 @@ Because custom schemas allow arbitrary titles (e.g., `Production achieved (mtr.)
 
 ## 6. Exporters & Mobile Share Sheet
 
-Saarlekha features client-side exports supporting **Excel (.xlsx)**, **PDF**, **CSV**, and **TXT** formats.
+SaarLekha - Operations Reporting features client-side exports supporting **Excel (.xlsx)**, **PDF**, **CSV**, and **TXT** formats.
 
 ```mermaid
 graph TD
@@ -255,7 +255,7 @@ To resolve this:
 Key files across the project:
 
 ```
-Saarlekha/
+SaarLekha/
 ├── backend/
 │   ├── prisma/
 │   │   └── schema.prisma         # Database models and relations
