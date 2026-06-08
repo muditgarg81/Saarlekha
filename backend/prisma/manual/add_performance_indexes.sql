@@ -1,0 +1,16 @@
+CREATE INDEX IF NOT EXISTS "ReportEntry_company_id_entry_date_idx" ON "ReportEntry" ("company_id", "entry_date");
+CREATE INDEX IF NOT EXISTS "ReportEntry_department_id_idx"          ON "ReportEntry" ("department_id");
+CREATE INDEX IF NOT EXISTS "ReportEntry_format_version_id_idx"      ON "ReportEntry" ("format_version_id");
+CREATE INDEX IF NOT EXISTS "ProductionRecord_company_id_date_idx"   ON "ProductionRecord" ("company_id", "date");
+CREATE INDEX IF NOT EXISTS "ProductionRecord_operator_id_idx"       ON "ProductionRecord" ("operator_id");
+CREATE INDEX IF NOT EXISTS "ProductionRecord_machine_id_idx"        ON "ProductionRecord" ("machine_id");
+CREATE INDEX IF NOT EXISTS "Manpower_company_id_idx"                ON "Manpower" ("company_id");
+CREATE INDEX IF NOT EXISTS "Manpower_department_id_idx"             ON "Manpower" ("department_id");
+CREATE INDEX IF NOT EXISTS "JobOrder_company_id_status_idx"         ON "JobOrder" ("company_id", "status");
+CREATE INDEX IF NOT EXISTS "JobOrder_customer_id_idx"               ON "JobOrder" ("customer_id");
+CREATE INDEX IF NOT EXISTS "Machine_company_id_idx"                 ON "Machine" ("company_id");
+CREATE INDEX IF NOT EXISTS "Machine_department_id_idx"              ON "Machine" ("department_id");
+CREATE INDEX IF NOT EXISTS "ReportFormatVersion_format_id_idx"      ON "ReportFormatVersion" ("format_id");
+CREATE INDEX IF NOT EXISTS "ReportFormat_company_id_type_idx"       ON "ReportFormat" ("company_id", "type");
+CREATE INDEX IF NOT EXISTS "Customer_company_id_idx"                ON "Customer" ("company_id");
+CREATE INDEX IF NOT EXISTS "AuditLogEntry_company_id_timestamp_idx" ON "AuditLogEntry" ("company_id", "timestamp");

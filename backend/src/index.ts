@@ -2,6 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import { PrismaClient } from '@prisma/client';
+import { prisma } from './db/prisma';
 
 dotenv.config();
 
@@ -41,12 +42,22 @@ app.use('/api/dashboard', dashboardRouter);
 app.use('/api/audit', auditRouter);
 app.use('/api/maintenance-types', maintenanceTypesRouter);
 
-app.get('/api/health', (req, res) => {
-  res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
+app.get('/api/health', async (req, res) => {
+  try {
+    await prisma.$queryRaw`SELECT 1`;
+    res.status(200).json({ status: 'ok', database: 'connected', timestamp: new Date().toISOString() });
+  } catch (error: any) {
+    res.status(500).json({ status: 'error', database: 'disconnected', error: error.message });
+  }
 });
 
-app.get('/health', (req, res) => {
-  res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
+app.get('/health', async (req, res) => {
+  try {
+    await prisma.$queryRaw`SELECT 1`;
+    res.status(200).json({ status: 'ok', database: 'connected', timestamp: new Date().toISOString() });
+  } catch (error: any) {
+    res.status(500).json({ status: 'error', database: 'disconnected', error: error.message });
+  }
 });
 
 app.listen(port, () => {

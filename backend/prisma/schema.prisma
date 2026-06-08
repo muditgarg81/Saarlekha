@@ -36,6 +36,7 @@ model Company {
   contact_name String?
   email        String?
   phone        String?
+  retention_days Int?
   created_at   DateTime @default(now())
   updated_at   DateTime @updatedAt
 
@@ -115,6 +116,9 @@ model Manpower {
   company           Company            @relation(fields: [company_id], references: [id])
   department        Department         @relation(fields: [department_id], references: [id])
   production_records ProductionRecord[]
+
+  @@index([company_id])
+  @@index([department_id])
 }
 
 model Customer {
@@ -130,6 +134,8 @@ model Customer {
 
   company         Company    @relation(fields: [company_id], references: [id])
   job_orders      JobOrder[]
+
+  @@index([company_id])
 }
 
 model Item {
@@ -159,6 +165,8 @@ model ReportFormat {
 
   company    Company @relation(fields: [company_id], references: [id])
   versions   ReportFormatVersion[]
+
+  @@index([company_id, type])
 }
 
 model ReportFormatVersion {
@@ -170,6 +178,8 @@ model ReportFormatVersion {
 
   format        ReportFormat  @relation(fields: [format_id], references: [id])
   entries       ReportEntry[]
+
+  @@index([format_id])
 }
 
 model ReportEntry {
@@ -186,6 +196,10 @@ model ReportEntry {
   format_version    ReportFormatVersion @relation(fields: [format_version_id], references: [id])
   department        Department          @relation(fields: [department_id], references: [id])
   submitter         User                @relation(fields: [submitted_by], references: [id])
+
+  @@index([company_id, entry_date])
+  @@index([department_id])
+  @@index([format_version_id])
 }
 
 model JobOrder {
@@ -210,6 +224,9 @@ model JobOrder {
   customer    Customer    @relation(fields: [customer_id], references: [id])
   department  Department? @relation(fields: [department_id], references: [id])
   item        Item?       @relation(fields: [item_id], references: [id])
+
+  @@index([company_id, status])
+  @@index([customer_id])
 }
 
 model Machine {
@@ -224,6 +241,9 @@ model Machine {
   company     Company            @relation(fields: [company_id], references: [id])
   department  Department?        @relation(fields: [department_id], references: [id])
   production_records ProductionRecord[]
+
+  @@index([company_id])
+  @@index([department_id])
 }
 
 model ProductionRecord {
@@ -242,6 +262,10 @@ model ProductionRecord {
   operator          Manpower   @relation(fields: [operator_id], references: [id])
   machine           Machine    @relation(fields: [machine_id], references: [id])
   department        Department @relation(fields: [department_id], references: [id])
+
+  @@index([company_id, date])
+  @@index([operator_id])
+  @@index([machine_id])
 }
 
 model AuditLogEntry {
@@ -256,6 +280,8 @@ model AuditLogEntry {
 
   company     Company? @relation(fields: [company_id], references: [id])
   user        User     @relation(fields: [user_id], references: [id])
+
+  @@index([company_id, timestamp])
 }
 
 model MaintenanceTypeOption {

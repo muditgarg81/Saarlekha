@@ -6,6 +6,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = __importDefault(require("express"));
 const cors_1 = __importDefault(require("cors"));
 const dotenv_1 = __importDefault(require("dotenv"));
+const prisma_1 = require("./db/prisma");
 dotenv_1.default.config();
 const auth_1 = require("./routes/auth");
 const users_1 = require("./routes/users");
@@ -39,11 +40,23 @@ app.use('/api/production', production_1.productionRouter);
 app.use('/api/dashboard', dashboard_1.dashboardRouter);
 app.use('/api/audit', audit_1.auditRouter);
 app.use('/api/maintenance-types', maintenanceTypes_1.maintenanceTypesRouter);
-app.get('/api/health', (req, res) => {
-    res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
+app.get('/api/health', async (req, res) => {
+    try {
+        await prisma_1.prisma.$queryRaw `SELECT 1`;
+        res.status(200).json({ status: 'ok', database: 'connected', timestamp: new Date().toISOString() });
+    }
+    catch (error) {
+        res.status(500).json({ status: 'error', database: 'disconnected', error: error.message });
+    }
 });
-app.get('/health', (req, res) => {
-    res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
+app.get('/health', async (req, res) => {
+    try {
+        await prisma_1.prisma.$queryRaw `SELECT 1`;
+        res.status(200).json({ status: 'ok', database: 'connected', timestamp: new Date().toISOString() });
+    }
+    catch (error) {
+        res.status(500).json({ status: 'error', database: 'disconnected', error: error.message });
+    }
 });
 app.listen(port, () => {
     console.log(`Server running on port ${port}`);

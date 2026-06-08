@@ -3,75 +3,97 @@ import { PrismaPg } from '@prisma/adapter-pg';
 import { AsyncLocalStorage } from 'async_hooks';
 import pg from 'pg';
 import dotenv from 'dotenv';
+
 dotenv.config();
 
-// Construct connection URL: use saarlekha_app role to ensure Row-Level Security (RLS) is strictly enforced in PostgreSQL
-// (The default neondb_owner user has BYPASSRLS enabled, which prevents RLS policies from filtering its queries)
-const rawUrl = process.env.DATABASE_URL || '';
-let connectionString = rawUrl.includes('neondb_owner:npg_xNgMoVY29bKA')
-  ? rawUrl.replace('neondb_owner:npg_xNgMoVY29bKA', 'saarlekha_app:saarlekha_secure_pass')
-  : rawUrl;
+/**
+ * CREDENTIALS — read this:
+ * DATABASE_URL MUST connect as the RLS-enforced application role (e.g. `saarlekha_app`),
+ * NOT `neondb_owner`. The owner role has BYPASSRLS, which silently disables every
+ * Row-Level Security policy. Put the full connection string (including the app-role
+ * password) in the environment. NEVER hardcode credentials in source.
+ */
+let connectionString = process.env.DATABASE_URL || '';
+if (!connectionString) {
+  throw new Error('DATABASE_URL is not set');
+}
 
+/**
+ * Use Neon's direct (unpooled) endpoint. Tenant context below is set with
+ * transaction-local GUCs (set_config(..., is_local = true)), reset on COMMIT/ROLLBACK,
+ * so a normal pg pool of direct connections is correct. (Behaviour unchanged.)
+ * If you ever switch to the pooled endpoint, keep it in TRANSACTION pooling mode.
+ */
 connectionString = connectionString.replace('-pooler', '');
 
-const pool = new pg.Pool({ connectionString });
+const pool = new pg.Pool({
+  connectionString,
+  max: Number(process.env.PG_POOL_MAX ?? 10),
+  idleTimeoutMillis: 30_000,
+  connectionTimeoutMillis: 10_000,
+});
+
 const adapter = new PrismaPg(pool);
 
-// Global singleton for standard queries (e.g. Auth, Super Admin)
+// Global singleton for NON-tenant queries (auth, super-admin). No RLS wrapping here.
 export const prisma = new PrismaClient({ adapter });
 
-// AsyncLocalStorage to prevent infinite recursion in RLS transaction wrapping
+// Prevents re-wrapping queries that already run inside an RLS transaction.
 const rlsStorage = new AsyncLocalStorage<boolean>();
 
 /**
- * Returns a Prisma Client extension that injects the tenant ID into the transaction context.
- * This ensures Row-Level Security (RLS) is enforced at the database level for this request.
+ * Sets BOTH RLS GUCs in a SINGLE round trip (previously two separate round trips).
+ * set_config(..., true) is transaction-local and is discarded on COMMIT/ROLLBACK.
+ */
+function setTenantContext(
+  tx: Prisma.TransactionClient,
+  companyId: string,
+  role?: string
+) {
+  return tx.$executeRaw`SELECT
+    set_config('app.current_tenant_id', ${companyId}, true),
+    set_config('app.current_user_role', ${role ?? ''}, true)`;
+}
+
+/**
+ * Returns a tenant-scoped Prisma client that enforces RLS.
+ *
+ *  1) BATCH (use for ANY route with >1 query):
+ *       await client.$transaction(async (tx) => { ...use tx... });
+ *     Tenant context is set ONCE. Use `tx` only inside the callback.
+ *
+ *  2) STANDALONE — a single `client.model.op()` auto-wraps in one transaction.
+ *     Convenient, but pays a full transaction per call; don't fire many back-to-back.
  */
 export function getTenantPrisma(companyId: string, role?: string) {
   return prisma.$extends({
     client: {
       async $transaction<T>(
         fn: (tx: Prisma.TransactionClient) => Promise<T>,
-        options?: { maxWait?: number; timeout?: number; isolationLevel?: Prisma.TransactionIsolationLevel }
+        options?: {
+          maxWait?: number;
+          timeout?: number;
+          isolationLevel?: Prisma.TransactionIsolationLevel;
+        }
       ): Promise<T> {
         if (rlsStorage.getStore()) {
           return prisma.$transaction(fn as any, options as any) as any;
         }
         return prisma.$transaction(async (tx) => {
-          await tx.$executeRaw`SELECT set_config('app.current_tenant_id', ${companyId}, true)`;
-          if (role) {
-            await tx.$executeRaw`SELECT set_config('app.current_user_role', ${role}, true)`;
-          } else {
-            await tx.$executeRaw`SELECT set_config('app.current_user_role', '', true)`;
-          }
-          return rlsStorage.run(true, () => {
-            return fn(tx);
-          });
+          await setTenantContext(tx, companyId, role);
+          return rlsStorage.run(true, () => fn(tx));
         }, options as any) as any;
-      }
+      },
     },
     query: {
       $allModels: {
         async $allOperations({ model, operation, args, query }) {
-          // If we are already executing within the transaction block for RLS, bypass wrapping
           if (rlsStorage.getStore()) {
             return query(args);
           }
-
-          // Otherwise, start a transaction, set the tenant ID, and run the query within the transaction
           return prisma.$transaction(async (tx) => {
-            // Set the Postgres configuration parameters for this transaction
-            await tx.$executeRaw`SELECT set_config('app.current_tenant_id', ${companyId}, true)`;
-            if (role) {
-              await tx.$executeRaw`SELECT set_config('app.current_user_role', ${role}, true)`;
-            } else {
-              await tx.$executeRaw`SELECT set_config('app.current_user_role', '', true)`;
-            }
-            
-            // Run the operation on the transactional client within the context of AsyncLocalStorage
-            return rlsStorage.run(true, () => {
-              return (tx as any)[model][operation](args);
-            });
+            await setTenantContext(tx, companyId, role);
+            return rlsStorage.run(true, () => (tx as any)[model][operation](args));
           });
         },
       },

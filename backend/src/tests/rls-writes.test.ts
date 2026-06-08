@@ -20,7 +20,7 @@ async function runRLSWriteTests() {
   const ownerPrisma = new PrismaClient({ adapter: ownerAdapter });
 
   // Connect as saarlekha_app (enforces RLS) for RLS testing
-  let appUrl = ownerUrl.replace('neondb_owner:npg_xNgMoVY29bKA', 'saarlekha_app:saarlekha_secure_pass');
+  let appUrl = process.env.APP_DATABASE_URL || ownerUrl.replace(/(postgresql:\/\/)([^@]+)(@)/, '$1saarlekha_app:saarlekha_secure_pass$3');
   appUrl = appUrl.replace('-pooler', '');
   console.log('Connecting to database as saarlekha_app role...');
   const appPool = new pg.Pool({ connectionString: appUrl });

@@ -11,6 +11,130 @@ interface Company {
   contact_name: string;
   phone: string;
   email: string;
+  retention_days?: number | null;
+}
+
+function CompanyRetentionStatus({ companyId }: { companyId: string }) {
+  const [status, setStatus] = React.useState<{
+    retentionDays: number | null;
+    olderEntriesCount: number;
+    olderProductionCount: number;
+  } | null>(null);
+  const [loading, setLoading] = React.useState(true);
+  const [purging, setPurging] = React.useState(false);
+
+  const fetchStatus = async () => {
+    try {
+      const res = await api.get(`/companies/${companyId}/retention-status`);
+      setStatus(res.data);
+    } catch (err) {
+      console.error('Failed to fetch retention status', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  React.useEffect(() => {
+    fetchStatus();
+  }, [companyId]);
+
+  const handlePurge = async () => {
+    if (!status) return;
+    const total = status.olderEntriesCount + status.olderProductionCount;
+    if (total === 0) {
+      alert('No old data available to purge.');
+      return;
+    }
+
+    const message = `CAUTION: You are about to permanently delete ${status.olderEntriesCount} report entries and ${status.olderProductionCount} production records that are older than the configured retention period (${status.retentionDays} days).\n\nThis action cannot be undone.\n\nType "PURGE" to confirm this action:`;
+    const confirmation = window.prompt(message);
+    if (confirmation === 'PURGE') {
+      try {
+        setPurging(true);
+        const res = await api.post(`/companies/${companyId}/purge-data`);
+        alert(`Successfully purged data: Deleted ${res.data.deletedReportEntries} report entries and ${res.data.deletedProductionRecords} production records.`);
+        fetchStatus();
+      } catch (err: any) {
+        alert(err.response?.data?.error || 'Failed to purge data');
+      } finally {
+        setPurging(false);
+      }
+    }
+  };
+
+  const handleDownload = async () => {
+    try {
+      const res = await api.get(`/companies/${companyId}/archive-data`, {
+        responseType: 'blob'
+      });
+      const url = window.URL.createObjectURL(new Blob([res.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `saarlekha_archive_${companyId}_${new Date().toISOString().split('T')[0]}.json`);
+      document.body.appendChild(link);
+      link.click();
+      link.parentNode?.removeChild(link);
+    } catch (err: any) {
+      alert('Failed to download archive');
+    }
+  };
+
+  if (loading) return <div className="text-xs text-text-secondary mt-2">Loading storage status...</div>;
+  if (!status || status.retentionDays === null) {
+    return (
+      <div className="bg-surface p-3 rounded-lg border border-border text-xs text-text-secondary mt-3">
+        <strong>Data Retention:</strong> Indefinite (No Auto-Purge). Old logs are kept indefinitely.
+      </div>
+    );
+  }
+
+  const totalOld = status.olderEntriesCount + status.olderProductionCount;
+
+  return (
+    <div className="bg-surface p-3 rounded-lg border border-border space-y-2.5 mt-3">
+      <div className="flex justify-between items-center">
+        <span className="text-xs font-semibold text-text-primary">Data Retention Policy:</span>
+        <span className="text-xs font-bold text-primary">{status.retentionDays} Days</span>
+      </div>
+
+      <div className="text-xs text-text-secondary space-y-1">
+        <div className="flex justify-between">
+          <span>Archivable Report Entries:</span>
+          <span className="font-semibold text-text-primary">{status.olderEntriesCount}</span>
+        </div>
+        <div className="flex justify-between">
+          <span>Archivable Production Records:</span>
+          <span className="font-semibold text-text-primary">{status.olderProductionCount}</span>
+        </div>
+      </div>
+
+      <div className="flex gap-2 pt-1.5 border-t border-border">
+        {totalOld > 0 ? (
+          <>
+            <button
+              type="button"
+              onClick={handleDownload}
+              className="flex-1 bg-primary text-white hover:bg-primary-light text-[10px] font-bold py-1.5 rounded transition-all shadow-sm"
+            >
+              Download Archive
+            </button>
+            <button
+              type="button"
+              onClick={handlePurge}
+              disabled={purging}
+              className="flex-1 bg-danger text-white hover:bg-danger/90 text-[10px] font-bold py-1.5 rounded transition-all shadow-sm disabled:opacity-50"
+            >
+              {purging ? 'Purging...' : 'Purge Database'}
+            </button>
+          </>
+        ) : (
+          <div className="text-[10px] text-text-secondary italic text-center w-full">
+            No historical records exceed the retention cutoff.
+          </div>
+        )}
+      </div>
+    </div>
+  );
 }
 
 export function CompaniesTab() {
@@ -344,6 +468,24 @@ export function CompaniesTab() {
                         onChange={e => setEditForm({...editForm, phone: e.target.value})} 
                       />
                     </div>
+                    <div className="col-span-2">
+                      <label className="block text-xs font-semibold text-text-secondary uppercase">Data Retention Policy</label>
+                      <select
+                        className="mt-1 w-full border border-border rounded-lg px-2 py-1 text-sm bg-white"
+                        value={editForm.retention_days !== undefined && editForm.retention_days !== null ? String(editForm.retention_days) : ''}
+                        onChange={e => {
+                          const val = e.target.value;
+                          setEditForm({...editForm, retention_days: val === '' ? null : parseInt(val, 10)});
+                        }}
+                      >
+                        <option value="">Indefinite / No Auto-Purge</option>
+                        <option value="30">30 Days (1 Month)</option>
+                        <option value="90">90 Days (3 Months)</option>
+                        <option value="180">180 Days (6 Months)</option>
+                        <option value="365">365 Days (1 Year)</option>
+                        <option value="730">730 Days (2 Years)</option>
+                      </select>
+                    </div>
                   </div>
                   <div className="flex gap-2 pt-2 border-t border-border justify-end">
                     <button onClick={() => setEditingId(null)} className="border border-border px-3 py-1 rounded text-sm hover:bg-gray-50 font-medium">Cancel</button>
@@ -378,7 +520,7 @@ export function CompaniesTab() {
                     <div className="space-y-2.5 text-sm text-text-secondary py-2">
                       <p className="leading-relaxed"><span className="font-semibold text-text-primary">Address:</span> {company.address || 'N/A'}</p>
                       
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1 border-t border-gray-50 mt-2">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1 border-t border-gray-50 mt-2 pb-2">
                         <div className="flex items-center gap-2">
                           <User className="h-4 w-4 text-gray-400 flex-shrink-0" />
                           <span className="truncate">{company.contact_name || 'No Contact'}</span>
@@ -396,6 +538,8 @@ export function CompaniesTab() {
                           </div>
                         )}
                       </div>
+
+                      <CompanyRetentionStatus companyId={company.id} />
                     </div>
                   </div>
 

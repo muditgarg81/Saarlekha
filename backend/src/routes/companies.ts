@@ -57,7 +57,8 @@ companiesRouter.put('/:id', requireRole(['SUPER_ADMIN', 'COMPANY_ADMIN']), async
         gst: data.gst,
         contact_name: data.contact_name,
         phone: data.phone,
-        email: data.email
+        email: data.email,
+        retention_days: data.retention_days !== undefined ? (data.retention_days === null || data.retention_days === '' ? null : parseInt(data.retention_days, 10)) : undefined
       }
     });
     res.json(updated);
@@ -198,3 +199,221 @@ companiesRouter.delete('/:id', requireRole(['SUPER_ADMIN']), async (req, res) =>
     res.status(500).json({ error: 'Failed to delete company', details: sanitizeDatabaseError(error) });
   }
 });
+
+// Helper to get cutoff date based on company's retention days
+async function getRetentionCutoff(companyId: string, db: any) {
+  const company = await db.company.findUnique({
+    where: { id: companyId },
+    select: { retention_days: true }
+  });
+
+  if (!company || !company.retention_days || company.retention_days <= 0) {
+    return null; // Indefinite retention
+  }
+
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - company.retention_days);
+  return cutoff;
+}
+
+// 1. Get counts of data older than the retention period
+companiesRouter.get('/:id/retention-status', requireRole(['SUPER_ADMIN', 'COMPANY_ADMIN']), async (req, res) => {
+  const id = req.params.id as string;
+  const tenantId = req.tenantId;
+
+  if (req.user?.role !== 'SUPER_ADMIN' && tenantId !== id) {
+    return res.status(403).json({ error: 'Forbidden to view another company status' });
+  }
+
+  const db = req.user?.role === 'SUPER_ADMIN' ? getTenantPrisma(id) : getTenantPrisma(tenantId!);
+
+  try {
+    const cutoff = await getRetentionCutoff(id, db);
+    if (!cutoff) {
+      return res.json({
+        retentionDays: (await db.company.findUnique({ where: { id }, select: { retention_days: true } }))?.retention_days || null,
+        olderEntriesCount: 0,
+        olderProductionCount: 0
+      });
+    }
+
+    // Run queries
+    const olderEntriesCount = await db.reportEntry.count({
+      where: {
+        company_id: id,
+        entry_date: { lt: cutoff }
+      }
+    });
+
+    const olderProductionCount = await db.productionRecord.count({
+      where: {
+        company_id: id,
+        date: { lt: cutoff }
+      }
+    });
+
+    res.json({
+      retentionDays: (await db.company.findUnique({ where: { id }, select: { retention_days: true } }))?.retention_days || null,
+      olderEntriesCount,
+      olderProductionCount
+    });
+  } catch (error: any) {
+    res.status(500).json({ error: 'Failed to get retention status', details: sanitizeDatabaseError(error) });
+  }
+});
+
+// 2. Download historical data older than the retention period
+companiesRouter.get('/:id/archive-data', requireRole(['SUPER_ADMIN', 'COMPANY_ADMIN']), async (req, res) => {
+  const id = req.params.id as string;
+  const tenantId = req.tenantId;
+
+  if (req.user?.role !== 'SUPER_ADMIN' && tenantId !== id) {
+    return res.status(403).json({ error: 'Forbidden to archive another company data' });
+  }
+
+  const db = req.user?.role === 'SUPER_ADMIN' ? getTenantPrisma(id) : getTenantPrisma(tenantId!);
+
+  try {
+    const cutoff = await getRetentionCutoff(id, db);
+    if (!cutoff) {
+      return res.status(400).json({ error: 'No active data retention period is set for this company.' });
+    }
+
+    const company = await db.company.findUnique({ where: { id } });
+    if (!company) {
+      return res.status(404).json({ error: 'Company not found' });
+    }
+
+    // Query entries
+    const reportEntries = await db.reportEntry.findMany({
+      where: {
+        company_id: id,
+        entry_date: { lt: cutoff }
+      },
+      orderBy: { entry_date: 'asc' },
+      include: {
+        format_version: {
+          include: {
+            format: { select: { name: true, type: true } }
+          }
+        },
+        department: { select: { name: true } },
+        submitter: { select: { email: true } }
+      }
+    });
+
+    // Query production logs
+    const productionRecords = await db.productionRecord.findMany({
+      where: {
+        company_id: id,
+        date: { lt: cutoff }
+      },
+      orderBy: { date: 'asc' },
+      include: {
+        operator: { select: { name: true } },
+        machine: { select: { name: true } },
+        department: { select: { name: true } }
+      }
+    });
+
+    const archive = {
+      companyId: company.id,
+      companyName: company.name,
+      retentionDays: company.retention_days,
+      exportedAt: new Date().toISOString(),
+      cutoffDate: cutoff.toISOString(),
+      reportEntriesCount: reportEntries.length,
+      productionRecordsCount: productionRecords.length,
+      reportEntries,
+      productionRecords
+    };
+
+    const filename = `saarlekha_archive_${company.name.toLowerCase().replace(/[^a-z0-9]/g, '_')}_${new Date().toISOString().split('T')[0]}.json`;
+
+    res.setHeader('Content-disposition', `attachment; filename=${filename}`);
+    res.setHeader('Content-type', 'application/json');
+    res.send(JSON.stringify(archive, null, 2));
+  } catch (error: any) {
+    res.status(500).json({ error: 'Failed to archive data', details: sanitizeDatabaseError(error) });
+  }
+});
+
+// 3. Purge data older than retention period
+companiesRouter.post('/:id/purge-data', requireRole(['SUPER_ADMIN', 'COMPANY_ADMIN']), async (req, res) => {
+  const id = req.params.id as string;
+  const tenantId = req.tenantId;
+
+  if (req.user?.role !== 'SUPER_ADMIN' && tenantId !== id) {
+    return res.status(403).json({ error: 'Forbidden to purge another company data' });
+  }
+
+  const db = req.user?.role === 'SUPER_ADMIN' ? getTenantPrisma(id) : getTenantPrisma(tenantId!);
+
+  try {
+    const cutoff = await getRetentionCutoff(id, db);
+    if (!cutoff) {
+      return res.status(400).json({ error: 'No active data retention period is set for this company.' });
+    }
+
+    const result = await db.$transaction(async (tx) => {
+      // 1. Count first
+      const reportEntriesCount = await tx.reportEntry.count({
+        where: {
+          company_id: id,
+          entry_date: { lt: cutoff }
+        }
+      });
+
+      const productionRecordsCount = await tx.productionRecord.count({
+        where: {
+          company_id: id,
+          date: { lt: cutoff }
+        }
+      });
+
+      // 2. Delete ProductionRecord first
+      await tx.productionRecord.deleteMany({
+        where: {
+          company_id: id,
+          date: { lt: cutoff }
+        }
+      });
+
+      // 3. Delete ReportEntry second
+      await tx.reportEntry.deleteMany({
+        where: {
+          company_id: id,
+          entry_date: { lt: cutoff }
+        }
+      });
+
+      // Log action to audit trails
+      await tx.auditLogEntry.create({
+        data: {
+          company_id: id,
+          user_id: req.user!.id,
+          action: 'DELETE',
+          entity_type: 'ReportEntry',
+          entity_id: id,
+          details: {
+            message: 'Historical data purged according to retention policy.',
+            cutoffDate: cutoff.toISOString(),
+            purgedReportEntries: reportEntriesCount,
+            purgedProductionRecords: productionRecordsCount
+          }
+        }
+      });
+
+      return {
+        success: true,
+        deletedReportEntries: reportEntriesCount,
+        deletedProductionRecords: productionRecordsCount
+      };
+    });
+
+    res.json(result);
+  } catch (error: any) {
+    res.status(500).json({ error: 'Failed to purge data', details: sanitizeDatabaseError(error) });
+  }
+});
+
