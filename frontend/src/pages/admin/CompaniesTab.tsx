@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import api from '../../utils/api';
 import { useAuth } from '../../context/AuthContext';
-import { Building2, Plus, Trash2, X, Phone, Mail, User, ShieldAlert, Shield } from 'lucide-react';
+import { Building2, Plus, Trash2, X, Phone, Mail, User, ShieldAlert, Shield, Sparkles, Cpu } from 'lucide-react';
+import clsx from 'clsx';
 
 interface Company {
   id: string;
@@ -146,6 +147,7 @@ export function CompaniesTab() {
   // For editing
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<Partial<Company>>({});
+  const [editTab, setEditTab] = useState<'general' | 'subscription'>('general');
 
   // For Razorpay Payment Link Generation
   const [paymentLinkModalCompany, setPaymentLinkModalCompany] = useState<Company | null>(null);
@@ -187,6 +189,7 @@ export function CompaniesTab() {
   const handleEditClick = (company: Company) => {
     setEditingId(company.id);
     setEditForm(company);
+    setEditTab('general');
   };
 
   const handleSave = async () => {
@@ -462,89 +465,218 @@ export function CompaniesTab() {
                       <X className="h-4 w-4" />
                     </button>
                   </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="col-span-2">
-                      <label className="block text-xs font-semibold text-text-secondary uppercase">Name</label>
-                      <input 
-                        className="mt-1 w-full border border-border rounded-lg px-2 py-1 text-sm" 
-                        value={editForm.name || ''} 
-                        onChange={e => setEditForm({...editForm, name: e.target.value})} 
-                      />
-                    </div>
-                    <div className="col-span-2">
-                      <label className="block text-xs font-semibold text-text-secondary uppercase">Address</label>
-                      <input 
-                        className="mt-1 w-full border border-border rounded-lg px-2 py-1 text-sm" 
-                        value={editForm.address || ''} 
-                        onChange={e => setEditForm({...editForm, address: e.target.value})} 
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-semibold text-text-secondary uppercase">GST</label>
-                      <input 
-                        className="mt-1 w-full border border-border rounded-lg px-2 py-1 text-sm" 
-                        value={editForm.gst || ''} 
-                        onChange={e => setEditForm({...editForm, gst: e.target.value})} 
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-semibold text-text-secondary uppercase">Contact Name</label>
-                      <input 
-                        className="mt-1 w-full border border-border rounded-lg px-2 py-1 text-sm" 
-                        value={editForm.contact_name || ''} 
-                        onChange={e => setEditForm({...editForm, contact_name: e.target.value})} 
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-semibold text-text-secondary uppercase">Email</label>
-                      <input 
-                        type="email"
-                        className="mt-1 w-full border border-border rounded-lg px-2 py-1 text-sm" 
-                        value={editForm.email || ''} 
-                        onChange={e => setEditForm({...editForm, email: e.target.value})} 
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-semibold text-text-secondary uppercase">Phone</label>
-                      <input 
-                        className="mt-1 w-full border border-border rounded-lg px-2 py-1 text-sm" 
-                        value={editForm.phone || ''} 
-                        onChange={e => setEditForm({...editForm, phone: e.target.value})} 
-                      />
-                    </div>
-                    <div className="col-span-2">
-                      <label className="block text-xs font-semibold text-text-secondary uppercase">Data Retention Policy</label>
-                      <select
-                        className="mt-1 w-full border border-border rounded-lg px-2 py-1 text-sm bg-white"
-                        value={editForm.retention_days !== undefined && editForm.retention_days !== null ? String(editForm.retention_days) : ''}
-                        onChange={e => {
-                          const val = e.target.value;
-                          setEditForm({...editForm, retention_days: val === '' ? null : parseInt(val, 10)});
-                        }}
-                      >
-                        <option value="">Indefinite / No Auto-Purge</option>
-                        <option value="30">30 Days (1 Month)</option>
-                        <option value="90">90 Days (3 Months)</option>
-                        <option value="180">180 Days (6 Months)</option>
-                        <option value="365">365 Days (1 Year)</option>
-                        <option value="730">730 Days (2 Years)</option>
-                      </select>
-                    </div>
-                    {user?.role === 'SUPER_ADMIN' && (
-                      <div className="col-span-2">
-                        <label className="block text-xs font-semibold text-text-secondary uppercase">Subscription Tier</label>
-                        <select
-                          className="mt-1 w-full border border-border rounded-lg px-2 py-1 text-sm bg-white"
-                          value={editForm.subscription_tier || 'STARTER'}
-                          onChange={e => setEditForm({...editForm, subscription_tier: e.target.value as any})}
-                        >
-                          <option value="STARTER">Starter</option>
-                          <option value="GROWTH">Growth</option>
-                          <option value="ENTERPRISE">Enterprise</option>
-                        </select>
-                      </div>
-                    )}
-                  </div>
+                   {/* Tabs header */}
+                   <div className="flex border-b border-border mb-3">
+                     <button
+                       type="button"
+                       onClick={() => setEditTab('general')}
+                       className={clsx(
+                         "px-4 py-2 text-xs font-bold border-b-2 transition-all cursor-pointer focus:outline-none",
+                         editTab === 'general' ? "border-primary text-primary" : "border-transparent text-text-secondary hover:text-text-primary"
+                       )}
+                     >
+                       General Details
+                     </button>
+                     <button
+                       type="button"
+                       onClick={() => setEditTab('subscription')}
+                       className={clsx(
+                         "px-4 py-2 text-xs font-bold border-b-2 transition-all cursor-pointer focus:outline-none",
+                         editTab === 'subscription' ? "border-primary text-primary" : "border-transparent text-text-secondary hover:text-text-primary"
+                       )}
+                     >
+                       Subscription Plan
+                     </button>
+                   </div>
+
+                   {editTab === 'general' ? (
+                     <div className="grid grid-cols-2 gap-3">
+                       <div className="col-span-2">
+                         <label className="block text-xs font-semibold text-text-secondary uppercase">Name</label>
+                         <input 
+                           className="mt-1 w-full border border-border rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-primary/50" 
+                           value={editForm.name || ''} 
+                           onChange={e => setEditForm({...editForm, name: e.target.value})} 
+                         />
+                       </div>
+                       <div className="col-span-2">
+                         <label className="block text-xs font-semibold text-text-secondary uppercase">Address</label>
+                         <input 
+                           className="mt-1 w-full border border-border rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-primary/50" 
+                           value={editForm.address || ''} 
+                           onChange={e => setEditForm({...editForm, address: e.target.value})} 
+                         />
+                       </div>
+                       <div>
+                         <label className="block text-xs font-semibold text-text-secondary uppercase">GST</label>
+                         <input 
+                           className="mt-1 w-full border border-border rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-primary/50" 
+                           value={editForm.gst || ''} 
+                           onChange={e => setEditForm({...editForm, gst: e.target.value})} 
+                         />
+                       </div>
+                       <div>
+                         <label className="block text-xs font-semibold text-text-secondary uppercase">Contact Name</label>
+                         <input 
+                           className="mt-1 w-full border border-border rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-primary/50" 
+                           value={editForm.contact_name || ''} 
+                           onChange={e => setEditForm({...editForm, contact_name: e.target.value})} 
+                         />
+                       </div>
+                       <div>
+                         <label className="block text-xs font-semibold text-text-secondary uppercase">Email</label>
+                         <input 
+                           type="email"
+                           className="mt-1 w-full border border-border rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-primary/50" 
+                           value={editForm.email || ''} 
+                           onChange={e => setEditForm({...editForm, email: e.target.value})} 
+                         />
+                       </div>
+                       <div>
+                         <label className="block text-xs font-semibold text-text-secondary uppercase">Phone</label>
+                         <input 
+                           className="mt-1 w-full border border-border rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-primary/50" 
+                           value={editForm.phone || ''} 
+                           onChange={e => setEditForm({...editForm, phone: e.target.value})} 
+                         />
+                       </div>
+                       <div className="col-span-2">
+                         <label className="block text-xs font-semibold text-text-secondary uppercase">Data Retention Policy</label>
+                         <select
+                           className="mt-1 w-full border border-border rounded-lg px-2 py-1 text-sm bg-white focus:outline-none focus:ring-1 focus:ring-primary/50"
+                           value={editForm.retention_days !== undefined && editForm.retention_days !== null ? String(editForm.retention_days) : ''}
+                           onChange={e => {
+                             const val = e.target.value;
+                             setEditForm({...editForm, retention_days: val === '' ? null : parseInt(val, 10)});
+                           }}
+                         >
+                           <option value="">Indefinite / No Auto-Purge</option>
+                           <option value="30">30 Days (1 Month)</option>
+                           <option value="90">90 Days (3 Months)</option>
+                           <option value="180">180 Days (6 Months)</option>
+                           <option value="365">365 Days (1 Year)</option>
+                           <option value="730">730 Days (2 Years)</option>
+                         </select>
+                       </div>
+                     </div>
+                   ) : (
+                     <div className="space-y-3">
+                       {[
+                         {
+                           key: 'STARTER',
+                           name: 'Starter Plan',
+                           price: 'Free',
+                           limits: 'Max 30 Workers • Max 5 Machines',
+                           features: ['Dynamic Formats Builder', 'Standard Dashboards', 'Production Logging'],
+                           icon: Building2
+                         },
+                         {
+                           key: 'GROWTH',
+                           name: 'Growth Plan',
+                           price: 'Rs. 9,999 / year',
+                           limits: 'Max 150 Workers • Max 25 Machines',
+                           features: ['Custom dynamic columns', 'Advanced exports (Excel/PDF/CSV/TXT)'],
+                           icon: Sparkles
+                         },
+                         {
+                           key: 'ENTERPRISE',
+                           name: 'Enterprise Plan',
+                           price: 'Rs. 49,999 / year',
+                           limits: 'Unlimited Workers & Machines',
+                           features: ['Indefinite data log archiving', 'Priority phone & email support'],
+                           icon: Cpu
+                         }
+                       ].map(plan => {
+                         const isSelected = editForm.subscription_tier === plan.key;
+                         const isActive = company.subscription_tier === plan.key;
+                         const PlanIcon = plan.icon;
+
+                         return (
+                           <div
+                             key={plan.key}
+                             onClick={() => setEditForm({ ...editForm, subscription_tier: plan.key as any })}
+                             className={clsx(
+                               "border p-3 rounded-lg transition-all cursor-pointer flex flex-col gap-2.5 text-left",
+                               isSelected
+                                 ? "border-primary bg-primary/5 ring-1 ring-primary/25 shadow-xs"
+                                 : "border-border bg-white hover:bg-gray-50/60"
+                             )}
+                           >
+                             <div className="flex items-start justify-between">
+                               <div className="flex gap-2.5">
+                                 <div className={clsx("p-1.5 rounded-lg border flex items-center justify-center", isSelected ? "bg-primary/10 text-primary border-primary/20" : "bg-gray-50 text-gray-400 border-border")}>
+                                   <PlanIcon className="h-4 w-4" />
+                                 </div>
+                                 <div>
+                                   <div className="flex items-center gap-1.5 flex-wrap">
+                                     <span className="font-bold text-text-primary text-xs leading-none">{plan.name}</span>
+                                     {isActive && (
+                                       <span className="bg-emerald-50 text-emerald-700 border border-emerald-200 text-[8px] font-extrabold uppercase px-1 rounded">
+                                         Active
+                                       </span>
+                                     )}
+                                     {isSelected && !isActive && (
+                                       <span className="bg-primary/10 text-primary border border-primary/20 text-[8px] font-extrabold uppercase px-1 rounded">
+                                         Selected
+                                       </span>
+                                     )}
+                                   </div>
+                                   <p className="text-[10px] text-text-secondary mt-0.5 font-medium">{plan.limits}</p>
+                                 </div>
+                               </div>
+                               <div className="text-right">
+                                 <span className="text-xs font-extrabold text-text-primary">{plan.price}</span>
+                               </div>
+                             </div>
+
+                             <div className="pt-2 border-t border-dashed border-border/80 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+                               <div className="space-y-0.5">
+                                 {plan.features.map((feat, idx) => (
+                                   <div key={idx} className="flex items-center gap-1 text-[10px] text-text-secondary">
+                                     <span className="text-primary font-bold">✓</span> {feat}
+                                   </div>
+                                 ))}
+                               </div>
+
+                               <div className="flex items-center gap-1.5 w-full sm:w-auto mt-1.5 sm:mt-0 justify-end">
+                                 {plan.key !== 'STARTER' && (
+                                   <button
+                                     type="button"
+                                     onClick={(e) => {
+                                       e.stopPropagation();
+                                       setPaymentLinkModalCompany(company);
+                                       setPaymentLinkTier(plan.key as any);
+                                       setGeneratedLink(null);
+                                     }}
+                                     className="bg-secondary/10 hover:bg-secondary/20 text-secondary border border-secondary/15 px-2 py-0.5 rounded text-[9px] font-semibold transition-all whitespace-nowrap cursor-pointer focus:outline-none"
+                                     title="Generate Razorpay payment link"
+                                   >
+                                     Payment Link
+                                   </button>
+                                 )}
+                                 {!isSelected ? (
+                                   <button
+                                     type="button"
+                                     onClick={(e) => {
+                                       e.stopPropagation();
+                                       setEditForm({ ...editForm, subscription_tier: plan.key as any });
+                                     }}
+                                     className="bg-gray-50 hover:bg-gray-100 border border-border text-text-primary px-2.5 py-0.5 rounded text-[9px] font-semibold transition-all whitespace-nowrap cursor-pointer focus:outline-none"
+                                   >
+                                     Select
+                                   </button>
+                                 ) : (
+                                   <span className="bg-primary text-white text-[9px] font-bold px-2.5 py-0.5 rounded border border-primary flex items-center gap-1">
+                                     Selected
+                                   </span>
+                                 )}
+                               </div>
+                             </div>
+                           </div>
+                         );
+                       })}
+                     </div>
+                   )}
                   <div className="flex gap-2 pt-2 border-t border-border justify-end">
                     <button onClick={() => setEditingId(null)} className="border border-border px-3 py-1 rounded text-sm hover:bg-gray-50 font-medium">Cancel</button>
                     <button onClick={handleSave} className="bg-primary text-white px-4 py-1 rounded text-sm hover:bg-primary-light font-semibold">Save Changes</button>
