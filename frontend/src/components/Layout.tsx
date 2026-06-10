@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Navigate, Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import {
@@ -8,7 +8,7 @@ import {
   Database, ChevronDown, BarChart3, ArrowLeft
 } from 'lucide-react';
 import clsx from 'clsx';
-import { updateApiBaseURL } from '../utils/api';
+import api, { updateApiBaseURL } from '../utils/api';
 
 interface NavItem {
   name: string;
@@ -67,6 +67,25 @@ export function PrivateLayout() {
   const location = useLocation();
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [companies, setCompanies] = useState<any[]>([]);
+
+  useEffect(() => {
+    if (user?.role === 'SUPER_ADMIN') {
+      const fetchCos = () => {
+        api.get('/companies')
+          .then(res => {
+            setCompanies(res.data);
+          })
+          .catch(err => {
+            console.error('Failed to fetch companies in layout', err);
+          });
+      };
+      
+      fetchCos();
+      const interval = setInterval(fetchCos, 4000);
+      return () => clearInterval(interval);
+    }
+  }, [user]);
   const [mastersOpen, setMastersOpen] = useState(
     location.pathname.startsWith('/manpower') ||
     location.pathname.startsWith('/machines') ||
@@ -83,6 +102,8 @@ export function PrivateLayout() {
   const [legalOpen, setLegalOpen] = useState(
     location.pathname.startsWith('/legal/')
   );
+
+  const currentCompany = selectedCompanyId ? companies.find(c => c.id === selectedCompanyId) : null;
 
   // Auto-expand groups if user navigates to a sub-page directly
   React.useEffect(() => {
@@ -250,6 +271,81 @@ export function PrivateLayout() {
       <nav className="flex-1 overflow-y-auto py-4 px-3 space-y-0.5">
         {filteredNav.map(item => <NavLink key={item.name} item={item} />)}
       </nav>
+
+      {/* Subscription Tiers Summary */}
+      {user?.role === 'SUPER_ADMIN' && !selectedCompanyId && companies.length > 0 && (
+        <div className="p-4 mx-3 my-2 bg-surface rounded-lg border border-border space-y-3">
+          <div className="text-xs font-bold text-text-primary uppercase tracking-wide flex items-center gap-1.5 border-b border-border pb-1">
+            <Shield className="h-3.5 w-3.5 text-primary" />
+            Subscription Tiers
+          </div>
+          <div className="space-y-2 text-xs text-text-secondary">
+            <div className="flex justify-between items-center">
+              <span>Starter Tier:</span>
+              <span className="font-semibold text-sky-700 bg-sky-50 px-1.5 py-0.5 rounded border border-sky-200 text-[10px]">
+                {companies.filter(c => c.subscription_tier === 'STARTER' || !c.subscription_tier).length}
+              </span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span>Growth Tier:</span>
+              <span className="font-semibold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200 text-[10px]">
+                {companies.filter(c => c.subscription_tier === 'GROWTH').length}
+              </span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span>Enterprise Tier:</span>
+              <span className="font-semibold text-purple-700 bg-purple-50 px-1.5 py-0.5 rounded border border-purple-200 text-[10px]">
+                {companies.filter(c => c.subscription_tier === 'ENTERPRISE').length}
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Subscription Tier Info for Selected Company */}
+      {user?.role === 'SUPER_ADMIN' && selectedCompanyId && (
+        <div className="p-4 mx-3 my-2 bg-surface rounded-lg border border-border space-y-3">
+          <div className="text-xs font-bold text-text-primary uppercase tracking-wide flex items-center gap-1.5 border-b border-border pb-1">
+            <Shield className="h-3.5 w-3.5 text-primary" />
+            Subscription Detail
+          </div>
+          {currentCompany ? (
+            <div className="space-y-2 text-xs text-text-secondary">
+              <div className="flex justify-between items-center">
+                <span>Selected Company:</span>
+                <span className="font-semibold text-text-primary truncate max-w-[110px]" title={currentCompany.name}>
+                  {currentCompany.name}
+                </span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span>Current Tier:</span>
+                <span className={clsx(
+                  "font-semibold px-1.5 py-0.5 rounded border text-[10px]",
+                  currentCompany.subscription_tier === 'ENTERPRISE' && "text-purple-700 bg-purple-50 border-purple-200",
+                  currentCompany.subscription_tier === 'GROWTH' && "text-emerald-700 bg-emerald-50 border-emerald-200",
+                  (currentCompany.subscription_tier === 'STARTER' || !currentCompany.subscription_tier) && "text-sky-700 bg-sky-50 border-sky-200"
+                )}>
+                  {currentCompany.subscription_tier || 'STARTER'}
+                </span>
+              </div>
+              <div className="flex justify-between items-center text-[10px] text-text-secondary pt-1 border-t border-border/50">
+                <span>Manpower Limit:</span>
+                <span className="font-semibold text-text-primary">
+                  {currentCompany.subscription_tier === 'ENTERPRISE' ? '∞' : currentCompany.subscription_tier === 'GROWTH' ? '150' : '30'}
+                </span>
+              </div>
+              <div className="flex justify-between items-center text-[10px] text-text-secondary">
+                <span>Machine Limit:</span>
+                <span className="font-semibold text-text-primary">
+                  {currentCompany.subscription_tier === 'ENTERPRISE' ? '∞' : currentCompany.subscription_tier === 'GROWTH' ? '25' : '5'}
+                </span>
+              </div>
+            </div>
+          ) : (
+            <div className="text-xs text-text-secondary italic">Loading info...</div>
+          )}
+        </div>
+      )}
 
       {/* User footer */}
       <div className="p-4 border-t border-border flex-shrink-0">
