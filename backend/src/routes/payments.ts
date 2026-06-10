@@ -17,16 +17,17 @@ const razorpay = new Razorpay({
 }) as any;
 
 // Map tiers to prices in INR
-const TIER_PRICES: Record<string, number> = {
-  GROWTH: 9999,      // Rs. 9999
-  ENTERPRISE: 49999,  // Rs. 49999
+const TIER_PRICES: Record<string, { monthly: number; yearly: number }> = {
+  STARTER: { monthly: 499, yearly: 4999 },
+  GROWTH: { monthly: 1499, yearly: 14999 },
+  ENTERPRISE: { monthly: 14999, yearly: 149999 },
 };
 
 paymentsRouter.use(authenticate);
 
 // 1. Create a Razorpay Order or Payment Link
 paymentsRouter.post('/create-order', async (req, res) => {
-  const { companyId, tier, method } = req.body;
+  const { companyId, tier, method, billingCycle } = req.body;
   const isSuperAdmin = req.user?.role === 'SUPER_ADMIN';
 
   // Security: Normal users can only buy for their own company
@@ -34,14 +35,17 @@ paymentsRouter.post('/create-order', async (req, res) => {
     return res.status(403).json({ error: 'Forbidden. You can only purchase subscriptions for your own company.' });
   }
 
-  if (tier !== 'GROWTH' && tier !== 'ENTERPRISE') {
+  if (tier !== 'STARTER' && tier !== 'GROWTH' && tier !== 'ENTERPRISE') {
     return res.status(400).json({ error: 'Invalid subscription tier selected for payment.' });
   }
 
-  const price = TIER_PRICES[tier];
-  if (!price) {
+  const cycle = billingCycle === 'monthly' ? 'monthly' : 'yearly';
+  const tierConfig = TIER_PRICES[tier];
+  if (!tierConfig) {
     return res.status(400).json({ error: 'Pricing not configured for selected tier.' });
   }
+  
+  const price = tierConfig[cycle];
 
   try {
     const company = await prisma.company.findUnique({
@@ -69,7 +73,7 @@ paymentsRouter.post('/create-order', async (req, res) => {
             amount: amountInPaise,
             currency: 'INR',
             accept_partial: false,
-            description: `SaarLekha ${tier} Plan Subscription for ${company.name}`,
+            description: `SaarLekha ${tier} Plan (${cycle}) Subscription for ${company.name}`,
             customer: {
               name: company.contact_name || 'Admin User',
               email: company.email || 'billing@saarlekha.com',
@@ -95,6 +99,7 @@ paymentsRouter.post('/create-order', async (req, res) => {
             payment_link_url: paymentLink.short_url,
             status: 'PENDING',
             tier: tier,
+            billing_cycle: cycle,
           },
         });
 
@@ -134,6 +139,7 @@ paymentsRouter.post('/create-order', async (req, res) => {
             razorpay_order_id: order.id,
             status: 'PENDING',
             tier: tier,
+            billing_cycle: cycle,
           },
         });
 

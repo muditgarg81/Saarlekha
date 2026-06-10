@@ -315,7 +315,8 @@ model Payment {
   payment_link_id      String?     @unique
   payment_link_url     String?
   status               String      // PENDING, SUCCESS, FAILED
-  tier                 String      // GROWTH or ENTERPRISE
+  tier                 String      // STARTER, GROWTH, or ENTERPRISE
+  billing_cycle        String      @default("yearly") // monthly or yearly
   created_at           DateTime    @default(now())
   updated_at           DateTime    @updatedAt
 }

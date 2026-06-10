@@ -53,7 +53,7 @@ async function sendVerificationEmail(user) {
     });
 }
 exports.authRouter.post('/register', async (req, res) => {
-    const { email, password, companyName, companyAddress } = req.body;
+    const { email, password, companyName, companyAddress, subscriptionTier } = req.body;
     if (!email || !password || !companyName) {
         return res.status(400).json({ error: 'Email, password, and companyName are required' });
     }
@@ -114,6 +114,7 @@ exports.authRouter.post('/register', async (req, res) => {
                 data: {
                     name: companyName,
                     address: companyAddress,
+                    subscription_tier: subscriptionTier || 'STARTER'
                 }
             });
             // Set current_tenant_id so we can insert AuditLogEntry under RLS WITH CHECK policy
@@ -185,7 +186,7 @@ exports.authRouter.post('/login', async (req, res) => {
     }
 });
 exports.authRouter.post('/google', async (req, res) => {
-    const { credential, companyName, companyAddress } = req.body;
+    const { credential, companyName, companyAddress, subscriptionTier } = req.body;
     if (!credential) {
         return res.status(400).json({ error: 'Google credential (ID Token) is required' });
     }
@@ -249,6 +250,7 @@ exports.authRouter.post('/google', async (req, res) => {
                         data: {
                             name: companyName,
                             address: companyAddress,
+                            subscription_tier: subscriptionTier || 'STARTER'
                         }
                     });
                     // Set current_tenant_id so we can insert AuditLogEntry under RLS WITH CHECK policy

@@ -148,10 +148,11 @@ export function CompaniesTab() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<Partial<Company>>({});
   const [editTab, setEditTab] = useState<'general' | 'subscription'>('general');
+  const [editBillingCycle, setEditBillingCycle] = useState<'monthly' | 'yearly'>('yearly');
 
   // For Razorpay Payment Link Generation
   const [paymentLinkModalCompany, setPaymentLinkModalCompany] = useState<Company | null>(null);
-  const [paymentLinkTier, setPaymentLinkTier] = useState<'GROWTH' | 'ENTERPRISE'>('GROWTH');
+  const [paymentLinkTier, setPaymentLinkTier] = useState<'STARTER' | 'GROWTH' | 'ENTERPRISE'>('STARTER');
   const [generatedLink, setGeneratedLink] = useState<string | null>(null);
   const [generatingLink, setGeneratingLink] = useState(false);
 
@@ -226,7 +227,8 @@ export function CompaniesTab() {
       const res = await api.post('/payments/create-order', {
         companyId: paymentLinkModalCompany.id,
         tier: paymentLinkTier,
-        method: 'link'
+        method: 'link',
+        billingCycle: editBillingCycle
       });
       setGeneratedLink(res.data.paymentLinkUrl);
     } catch (err: any) {
@@ -554,26 +556,50 @@ export function CompaniesTab() {
                            <option value="30">30 Days (1 Month)</option>
                            <option value="90">90 Days (3 Months)</option>
                            <option value="180">180 Days (6 Months)</option>
-                           <option value="365">365 Days (1 Year)</option>
+                  <option value="365">365 Days (1 Year)</option>
                            <option value="730">730 Days (2 Years)</option>
                          </select>
                        </div>
                      </div>
                    ) : (
                      <div className="space-y-3">
+                       {/* Billing Cycle Toggle */}
+                       <div className="flex justify-center bg-gray-100 p-1 rounded-lg border border-border/60 max-w-[240px] mx-auto mb-2">
+                         <button
+                           type="button"
+                           onClick={() => setEditBillingCycle('yearly')}
+                           className={clsx(
+                             "flex-1 py-1 text-[10px] font-bold rounded-md transition-all cursor-pointer focus:outline-none text-center",
+                             editBillingCycle === 'yearly' ? "bg-white text-primary shadow-xs" : "text-text-secondary hover:text-text-primary"
+                           )}
+                         >
+                           Yearly
+                         </button>
+                         <button
+                           type="button"
+                           onClick={() => setEditBillingCycle('monthly')}
+                           className={clsx(
+                             "flex-1 py-1 text-[10px] font-bold rounded-md transition-all cursor-pointer focus:outline-none text-center",
+                             editBillingCycle === 'monthly' ? "bg-white text-primary shadow-xs" : "text-text-secondary hover:text-text-primary"
+                           )}
+                         >
+                           Monthly
+                         </button>
+                       </div>
+
                        {[
                          {
                            key: 'STARTER',
                            name: 'Starter Plan',
-                           price: 'Free',
+                           price: editBillingCycle === 'yearly' ? 'Rs. 4,999 / yr' : 'Rs. 499 / mo',
                            limits: 'Max 30 Workers • Max 5 Machines',
-                           features: ['Dynamic Formats Builder', 'Standard Dashboards', 'Production Logging'],
+                           features: ['Custom dynamic columns', 'Advanced exports (Excel/PDF/CSV/TXT)'],
                            icon: Building2
                          },
                          {
                            key: 'GROWTH',
                            name: 'Growth Plan',
-                           price: 'Rs. 9,999 / year',
+                           price: editBillingCycle === 'yearly' ? 'Rs. 14,999 / yr' : 'Rs. 1,499 / mo',
                            limits: 'Max 150 Workers • Max 25 Machines',
                            features: ['Custom dynamic columns', 'Advanced exports (Excel/PDF/CSV/TXT)'],
                            icon: Sparkles
@@ -581,9 +607,15 @@ export function CompaniesTab() {
                          {
                            key: 'ENTERPRISE',
                            name: 'Enterprise Plan',
-                           price: 'Rs. 49,999 / year',
+                           price: editBillingCycle === 'yearly' ? 'Rs. 1,49,999 / yr' : 'Rs. 14,999 / mo',
                            limits: 'Unlimited Workers & Machines',
-                           features: ['Indefinite data log archiving', 'Priority phone & email support'],
+                           features: [
+                             'Custom dynamic columns',
+                             'Advanced exports (Excel/PDF/CSV/TXT)',
+                             'Indefinite data log archiving',
+                             'Priority phone & email support',
+                             'AI Integration'
+                           ],
                            icon: Cpu
                          }
                        ].map(plan => {
@@ -639,21 +671,19 @@ export function CompaniesTab() {
                                </div>
 
                                <div className="flex items-center gap-1.5 w-full sm:w-auto mt-1.5 sm:mt-0 justify-end">
-                                 {plan.key !== 'STARTER' && (
-                                   <button
-                                     type="button"
-                                     onClick={(e) => {
-                                       e.stopPropagation();
-                                       setPaymentLinkModalCompany(company);
-                                       setPaymentLinkTier(plan.key as any);
-                                       setGeneratedLink(null);
-                                     }}
-                                     className="bg-secondary/10 hover:bg-secondary/20 text-secondary border border-secondary/15 px-2 py-0.5 rounded text-[9px] font-semibold transition-all whitespace-nowrap cursor-pointer focus:outline-none"
-                                     title="Generate Razorpay payment link"
-                                   >
-                                     Payment Link
-                                   </button>
-                                 )}
+                                 <button
+                                   type="button"
+                                   onClick={(e) => {
+                                     e.stopPropagation();
+                                     setPaymentLinkModalCompany(company);
+                                     setPaymentLinkTier(plan.key as any);
+                                     setGeneratedLink(null);
+                                   }}
+                                   className="bg-secondary/10 hover:bg-secondary/20 text-secondary border border-secondary/15 px-2 py-0.5 rounded text-[9px] font-semibold transition-all whitespace-nowrap cursor-pointer focus:outline-none"
+                                   title="Generate Razorpay payment link"
+                                 >
+                                   Payment Link
+                                 </button>
                                  {!isSelected ? (
                                    <button
                                      type="button"
@@ -850,16 +880,41 @@ export function CompaniesTab() {
                 <p className="text-sm text-text-secondary leading-relaxed">
                   Select a subscription plan tier to generate a secure Razorpay payment link. You can share this link with the company administrator for subscription payment.
                 </p>
-                <div>
-                  <label className="block text-xs font-semibold text-text-secondary uppercase">Plan Tier</label>
-                  <select
-                    className="mt-1 w-full border border-border rounded-lg px-3 py-2 text-sm bg-white"
-                    value={paymentLinkTier}
-                    onChange={e => setPaymentLinkTier(e.target.value as any)}
-                  >
-                    <option value="GROWTH">Growth Plan (Rs. 9,999/yr)</option>
-                    <option value="ENTERPRISE">Enterprise Plan (Rs. 49,999/yr)</option>
-                  </select>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-semibold text-text-secondary uppercase">Plan Tier</label>
+                    <select
+                      className="mt-1 w-full border border-border rounded-lg px-3 py-2 text-sm bg-white"
+                      value={paymentLinkTier}
+                      onChange={e => setPaymentLinkTier(e.target.value as any)}
+                    >
+                      <option value="STARTER">Starter Plan</option>
+                      <option value="GROWTH">Growth Plan</option>
+                      <option value="ENTERPRISE">Enterprise Plan</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-text-secondary uppercase">Billing Cycle</label>
+                    <select
+                      className="mt-1 w-full border border-border rounded-lg px-3 py-2 text-sm bg-white"
+                      value={editBillingCycle}
+                      onChange={e => setEditBillingCycle(e.target.value as any)}
+                    >
+                      <option value="yearly">Yearly</option>
+                      <option value="monthly">Monthly</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="bg-gray-50 border border-border rounded-lg p-3 text-xs font-medium text-text-primary">
+                  Selected Price: <span className="font-bold text-primary">
+                    {paymentLinkTier === 'STARTER'
+                      ? (editBillingCycle === 'yearly' ? 'Rs. 4,999 / year' : 'Rs. 499 / month')
+                      : paymentLinkTier === 'GROWTH'
+                      ? (editBillingCycle === 'yearly' ? 'Rs. 14,999 / year' : 'Rs. 1,499 / month')
+                      : (editBillingCycle === 'yearly' ? 'Rs. 1,49,999 / year' : 'Rs. 14,999 / month')
+                    }
+                  </span>
                 </div>
                 <div className="flex justify-end gap-3 pt-2">
                   <button

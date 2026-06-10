@@ -22,6 +22,7 @@ const production_1 = require("./routes/production");
 const dashboard_1 = require("./routes/dashboard");
 const audit_1 = require("./routes/audit");
 const maintenanceTypes_1 = require("./routes/maintenanceTypes");
+const payments_1 = require("./routes/payments");
 const app = (0, express_1.default)();
 const port = process.env.PORT || 5000;
 app.use((0, cors_1.default)());
@@ -40,6 +41,7 @@ app.use('/api/production', production_1.productionRouter);
 app.use('/api/dashboard', dashboard_1.dashboardRouter);
 app.use('/api/audit', audit_1.auditRouter);
 app.use('/api/maintenance-types', maintenanceTypes_1.maintenanceTypesRouter);
+app.use('/api/payments', payments_1.paymentsRouter);
 app.get('/api/health', async (req, res) => {
     try {
         await prisma_1.prisma.$queryRaw `SELECT 1`;

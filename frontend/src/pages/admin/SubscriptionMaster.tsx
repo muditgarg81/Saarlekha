@@ -12,7 +12,7 @@ interface PaymentHistoryItem {
   razorpay_payment_id: string | null;
   payment_link_id: string | null;
   status: 'PENDING' | 'SUCCESS' | 'FAILED';
-  tier: 'GROWTH' | 'ENTERPRISE';
+  tier: 'STARTER' | 'GROWTH' | 'ENTERPRISE';
   created_at: string;
 }
 
@@ -25,11 +25,12 @@ export function SubscriptionMaster() {
   const [loading, setLoading] = useState(true);
   
   // Payment operations state
-  const [selectedUpgradeTier, setSelectedUpgradeTier] = useState<'GROWTH' | 'ENTERPRISE' | null>(null);
+  const [selectedUpgradeTier, setSelectedUpgradeTier] = useState<'STARTER' | 'GROWTH' | 'ENTERPRISE' | null>(null);
   const [paymentMethod, setPaymentMethod] = useState<'checkout' | 'link'>('checkout');
   const [processing, setProcessing] = useState(false);
   const [generatedLink, setGeneratedLink] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [billingCycle, setBillingCycle] = useState<'monthly' | 'yearly'>('yearly');
 
   const fetchData = async () => {
     if (!selectedCompanyId) return;
@@ -82,7 +83,7 @@ export function SubscriptionMaster() {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const handlePurchase = async (tier: 'GROWTH' | 'ENTERPRISE', method: 'checkout' | 'link') => {
+  const handlePurchase = async (tier: 'STARTER' | 'GROWTH' | 'ENTERPRISE', method: 'checkout' | 'link') => {
     if (!selectedCompanyId) return;
     setProcessing(true);
     setGeneratedLink(null);
@@ -91,7 +92,8 @@ export function SubscriptionMaster() {
       const res = await api.post('/payments/create-order', {
         companyId: selectedCompanyId,
         tier,
-        method
+        method,
+        billingCycle
       });
 
       if (method === 'link') {
@@ -255,7 +257,34 @@ export function SubscriptionMaster() {
 
       {/* Plan Upgrade Selector Section */}
       <div className="space-y-4">
-        <h3 className="text-base font-bold text-text-primary">Available Subscription Plans</h3>
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <h3 className="text-base font-bold text-text-primary">Available Subscription Plans</h3>
+          
+          {/* Billing Cycle Toggle */}
+          <div className="flex bg-gray-100 p-1 rounded-lg border border-border/60 w-fit">
+            <button
+              type="button"
+              onClick={() => setBillingCycle('yearly')}
+              className={clsx(
+                "px-3 py-1 text-xs font-bold rounded-md transition-all cursor-pointer text-center",
+                billingCycle === 'yearly' ? "bg-white text-primary shadow-xs" : "text-text-secondary hover:text-text-primary"
+              )}
+            >
+              Yearly Billing
+            </button>
+            <button
+              type="button"
+              onClick={() => setBillingCycle('monthly')}
+              className={clsx(
+                "px-3 py-1 text-xs font-bold rounded-md transition-all cursor-pointer text-center",
+                billingCycle === 'monthly' ? "bg-white text-primary shadow-xs" : "text-text-secondary hover:text-text-primary"
+              )}
+            >
+              Monthly Billing
+            </button>
+          </div>
+        </div>
+
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {/* Starter Plan Card */}
           <div className={clsx(
@@ -276,23 +305,33 @@ export function SubscriptionMaster() {
                 <p className="text-[11px] text-text-secondary mt-1">Perfect for small operations starting their digital reporting journey.</p>
               </div>
               <div className="text-2xl font-extrabold text-text-primary">
-                Free
-                <span className="text-xs font-normal text-text-secondary block mt-0.5">Basic platform features</span>
+                {billingCycle === 'yearly' ? 'Rs. 4,999' : 'Rs. 499'}
+                <span className="text-xs font-normal text-text-secondary"> / {billingCycle === 'yearly' ? 'year' : 'month'}</span>
+                <span className="text-xs font-normal text-text-secondary block mt-0.5">Entry-level paid capabilities</span>
               </div>
               <ul className="space-y-2 text-xs text-text-secondary border-t border-border pt-4">
-                <li className="flex items-center gap-2">✓ Max 30 workers</li>
-                <li className="flex items-center gap-2">✓ Max 5 machines</li>
-                <li className="flex items-center gap-2">✓ Formats Builder</li>
-                <li className="flex items-center gap-2">✓ Standard Dashboards</li>
+                <li className="flex items-center gap-2 font-semibold text-sky-700">✓ Max 30 workers</li>
+                <li className="flex items-center gap-2 font-semibold text-sky-700">✓ Max 5 machines</li>
+                <li className="flex items-center gap-2">✓ Custom dynamic columns</li>
+                <li className="flex items-center gap-2">✓ Excel, PDF, CSV, TXT Exports</li>
               </ul>
             </div>
             <div className="p-6 bg-gray-50 border-t border-border">
-              <button 
-                disabled 
-                className="w-full bg-gray-200 text-gray-500 py-2 rounded-lg text-xs font-semibold cursor-not-allowed"
-              >
-                {currentTier === 'STARTER' ? 'Currently Selected' : 'Included'}
-              </button>
+              {currentTier === 'STARTER' ? (
+                <button 
+                  onClick={() => {
+                    setSelectedUpgradeTier('STARTER');
+                    setGeneratedLink(null);
+                  }}
+                  className="w-full bg-sky-600 hover:bg-sky-700 text-white py-2 rounded-lg text-xs font-semibold shadow-xs transition-all cursor-pointer"
+                >
+                  Renew / Pay Starter Plan
+                </button>
+              ) : (
+                <button disabled className="w-full bg-gray-200 text-gray-500 py-2 rounded-lg text-xs font-semibold cursor-not-allowed">
+                  Downgrade Blocked
+                </button>
+              )}
             </div>
           </div>
 
@@ -315,20 +354,27 @@ export function SubscriptionMaster() {
                 <p className="text-[11px] text-text-secondary mt-1">Optimized for growing manufacturing setups and medium factories.</p>
               </div>
               <div className="text-2xl font-extrabold text-text-primary">
-                Rs. 9,999<span className="text-xs font-normal text-text-secondary"> / year</span>
+                {billingCycle === 'yearly' ? 'Rs. 14,999' : 'Rs. 1,499'}
+                <span className="text-xs font-normal text-text-secondary"> / {billingCycle === 'yearly' ? 'year' : 'month'}</span>
                 <span className="text-xs font-normal text-text-secondary block mt-0.5">Flexible resource parameters</span>
               </div>
               <ul className="space-y-2 text-xs text-text-secondary border-t border-border pt-4">
                 <li className="flex items-center gap-2 font-semibold text-emerald-700">✓ Max 150 workers</li>
                 <li className="flex items-center gap-2 font-semibold text-emerald-700">✓ Max 25 machines</li>
-                <li className="flex items-center gap-2">✓ Advanced Custom Columns</li>
-                <li className="flex items-center gap-2">✓ Excel, PDF, CSV Exports</li>
+                <li className="flex items-center gap-2">✓ Custom dynamic columns</li>
+                <li className="flex items-center gap-2">✓ Excel, PDF, CSV, TXT Exports</li>
               </ul>
             </div>
             <div className="p-6 bg-gray-50 border-t border-border">
               {currentTier === 'GROWTH' ? (
-                <button disabled className="w-full bg-gray-200 text-gray-500 py-2 rounded-lg text-xs font-semibold cursor-not-allowed">
-                  Currently Selected
+                <button 
+                  onClick={() => {
+                    setSelectedUpgradeTier('GROWTH');
+                    setGeneratedLink(null);
+                  }}
+                  className="w-full bg-emerald-600 hover:bg-emerald-700 text-white py-2 rounded-lg text-xs font-semibold shadow-xs transition-all cursor-pointer"
+                >
+                  Renew / Pay Growth Plan
                 </button>
               ) : currentTier === 'ENTERPRISE' ? (
                 <button disabled className="w-full bg-gray-200 text-gray-500 py-2 rounded-lg text-xs font-semibold cursor-not-allowed">
@@ -340,7 +386,7 @@ export function SubscriptionMaster() {
                     setSelectedUpgradeTier('GROWTH');
                     setGeneratedLink(null);
                   }}
-                  className="w-full bg-emerald-600 hover:bg-emerald-700 text-white py-2 rounded-lg text-xs font-semibold shadow-xs transition-all"
+                  className="w-full bg-emerald-600 hover:bg-emerald-700 text-white py-2 rounded-lg text-xs font-semibold shadow-xs transition-all cursor-pointer"
                 >
                   Upgrade to Growth Plan
                 </button>
@@ -367,20 +413,30 @@ export function SubscriptionMaster() {
                 <p className="text-[11px] text-text-secondary mt-1">For large factories requiring scale, unrestricted users and logs.</p>
               </div>
               <div className="text-2xl font-extrabold text-text-primary">
-                Rs. 49,999<span className="text-xs font-normal text-text-secondary"> / year</span>
+                {billingCycle === 'yearly' ? 'Rs. 1,49,999' : 'Rs. 14,999'}
+                <span className="text-xs font-normal text-text-secondary"> / {billingCycle === 'yearly' ? 'year' : 'month'}</span>
                 <span className="text-xs font-normal text-text-secondary block mt-0.5">Unrestricted capacity limits</span>
               </div>
               <ul className="space-y-2 text-xs text-text-secondary border-t border-border pt-4">
                 <li className="flex items-center gap-2 font-semibold text-purple-700">✓ Unlimited workers</li>
                 <li className="flex items-center gap-2 font-semibold text-purple-700">✓ Unlimited machines</li>
-                <li className="flex items-center gap-2">✓ Priority Email & Phone support</li>
-                <li className="flex items-center gap-2">✓ Indefinite data log archiving</li>
+                <li className="flex items-center gap-2">✓ Custom dynamic columns</li>
+                <li className="flex items-center gap-2">✓ Excel, PDF, CSV, TXT Exports</li>
+                <li className="flex items-center gap-2 font-semibold text-purple-700">✓ Indefinite data log archiving</li>
+                <li className="flex items-center gap-2 font-semibold text-purple-700">✓ Priority phone & email support</li>
+                <li className="flex items-center gap-2 font-semibold text-purple-700 font-bold">✓ AI Integration</li>
               </ul>
             </div>
             <div className="p-6 bg-gray-50 border-t border-border">
               {currentTier === 'ENTERPRISE' ? (
-                <button disabled className="w-full bg-gray-200 text-gray-500 py-2 rounded-lg text-xs font-semibold cursor-not-allowed">
-                  Currently Selected
+                <button 
+                  onClick={() => {
+                    setSelectedUpgradeTier('ENTERPRISE');
+                    setGeneratedLink(null);
+                  }}
+                  className="w-full bg-purple-600 hover:bg-purple-700 text-white py-2 rounded-lg text-xs font-semibold shadow-xs transition-all cursor-pointer"
+                >
+                  Renew / Pay Enterprise Plan
                 </button>
               ) : (
                 <button 
@@ -388,7 +444,7 @@ export function SubscriptionMaster() {
                     setSelectedUpgradeTier('ENTERPRISE');
                     setGeneratedLink(null);
                   }}
-                  className="w-full bg-purple-600 hover:bg-purple-700 text-white py-2 rounded-lg text-xs font-semibold shadow-xs transition-all"
+                  className="w-full bg-purple-600 hover:bg-purple-700 text-white py-2 rounded-lg text-xs font-semibold shadow-xs transition-all cursor-pointer"
                 >
                   Upgrade to Enterprise Plan
                 </button>
@@ -408,15 +464,26 @@ export function SubscriptionMaster() {
               </div>
               <div>
                 <h3 className="font-bold text-text-primary">Upgrade Plan Subscription</h3>
-                <p className="text-xs text-text-secondary">To {selectedUpgradeTier} Tier</p>
+                <p className="text-xs text-text-secondary font-bold uppercase text-primary">To {selectedUpgradeTier} Tier</p>
               </div>
             </div>
 
             <div className="space-y-3">
               <div className="flex justify-between items-center text-sm font-semibold border-b border-border/50 pb-2">
+                <span className="text-text-secondary">Billing Cycle:</span>
+                <span className="text-text-primary font-bold capitalize">
+                  {billingCycle}
+                </span>
+              </div>
+              <div className="flex justify-between items-center text-sm font-semibold border-b border-border/50 pb-2">
                 <span className="text-text-secondary">Upgrade Amount:</span>
                 <span className="text-text-primary text-base font-bold">
-                  {selectedUpgradeTier === 'GROWTH' ? 'Rs. 9,999' : 'Rs. 49,999'}
+                  {selectedUpgradeTier === 'STARTER'
+                    ? (billingCycle === 'yearly' ? 'Rs. 4,999' : 'Rs. 499')
+                    : selectedUpgradeTier === 'GROWTH'
+                    ? (billingCycle === 'yearly' ? 'Rs. 14,999' : 'Rs. 1,499')
+                    : (billingCycle === 'yearly' ? 'Rs. 1,49,999' : 'Rs. 14,999')
+                  }
                 </span>
               </div>
 
