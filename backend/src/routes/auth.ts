@@ -57,7 +57,7 @@ async function sendVerificationEmail(user: { id: string; email: string }) {
 }
 
 authRouter.post('/register', async (req, res) => {
-  const { email, password, companyName, companyAddress } = req.body;
+  const { email, password, companyName, companyAddress, subscriptionTier } = req.body;
 
   if (!email || !password || !companyName) {
     return res.status(400).json({ error: 'Email, password, and companyName are required' });
@@ -129,6 +129,7 @@ authRouter.post('/register', async (req, res) => {
         data: {
           name: companyName,
           address: companyAddress,
+          subscription_tier: subscriptionTier || 'STARTER'
         }
       });
 
@@ -217,7 +218,7 @@ authRouter.post('/login', async (req, res) => {
 });
 
 authRouter.post('/google', async (req, res) => {
-  const { credential, companyName, companyAddress } = req.body;
+  const { credential, companyName, companyAddress, subscriptionTier } = req.body;
 
   if (!credential) {
     return res.status(400).json({ error: 'Google credential (ID Token) is required' });
@@ -284,6 +285,7 @@ authRouter.post('/google', async (req, res) => {
             data: {
               name: companyName,
               address: companyAddress,
+              subscription_tier: subscriptionTier || 'STARTER'
             }
           });
 

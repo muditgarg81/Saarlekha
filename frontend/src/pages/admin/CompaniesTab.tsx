@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import api from '../../utils/api';
 import { useAuth } from '../../context/AuthContext';
-import { Building2, Plus, Trash2, X, Phone, Mail, User, ShieldAlert } from 'lucide-react';
+import { Building2, Plus, Trash2, X, Phone, Mail, User, ShieldAlert, Shield } from 'lucide-react';
 
 interface Company {
   id: string;
@@ -507,20 +507,7 @@ export function CompaniesTab() {
                         <option value="730">730 Days (2 Years)</option>
                       </select>
                     </div>
-                    {user?.role === 'SUPER_ADMIN' && (
-                      <div className="col-span-2">
-                        <label className="block text-xs font-semibold text-text-secondary uppercase">Subscription Tier</label>
-                        <select
-                          className="mt-1 w-full border border-border rounded-lg px-2 py-1 text-sm bg-white"
-                          value={editForm.subscription_tier || 'STARTER'}
-                          onChange={e => setEditForm({...editForm, subscription_tier: e.target.value as any})}
-                        >
-                          <option value="STARTER">Starter</option>
-                          <option value="GROWTH">Growth</option>
-                          <option value="ENTERPRISE">Enterprise</option>
-                        </select>
-                      </div>
-                    )}
+                    {/* Subscription tier is managed directly on the landing page card, not here */}
                   </div>
                   <div className="flex gap-2 pt-2 border-t border-border justify-end">
                     <button onClick={() => setEditingId(null)} className="border border-border px-3 py-1 rounded text-sm hover:bg-gray-50 font-medium">Cancel</button>
@@ -586,6 +573,50 @@ export function CompaniesTab() {
                       </div>
 
                       <CompanyRetentionStatus companyId={company.id} />
+                      
+                      {user?.role === 'SUPER_ADMIN' && (
+                        <div className="mt-4 pt-3.5 border-t border-border flex justify-between items-center bg-gray-50/50 p-2.5 rounded-lg border border-border/65 gap-4">
+                          <div className="flex items-center gap-1.5 text-xs font-semibold text-text-secondary">
+                            <Shield className="h-3.5 w-3.5 text-primary flex-shrink-0" />
+                            <span>Subscription:</span>
+                          </div>
+                          <select
+                            className={`text-xs font-bold px-2 py-1.5 rounded border bg-white focus:outline-none focus:ring-1 focus:ring-primary cursor-pointer ${
+                              company.subscription_tier === 'ENTERPRISE'
+                                ? 'text-purple-700 border-purple-200 bg-purple-50'
+                                : company.subscription_tier === 'GROWTH'
+                                ? 'text-emerald-700 border-emerald-200 bg-emerald-50'
+                                : 'text-sky-700 border-sky-200 bg-sky-50'
+                            }`}
+                            value={company.subscription_tier || 'STARTER'}
+                            onChange={async (e) => {
+                              const newTier = e.target.value;
+                              try {
+                                await api.put(`/companies/${company.id}`, {
+                                  name: company.name,
+                                  address: company.address,
+                                  gst: company.gst,
+                                  contact_name: company.contact_name,
+                                  phone: company.phone,
+                                  email: company.email,
+                                  retention_days: company.retention_days,
+                                  subscription_tier: newTier
+                                });
+                                alert(`Successfully updated subscription tier of "${company.name}" to ${newTier}!`);
+                                fetchCompanies();
+                              } catch (err: any) {
+                                const msg = err.response?.data?.error || 'Failed to update subscription tier';
+                                const details = err.response?.data?.details;
+                                alert(details ? `${msg}: ${details}` : msg);
+                              }
+                            }}
+                          >
+                            <option value="STARTER">Starter</option>
+                            <option value="GROWTH">Growth</option>
+                            <option value="ENTERPRISE">Enterprise</option>
+                          </select>
+                        </div>
+                      )}
                     </div>
                   </div>
 
