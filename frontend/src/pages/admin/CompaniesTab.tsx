@@ -591,7 +591,7 @@ export function CompaniesTab() {
                          {
                            key: 'STARTER',
                            name: 'Starter Plan',
-                           price: editBillingCycle === 'yearly' ? 'Rs. 4,999 / yr' : 'Rs. 499 / mo',
+                           price: editBillingCycle === 'yearly' ? 'Rs. 14,999 / yr' : 'Rs. 1,499 / mo',
                            limits: 'Max 30 Workers • Max 5 Machines',
                            features: ['Custom dynamic columns', 'Advanced exports (Excel/PDF/CSV/TXT)'],
                            icon: Building2
@@ -599,7 +599,7 @@ export function CompaniesTab() {
                          {
                            key: 'GROWTH',
                            name: 'Growth Plan',
-                           price: editBillingCycle === 'yearly' ? 'Rs. 14,999 / yr' : 'Rs. 1,499 / mo',
+                           price: editBillingCycle === 'yearly' ? 'Rs. 49,999 / yr' : 'Rs. 4,999 / mo',
                            limits: 'Max 150 Workers • Max 25 Machines',
                            features: ['Custom dynamic columns', 'Advanced exports (Excel/PDF/CSV/TXT)'],
                            icon: Sparkles
@@ -909,9 +909,9 @@ export function CompaniesTab() {
                 <div className="bg-gray-50 border border-border rounded-lg p-3 text-xs font-medium text-text-primary">
                   Selected Price: <span className="font-bold text-primary">
                     {paymentLinkTier === 'STARTER'
-                      ? (editBillingCycle === 'yearly' ? 'Rs. 4,999 / year' : 'Rs. 499 / month')
-                      : paymentLinkTier === 'GROWTH'
                       ? (editBillingCycle === 'yearly' ? 'Rs. 14,999 / year' : 'Rs. 1,499 / month')
+                      : paymentLinkTier === 'GROWTH'
+                      ? (editBillingCycle === 'yearly' ? 'Rs. 49,999 / year' : 'Rs. 4,999 / month')
                       : (editBillingCycle === 'yearly' ? 'Rs. 1,49,999 / year' : 'Rs. 14,999 / month')
                     }
                   </span>

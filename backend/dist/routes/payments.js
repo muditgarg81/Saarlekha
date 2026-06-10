@@ -20,8 +20,8 @@ const razorpay = new razorpay_1.default({
 });
 // Map tiers to prices in INR
 const TIER_PRICES = {
-    STARTER: { monthly: 499, yearly: 4999 },
-    GROWTH: { monthly: 1499, yearly: 14999 },
+    STARTER: { monthly: 1499, yearly: 14999 },
+    GROWTH: { monthly: 4999, yearly: 49999 },
     ENTERPRISE: { monthly: 14999, yearly: 149999 },
 };
 exports.paymentsRouter.use(auth_1.authenticate);

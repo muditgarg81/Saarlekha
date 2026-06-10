@@ -18,8 +18,8 @@ const razorpay = new Razorpay({
 
 // Map tiers to prices in INR
 const TIER_PRICES: Record<string, { monthly: number; yearly: number }> = {
-  STARTER: { monthly: 499, yearly: 4999 },
-  GROWTH: { monthly: 1499, yearly: 14999 },
+  STARTER: { monthly: 1499, yearly: 14999 },
+  GROWTH: { monthly: 4999, yearly: 49999 },
   ENTERPRISE: { monthly: 14999, yearly: 149999 },
 };
 

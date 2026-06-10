@@ -305,7 +305,7 @@ export function SubscriptionMaster() {
                 <p className="text-[11px] text-text-secondary mt-1">Perfect for small operations starting their digital reporting journey.</p>
               </div>
               <div className="text-2xl font-extrabold text-text-primary">
-                {billingCycle === 'yearly' ? 'Rs. 4,999' : 'Rs. 499'}
+                {billingCycle === 'yearly' ? 'Rs. 14,999' : 'Rs. 1,499'}
                 <span className="text-xs font-normal text-text-secondary"> / {billingCycle === 'yearly' ? 'year' : 'month'}</span>
                 <span className="text-xs font-normal text-text-secondary block mt-0.5">Entry-level paid capabilities</span>
               </div>
@@ -354,7 +354,7 @@ export function SubscriptionMaster() {
                 <p className="text-[11px] text-text-secondary mt-1">Optimized for growing manufacturing setups and medium factories.</p>
               </div>
               <div className="text-2xl font-extrabold text-text-primary">
-                {billingCycle === 'yearly' ? 'Rs. 14,999' : 'Rs. 1,499'}
+                {billingCycle === 'yearly' ? 'Rs. 49,999' : 'Rs. 4,999'}
                 <span className="text-xs font-normal text-text-secondary"> / {billingCycle === 'yearly' ? 'year' : 'month'}</span>
                 <span className="text-xs font-normal text-text-secondary block mt-0.5">Flexible resource parameters</span>
               </div>
@@ -479,9 +479,9 @@ export function SubscriptionMaster() {
                 <span className="text-text-secondary">Upgrade Amount:</span>
                 <span className="text-text-primary text-base font-bold">
                   {selectedUpgradeTier === 'STARTER'
-                    ? (billingCycle === 'yearly' ? 'Rs. 4,999' : 'Rs. 499')
-                    : selectedUpgradeTier === 'GROWTH'
                     ? (billingCycle === 'yearly' ? 'Rs. 14,999' : 'Rs. 1,499')
+                    : selectedUpgradeTier === 'GROWTH'
+                    ? (billingCycle === 'yearly' ? 'Rs. 49,999' : 'Rs. 4,999')
                     : (billingCycle === 'yearly' ? 'Rs. 1,49,999' : 'Rs. 14,999')
                   }
                 </span>
