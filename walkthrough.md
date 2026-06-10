@@ -476,3 +476,138 @@ ALL RLS TENANT ISOLATION TESTS PASSED! 🎉
 - **Compilation**:
   - Bumped build variables in [build.gradle](file:///c:/claude/Saarlekha/frontend/android/app/build.gradle) to `versionCode 13` and `versionName "2.2"`.
   - Compiled and signed the release Android App Bundle: [app-release.aab](file:///c:/claude/Saarlekha/frontend/android/app/build/outputs/bundle/release/app-release.aab).
+
+### 40. Mobile Export and Sharing Support (v2.3)
+- **Problem**:
+  - The file export feature (Excel, PDF, CSV, TXT) failed inside the native Android mobile app wrapper. Standard browser download mechanisms (using simulated clicks on blob URLs) are blocked or ignored by default in the Android WebView wrapper.
+- **Resolution**:
+  - Integrated `@capacitor/filesystem` and `@capacitor/share` plugins to handle file writes and system-level file sharing on native platforms.
+  - Refactored `export.tsx` to introduce a unified `saveAndShare(blob: Blob, filename: string)` helper:
+    - If running on a native platform (using `Capacitor.isNativePlatform()`), the file blob is converted to a base64 string using a `FileReader` helper.
+    - The file is written temporarily to the device's native cache directory (`Directory.Cache`) using `Filesystem.writeFile`.
+    - Opens the Android native **Share Sheet** (using `Share.share`) by passing the saved file's native URI, letting the user share or save the file via WhatsApp, Email, or Slack (download-then-share).
+    - If running on desktop/web browser, it falls back to standard click-to-download popup automatically.
+  - Upgraded export handlers:
+    - Updated `exportCSV`, `exportTXT`, `exportExcel`, and `exportPDF` to be `async` functions and invoke `saveAndShare`.
+    - Modified `exportExcel` to generate a spreadsheet ArrayBuffer using `XLSX.write(wb, { type: 'array' })`, wrapping it in a spreadsheet MIME blob, rather than calling `XLSX.writeFile` directly.
+    - Modified `exportPDF` to capture `doc.output('blob')` rather than calling `doc.save()`.
+  - Updated all call-sites and event handlers in `Dashboard.tsx` to handle the asynchronous export functions safely.
+- **Compilation**:
+  - Bumped configurations in [build.gradle](file:///c:/claude/Saarlekha/frontend/android/app/build.gradle) to `versionCode 14` and `versionName "2.3"`.
+  - Compiled React/Vite assets via `npm.cmd run build` and synchronized Capacitor Android assets with `npx.cmd cap sync android`.
+  - Compiled and signed the release Android App Bundle: [app-release.aab](file:///c:/claude/Saarlekha/frontend/android/app/build/outputs/bundle/release/app-release.aab) using OpenJDK 21.
+
+### 41. App Rename to SaarLekha - Operations Reporting (v2.4)
+- **Problem**:
+  - The application branding and display name was unified to match the formal product title "SaarLekha - Operations Reporting".
+- **Resolution**:
+  - Modified `strings.xml` in the Android resources to set `app_name` and `title_activity_main` to `SaarLekha - Operations Reporting`.
+  - Updated `capacitor.config.ts` to configure `appName` as `SaarLekha - Operations Reporting`.
+  - Modified `index.html` to update browser `<title>` and `<meta name="apple-mobile-web-app-title">` to `SaarLekha - Operations Reporting`.
+  - Updated the PWA configuration parameters in `vite.config.ts` to name the app `SaarLekha - Operations Reporting` and specify `short_name` as `SaarLekha`.
+  - Refactored brand logos and layout text rendering in `Layout.tsx` and `export.tsx` to align with the correct `SaarLekha` case formatting.
+- **Compilation**:
+  - Bumped configurations in [build.gradle](file:///c:/claude/Saarlekha/frontend/android/app/build.gradle) to `versionCode 15` and `versionName "2.4"`.
+  - Re-compiled React/Vite assets via `npm.cmd run build` and synchronized Capacitor Android assets with `npx.cmd cap sync android`.
+  - Compiled and signed the release Android App Bundle: [app-release.aab](file:///c:/claude/Saarlekha/frontend/android/app/build/outputs/bundle/release/app-release.aab) using Gradle.
+
+### 42. Fresh Build with Version Code 16 (v2.5)
+- **Compilation**:
+  - Bumped configurations in [build.gradle](file:///c:/claude/Saarlekha/frontend/android/app/build.gradle) to `versionCode 16` and `versionName "2.5"`.
+  - Re-compiled React/Vite assets via `npm.cmd run build` and synchronized Capacitor Android assets with `npx.cmd cap sync android`.
+  - Compiled and signed the release Android App Bundle: [app-release.aab](file:///c:/claude/Saarlekha/frontend/android/app/build/outputs/bundle/release/app-release.aab) using Gradle.
+
+### 43. Dashboard Performance & Security Fixes
+- **RLS Client Wrapper Optimization**:
+  - Replaced the entire contents of [prisma.ts](file:///c:/claude/Saarlekha/backend/src/db/prisma.ts) with an optimized extension that executes RLS tenant context parameters (`app.current_tenant_id` and `app.current_user_role`) in a single execution statement instead of multiple sequential raw queries.
+  - Incorporated `AsyncLocalStorage` to bypass RLS re-wrapping if a query is already inside an active RLS transaction, preventing infinite recursion and redundant round-trips.
+- **Secrets Clean-up**:
+  - Removed all hardcoded database passwords (specifically the leaked Neon credentials) from `prisma.ts` and from all automated test suites:
+    - [onboard-rls.test.ts](file:///c:/claude/Saarlekha/backend/src/tests/onboard-rls.test.ts)
+    - [rls-audit.test.ts](file:///c:/claude/Saarlekha/backend/src/tests/rls-audit.test.ts)
+    - [rls-invite.test.ts](file:///c:/claude/Saarlekha/backend/src/tests/rls-invite.test.ts)
+    - [rls-user.test.ts](file:///c:/claude/Saarlekha/backend/src/tests/rls-user.test.ts)
+    - [rls-writes.test.ts](file:///c:/claude/Saarlekha/backend/src/tests/rls-writes.test.ts)
+    - [rls.test.ts](file:///c:/claude/Saarlekha/backend/src/tests/rls.test.ts)
+  - Configured test files to dynamically replace connection credentials using a generic regular expression, and added `APP_DATABASE_URL` check.
+  - Documented placeholders in [.env.example](file:///c:/claude/Saarlekha/backend/.env.example) and declared the new `PG_POOL_MAX` parameter.
+- **Dashboard Summary Optimization**:
+  - Refactored [dashboard.ts](file:///c:/claude/Saarlekha/backend/src/routes/dashboard.ts) to wrap all `/summary` reads in a single transaction block. All queries execute on the transaction client argument `tx`, reducing context switching and database round-trips to just one.
+  - Replaced the unpaginated JavaScript filter for latest maintenance statuses with a high-performance raw SQL query using `DISTINCT ON (re.payload->>'_machine_id')`, avoiding massive records loads.
+- **Performance Database Indexes**:
+  - Added indexes to critical tables in [schema.prisma](file:///c:/claude/Saarlekha/backend/prisma/schema.prisma) and generated/applied migration `perf_indexes`.
+  - Added a fallback SQL script [add_performance_indexes.sql](file:///c:/claude/Saarlekha/backend/prisma/manual/add_performance_indexes.sql) for manual applications.
+- **Validation**:
+  - Verified successful compilation via `npm run build`.
+  - Confirmed the RLS test suites pass successfully.
+
+### 44. Company Data Retention, Archiving & Health Check Updates
+- **Company Settings Data Retention Policy**:
+  - Updated the database schema [schema.prisma](file:///c:/claude/Saarlekha/backend/prisma/schema.prisma) to add `retention_days Int?` in the `Company` model and successfully migrated the DB.
+  - Updated the edit company endpoint `PUT /api/companies/:id` in [companies.ts](file:///c:/claude/Saarlekha/backend/src/routes/companies.ts) to support saving the policy setting.
+  - Updated the frontend company details editor inside [CompaniesTab.tsx](file:///c:/claude/Saarlekha/frontend/src/pages/admin/CompaniesTab.tsx) to render a dropdown mapping standard periods (30 Days, 90 Days, 180 Days, 1 Year, 2 Years, or Indefinite).
+- **Data Archiving & Purging Logic**:
+  - Created status endpoint `GET /api/companies/:id/retention-status` to calculate the cutoff date based on company retention days and return counts of archivable entries and production logs.
+  - Created archive endpoint `GET /api/companies/:id/archive-data` that queries historical logs and returns a downloadable structured JSON file payload representing the archive content.
+  - Created purge endpoint `POST /api/companies/:id/purge-data` to permanently delete records older than the cutoff date within a transaction, creating a `DELETE` audit log entry.
+  - Integrated the status information, copyable/downloadable file trigger (`handleDownload` via Axios blob), and red Purge Database verification workflow directly inside `CompaniesTab.tsx` for admin roles.
+- **Database-backed Health Check**:
+  - Refactored health endpoints `/api/health` and `/health` in [index.ts](file:///c:/claude/Saarlekha/backend/src/index.ts) to perform a real `SELECT 1` query using `prisma.$queryRaw` to check actual database connectivity, helping keep Neon compute units awake on ping schedules.
+- **Verification**:
+  - Verified successful build compilation for both backend (`tsc`) and frontend (`vite build`).
+
+### 45. Subscription Enforcement & Capacity Limits
+- **Prisma Database Upgrades**:
+  - Added enum type `SubscriptionTier` (with values `STARTER`, `GROWTH`, `ENTERPRISE`) and the `subscription_tier` field on the `Company` model (defaulting to `STARTER`) inside [schema.prisma](file:///c:/claude/Saarlekha/backend/prisma/schema.prisma).
+  - Automatically generated and applied the database schema migration `add_subscription_tier` to the live PostgreSQL database.
+- **Subscription Limits Helper**:
+  - Created [subscription.ts](file:///c:/claude/Saarlekha/backend/src/utils/subscription.ts) defining standard tier capacities (`STARTER` has 30 workers and 5 machines, `GROWTH` has 150 workers and 25 machines, and `ENTERPRISE` has unlimited capacity).
+  - Exposes `verifySubscriptionLimit` which counts existing workers/machines for the company and raises a `403 Forbidden` error if adding more exceeds the company's tier limits.
+- **Backend Enforcements**:
+  - Integrated limit checks in the manpower creation endpoint `POST /api/manpower` inside [manpower.ts](file:///c:/claude/Saarlekha/backend/src/routes/manpower.ts).
+  - Integrated limit checks in the machine creation endpoint `POST /api/machines` inside [machines.ts](file:///c:/claude/Saarlekha/backend/src/routes/machines.ts) for both single and batch inserts.
+  - Restructured `companiesRouter.post('/')` (Onboard Company) and `companiesRouter.put('/:id')` in [companies.ts](file:///c:/claude/Saarlekha/backend/src/routes/companies.ts) to support the `subscription_tier` parameter, securing the update endpoint so only `SUPER_ADMIN` accounts can change a company's tier.
+- **Frontend Controls**:
+  - Added subscription tier selection dropdowns to both the Onboard Company and Edit Company modals for Super Admin accounts inside [CompaniesTab.tsx](file:///c:/claude/Saarlekha/frontend/src/pages/admin/CompaniesTab.tsx).
+  - Rendered beautiful, clear badge indicators on the company card detail lists showing their active subscription tier (Starter, Growth, or Enterprise).
+- **Verification**:
+  - Successfully verified compile type safety by running full production builds for both backend (`prisma generate && tsc`) and frontend (`vite build`).
+
+### 46. Super Admin Sidebar Subscription Details
+- **Super Admin Landing Page & Selected Company Views**:
+  - Updated [Layout.tsx](file:///c:/claude/Saarlekha/frontend/src/components/Layout.tsx) to fetch the list of all companies continuously every 4 seconds for `SUPER_ADMIN` accounts.
+  - Implemented the "Subscription Tiers" summary widget in the sidebar on the landing page (`!selectedCompanyId`), showing breakdown counts of companies in each tier (Starter, Growth, Enterprise).
+  - Implemented a detailed "Subscription Detail" card in the sidebar when a company is selected (`selectedCompanyId` is present), displaying the active company's subscription tier and resource limits (Manpower and Machine limits).
+- **Verification**:
+  - Successfully verified compilation by building Vite/React production assets via `cmd /c npm run build` (built in 1.29s).
+  - Pushed the layout changes to the remote repository, triggering Vercel/Render automatic redeployments.
+
+### 48. Razorpay Payment Gateway, Link Redirection, and Administrative Selection Reversion
+- **Reversion of Registration Tier Requirements**:
+  - Reverted the registration form [Register.tsx](file:///c:/claude/Saarlekha/frontend/src/pages/auth/Register.tsx) to its previous clean credential/Google authentication layout. New users are no longer required to select a tier, and default to the `STARTER` plan on onboarding.
+  - Restored the **Subscription Tier** select dropdown inside the **Onboard New Company** and **Edit Company Details** modals in [CompaniesTab.tsx](file:///c:/claude/Saarlekha/frontend/src/pages/admin/CompaniesTab.tsx), placing control back in the hands of the Super Admin.
+- **Razorpay Payments Integration (Backend)**:
+  - Created a database model `Payment` inside [schema.prisma](file:///c:/claude/Saarlekha/backend/prisma/schema.prisma) tracking transaction amounts, currencies, statuses (`PENDING`, `SUCCESS`, `FAILED`), Razorpay order, payment, signature, and link references.
+  - Implemented [payments.ts](file:///c:/claude/Saarlekha/backend/src/routes/payments.ts) with endpoints:
+    - `POST /create-order`: Initializes standard Razorpay Order IDs for client-side SDK checkouts, or calls `razorpay.paymentLink.create()` to generate shareable link URLs. Supports developer fallback mock keys (`rzp_test_mockkeyid123`).
+    - `POST /verify`: Performs SHA256 HMAC cryptographic verification on direct checkout signatures before committing upgrades inside a database transaction.
+    - `GET /verify-link`: Queries the Razorpay API for remote payment link status checks during redirections.
+    - `GET /history/:companyId`: Pulls transaction logging records for accounting verification.
+- **Subscription Master View (Company Admin)**:
+  - Developed [SubscriptionMaster.tsx](file:///c:/claude/Saarlekha/frontend/src/pages/admin/SubscriptionMaster.tsx) featuring visual utilization capacity progress bars tracking manpower and machine allocations.
+  - Integrated dynamic script loading for `https://checkout.razorpay.com/v1/checkout.js` inside the inline purchase handlers.
+  - Added payment action cards for **Growth** and **Enterprise** subscriptions, offering toggles to pay online with Razorpay SDK or generate shareable payment links.
+  - Added a responsive transaction history table at the bottom of the page showing dates, currencies, amounts, order identifiers, payment codes, and success/failed badges.
+- **Copyable Links & Callback Gateways (Super Admin & Redirects)**:
+  - Added a **"Payment Link"** button on company landing cards in [CompaniesTab.tsx](file:///c:/claude/Saarlekha/frontend/src/pages/admin/CompaniesTab.tsx), spawning an interactive dialog modal allowing Super Admins to select a plan, trigger the backend create link routine, and copy the link.
+  - Registered [SubscriptionCallback.tsx](file:///c:/claude/Saarlekha/frontend/src/pages/admin/SubscriptionCallback.tsx) at `/subscription-callback` to process link callback redirects, fetching link status checks and showing user-friendly success/failed state displays.
+- **Verification**:
+  - Built Vite/React production assets via `cmd /c npm run build` successfully.
+  - Pushed changes to GitHub repository, triggering Vercel/Render automatic redeployments.
+
+
+
+
+
+
+
