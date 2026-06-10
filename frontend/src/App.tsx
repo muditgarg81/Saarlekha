@@ -10,6 +10,8 @@ import { SetupPassword } from './pages/auth/SetupPassword';
 import { Dashboard } from './pages/Dashboard';
 
 import { AdminPanel } from './pages/admin/AdminPanel';
+import { SubscriptionMaster } from './pages/admin/SubscriptionMaster';
+import { SubscriptionCallback } from './pages/admin/SubscriptionCallback';
 import { AuditLog } from './pages/admin/AuditLog';
 import { ManpowerMaster } from './pages/masters/ManpowerMaster';
 import { ItemsMaster } from './pages/masters/ItemsMaster';
@@ -80,6 +82,8 @@ function App() {
             <Route path="/maintenance" element={<MachineMaintenance />} />
             <Route path="/audit" element={<AuditLog />} />
             <Route path="/admin" element={<AdminPanel />} />
+            <Route path="/subscription" element={<SubscriptionMaster />} />
+            <Route path="/subscription-callback" element={<SubscriptionCallback />} />
             <Route path="/legal/privacy" element={<PrivacyPolicy isPrivate={true} />} />
             <Route path="/legal/terms" element={<LegalTerms isPrivate={true} />} />
             <Route path="/legal/conditions" element={<TermsConditions isPrivate={true} />} />

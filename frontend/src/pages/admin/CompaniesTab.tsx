@@ -147,6 +147,12 @@ export function CompaniesTab() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<Partial<Company>>({});
 
+  // For Razorpay Payment Link Generation
+  const [paymentLinkModalCompany, setPaymentLinkModalCompany] = useState<Company | null>(null);
+  const [paymentLinkTier, setPaymentLinkTier] = useState<'GROWTH' | 'ENTERPRISE'>('GROWTH');
+  const [generatedLink, setGeneratedLink] = useState<string | null>(null);
+  const [generatingLink, setGeneratingLink] = useState(false);
+
   // For creation
   const [showAddForm, setShowAddForm] = useState(false);
   const [newCompany, setNewCompany] = useState({
@@ -207,6 +213,23 @@ export function CompaniesTab() {
         const details = err.response?.data?.details;
         alert(details ? `${msg}: ${details}` : msg);
       }
+    }
+  };
+
+  const handleGeneratePaymentLink = async () => {
+    if (!paymentLinkModalCompany) return;
+    setGeneratingLink(true);
+    try {
+      const res = await api.post('/payments/create-order', {
+        companyId: paymentLinkModalCompany.id,
+        tier: paymentLinkTier,
+        method: 'link'
+      });
+      setGeneratedLink(res.data.paymentLinkUrl);
+    } catch (err: any) {
+      alert(err.response?.data?.error || 'Failed to generate payment link');
+    } finally {
+      setGeneratingLink(false);
     }
   };
 
@@ -507,7 +530,20 @@ export function CompaniesTab() {
                         <option value="730">730 Days (2 Years)</option>
                       </select>
                     </div>
-                    {/* Subscription tier is managed directly on the landing page card, not here */}
+                    {user?.role === 'SUPER_ADMIN' && (
+                      <div className="col-span-2">
+                        <label className="block text-xs font-semibold text-text-secondary uppercase">Subscription Tier</label>
+                        <select
+                          className="mt-1 w-full border border-border rounded-lg px-2 py-1 text-sm bg-white"
+                          value={editForm.subscription_tier || 'STARTER'}
+                          onChange={e => setEditForm({...editForm, subscription_tier: e.target.value as any})}
+                        >
+                          <option value="STARTER">Starter</option>
+                          <option value="GROWTH">Growth</option>
+                          <option value="ENTERPRISE">Enterprise</option>
+                        </select>
+                      </div>
+                    )}
                   </div>
                   <div className="flex gap-2 pt-2 border-t border-border justify-end">
                     <button onClick={() => setEditingId(null)} className="border border-border px-3 py-1 rounded text-sm hover:bg-gray-50 font-medium">Cancel</button>
@@ -573,61 +609,31 @@ export function CompaniesTab() {
                       </div>
 
                       <CompanyRetentionStatus companyId={company.id} />
-                      
-                      {user?.role === 'SUPER_ADMIN' && (
-                        <div className="mt-4 pt-3.5 border-t border-border flex justify-between items-center bg-gray-50/50 p-2.5 rounded-lg border border-border/65 gap-4">
-                          <div className="flex items-center gap-1.5 text-xs font-semibold text-text-secondary">
-                            <Shield className="h-3.5 w-3.5 text-primary flex-shrink-0" />
-                            <span>Subscription:</span>
-                          </div>
-                          <select
-                            className={`text-xs font-bold px-2 py-1.5 rounded border bg-white focus:outline-none focus:ring-1 focus:ring-primary cursor-pointer ${
-                              company.subscription_tier === 'ENTERPRISE'
-                                ? 'text-purple-700 border-purple-200 bg-purple-50'
-                                : company.subscription_tier === 'GROWTH'
-                                ? 'text-emerald-700 border-emerald-200 bg-emerald-50'
-                                : 'text-sky-700 border-sky-200 bg-sky-50'
-                            }`}
-                            value={company.subscription_tier || 'STARTER'}
-                            onChange={async (e) => {
-                              const newTier = e.target.value;
-                              try {
-                                await api.put(`/companies/${company.id}`, {
-                                  name: company.name,
-                                  address: company.address,
-                                  gst: company.gst,
-                                  contact_name: company.contact_name,
-                                  phone: company.phone,
-                                  email: company.email,
-                                  retention_days: company.retention_days,
-                                  subscription_tier: newTier
-                                });
-                                alert(`Successfully updated subscription tier of "${company.name}" to ${newTier}!`);
-                                fetchCompanies();
-                              } catch (err: any) {
-                                const msg = err.response?.data?.error || 'Failed to update subscription tier';
-                                const details = err.response?.data?.details;
-                                alert(details ? `${msg}: ${details}` : msg);
-                              }
-                            }}
-                          >
-                            <option value="STARTER">Starter</option>
-                            <option value="GROWTH">Growth</option>
-                            <option value="ENTERPRISE">Enterprise</option>
-                          </select>
-                        </div>
-                      )}
                     </div>
                   </div>
 
                   <div className="mt-6 pt-4 border-t border-border flex justify-between items-center">
                     {user?.role === 'SUPER_ADMIN' && (
-                      <button
-                        onClick={() => selectCompany(company.id, company.name)}
-                        className="bg-primary text-white hover:bg-primary-light px-4 py-1.5 rounded-lg text-xs font-bold transition-all shadow-sm"
-                      >
-                        Select Company
-                      </button>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => selectCompany(company.id, company.name)}
+                          className="bg-primary text-white hover:bg-primary-light px-4 py-1.5 rounded-lg text-xs font-bold transition-all shadow-sm"
+                        >
+                          Select Company
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setPaymentLinkModalCompany(company);
+                            setPaymentLinkTier('GROWTH');
+                            setGeneratedLink(null);
+                          }}
+                          className="bg-secondary/10 text-secondary border border-secondary/20 hover:bg-secondary/20 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all"
+                          title="Generate Payment Link"
+                        >
+                          Payment Link
+                        </button>
+                      </div>
                     )}
                     <button 
                       onClick={() => handleEditClick(company)}
@@ -689,6 +695,93 @@ export function CompaniesTab() {
                 Done
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Payment link generator modal */}
+      {paymentLinkModalCompany && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-card max-w-md w-full border border-border shadow-lg p-6 space-y-4">
+            <div className="flex items-center gap-3 border-b border-border pb-3">
+              <div className="p-2 bg-primary/10 text-primary rounded-lg">
+                <Shield className="h-5 w-5" />
+              </div>
+              <div>
+                <h3 className="font-bold text-text-primary">Generate Subscription Payment Link</h3>
+                <p className="text-xs text-text-secondary">For {paymentLinkModalCompany.name}</p>
+              </div>
+            </div>
+
+            {!generatedLink ? (
+              <div className="space-y-4">
+                <p className="text-sm text-text-secondary leading-relaxed">
+                  Select a subscription plan tier to generate a secure Razorpay payment link. You can share this link with the company administrator for subscription payment.
+                </p>
+                <div>
+                  <label className="block text-xs font-semibold text-text-secondary uppercase">Plan Tier</label>
+                  <select
+                    className="mt-1 w-full border border-border rounded-lg px-3 py-2 text-sm bg-white"
+                    value={paymentLinkTier}
+                    onChange={e => setPaymentLinkTier(e.target.value as any)}
+                  >
+                    <option value="GROWTH">Growth Plan (Rs. 9,999/yr)</option>
+                    <option value="ENTERPRISE">Enterprise Plan (Rs. 49,999/yr)</option>
+                  </select>
+                </div>
+                <div className="flex justify-end gap-3 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setPaymentLinkModalCompany(null)}
+                    className="border border-border px-4 py-2 rounded-lg text-xs font-bold hover:bg-gray-50 transition-all"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleGeneratePaymentLink}
+                    disabled={generatingLink}
+                    className="bg-primary text-white px-4 py-2 rounded-lg text-xs font-bold hover:bg-primary-light transition-all shadow-sm disabled:opacity-50"
+                  >
+                    {generatingLink ? 'Generating...' : 'Generate Link'}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <p className="text-sm text-text-secondary leading-relaxed">
+                  Razorpay payment link has been successfully generated. Copy it below:
+                </p>
+                <div className="bg-surface border border-border p-3 rounded-lg flex items-center gap-2">
+                  <input
+                    type="text"
+                    readOnly
+                    className="w-full bg-transparent text-xs font-mono text-text-primary focus:outline-none"
+                    value={generatedLink}
+                    id="generated-payment-link"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      navigator.clipboard.writeText(generatedLink);
+                      alert('Payment link copied to clipboard!');
+                    }}
+                    className="text-xs font-bold text-primary hover:text-primary-light whitespace-nowrap"
+                  >
+                    Copy Link
+                  </button>
+                </div>
+                <div className="flex justify-end pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setPaymentLinkModalCompany(null)}
+                    className="bg-primary text-white px-5 py-2 rounded-lg text-xs font-bold hover:bg-primary-light shadow-sm"
+                  >
+                    Close
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}

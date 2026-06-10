@@ -24,8 +24,8 @@
     "typescript": "^5.9.3"
   },
   "dependencies": {
-    "@prisma/client": "^7.8.0",
     "@prisma/adapter-pg": "^7.8.0",
+    "@prisma/client": "^7.8.0",
     "@types/pg": "^8.20.0",
     "bcrypt": "^6.0.0",
     "cors": "^2.8.6",
@@ -34,6 +34,7 @@
     "google-auth-library": "^10.6.2",
     "jsonwebtoken": "^9.0.3",
     "nodemailer": "^8.0.10",
-    "pg": "^8.21.0"
+    "pg": "^8.21.0",
+    "razorpay": "^2.9.6"
   }
 }

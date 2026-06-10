@@ -5,7 +5,7 @@ import {
   LogOut, LayoutDashboard, Users, ShieldAlert, ShieldCheck,
   Factory, FileText, Settings, TrendingUp, Menu, X,
   ClipboardList, Wrench, Shield, ChevronRight, Building2,
-  Database, ChevronDown, BarChart3, ArrowLeft
+  Database, ChevronDown, BarChart3, ArrowLeft, Sparkles
 } from 'lucide-react';
 import clsx from 'clsx';
 import api, { updateApiBaseURL } from '../utils/api';
@@ -60,6 +60,7 @@ const ALL_NAV_ITEMS: NavItem[] = [
   },
   { name: 'Audit Log', href: '/audit', icon: Shield, roles: ['SUPER_ADMIN', 'COMPANY_ADMIN'] },
   { name: 'Admin Panel', href: '/admin', icon: ShieldAlert, roles: ['SUPER_ADMIN', 'COMPANY_ADMIN'], mobileTab: true },
+  { name: 'Subscription', href: '/subscription', icon: Sparkles, roles: ['SUPER_ADMIN', 'COMPANY_ADMIN'] },
 ];
 
 export function PrivateLayout() {

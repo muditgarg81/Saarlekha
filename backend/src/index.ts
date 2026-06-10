@@ -20,6 +20,7 @@ import { productionRouter } from './routes/production';
 import { dashboardRouter } from './routes/dashboard';
 import { auditRouter } from './routes/audit';
 import { maintenanceTypesRouter } from './routes/maintenanceTypes';
+import { paymentsRouter } from './routes/payments';
 
 const app = express();
 const port = process.env.PORT || 5000;
@@ -41,6 +42,7 @@ app.use('/api/production', productionRouter);
 app.use('/api/dashboard', dashboardRouter);
 app.use('/api/audit', auditRouter);
 app.use('/api/maintenance-types', maintenanceTypesRouter);
+app.use('/api/payments', paymentsRouter);
 
 app.get('/api/health', async (req, res) => {
   try {

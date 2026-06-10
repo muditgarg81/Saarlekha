@@ -31,6 +31,7 @@ model Company {
   report_entries           ReportEntry[]
   report_formats           ReportFormat[]
   users                    User[]
+  payments                 Payment[]
 }
 
 model User {
@@ -300,5 +301,22 @@ enum SubscriptionTier {
   STARTER
   GROWTH
   ENTERPRISE
+}
+
+model Payment {
+  id                   String      @id @default(uuid())
+  company_id           String
+  company              Company     @relation(fields: [company_id], references: [id], onDelete: Cascade)
+  amount               Float
+  currency             String      @default("INR")
+  razorpay_order_id    String?     @unique
+  razorpay_payment_id  String?     @unique
+  razorpay_signature   String?
+  payment_link_id      String?     @unique
+  payment_link_url     String?
+  status               String      // PENDING, SUCCESS, FAILED
+  tier                 String      // GROWTH or ENTERPRISE
+  created_at           DateTime    @default(now())
+  updated_at           DateTime    @updatedAt
 }
 
