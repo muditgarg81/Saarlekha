@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { authenticate, requireRole } from '../middleware/auth';
 import { getTenantPrisma } from '../db/prisma';
+import { verifySubscriptionLimit } from '../utils/subscription';
 
 export const machinesRouter = Router();
 machinesRouter.use(authenticate);
@@ -32,6 +33,13 @@ machinesRouter.post('/', requireRole(['SUPER_ADMIN', 'COMPANY_ADMIN']), async (r
   const prismaTenant = getTenantPrisma(tenantId!);
 
   try {
+    // Verify subscription limit
+    if (Array.isArray(data)) {
+      await verifySubscriptionLimit(tenantId!, 'machines', data.length);
+    } else {
+      await verifySubscriptionLimit(tenantId!, 'machines', 1);
+    }
+
     if (Array.isArray(data)) {
       const createdMachines = await prismaTenant.$transaction(async (tx) => {
         const promises = data.map(async (item) => {
@@ -104,6 +112,9 @@ machinesRouter.post('/', requireRole(['SUPER_ADMIN', 'COMPANY_ADMIN']), async (r
 
     res.status(201).json(machine);
   } catch (error: any) {
+    if (error.status === 403) {
+      return res.status(403).json({ error: error.message });
+    }
     console.error('Error in POST /api/machines:', error);
     res.status(500).json({ error: 'Failed to create machine', details: error.message });
   }

@@ -57,7 +57,8 @@ exports.companiesRouter.put('/:id', (0, auth_1.requireRole)(['SUPER_ADMIN', 'COM
                 contact_name: data.contact_name,
                 phone: data.phone,
                 email: data.email,
-                retention_days: data.retention_days !== undefined ? (data.retention_days === null || data.retention_days === '' ? null : parseInt(data.retention_days, 10)) : undefined
+                retention_days: data.retention_days !== undefined ? (data.retention_days === null || data.retention_days === '' ? null : parseInt(data.retention_days, 10)) : undefined,
+                subscription_tier: req.user?.role === 'SUPER_ADMIN' ? data.subscription_tier : undefined
             }
         });
         res.json(updated);
@@ -68,7 +69,7 @@ exports.companiesRouter.put('/:id', (0, auth_1.requireRole)(['SUPER_ADMIN', 'COM
 });
 // Create more companies (Super Admin only)
 exports.companiesRouter.post('/', (0, auth_1.requireRole)(['SUPER_ADMIN']), async (req, res) => {
-    const { name, address, logo_url, gst, contact_name, email, phone, adminEmail } = req.body;
+    const { name, address, logo_url, gst, contact_name, email, phone, adminEmail, subscription_tier } = req.body;
     if (!name) {
         return res.status(400).json({ error: 'Company name is required' });
     }
@@ -85,7 +86,7 @@ exports.companiesRouter.post('/', (0, auth_1.requireRole)(['SUPER_ADMIN']), asyn
         const result = await prisma_1.prisma.$transaction(async (tx) => {
             // 1. Create company
             const company = await tx.company.create({
-                data: { name, address, logo_url, gst, contact_name, email, phone }
+                data: { name, address, logo_url, gst, contact_name, email, phone, subscription_tier: subscription_tier || 'STARTER' }
             });
             // 2. Set current_tenant_id so we can insert User and Token under RLS WITH CHECK policy
             await tx.$executeRaw `SELECT set_config('app.current_tenant_id', ${company.id}, true)`;

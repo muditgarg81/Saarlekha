@@ -5,6 +5,7 @@ const express_1 = require("express");
 const auth_1 = require("../middleware/auth");
 const prisma_1 = require("../db/prisma");
 const crypto_1 = require("../utils/crypto");
+const subscription_1 = require("../utils/subscription");
 exports.manpowerRouter = (0, express_1.Router)();
 exports.manpowerRouter.use(auth_1.authenticate);
 // List manpower (All roles, but RLS automatically filters by tenant, 
@@ -47,6 +48,8 @@ exports.manpowerRouter.post('/', (0, auth_1.requireRole)(['SUPER_ADMIN', 'COMPAN
         return res.status(403).json({ error: 'Tenant ID missing' });
     const prismaTenant = (0, prisma_1.getTenantPrisma)(tenantId);
     try {
+        // Verify subscription limit
+        await (0, subscription_1.verifySubscriptionLimit)(tenantId, 'manpower', 1);
         let aadhaarEncrypted = null;
         let aadhaarMasked = null;
         if (data.aadhaar) {
@@ -83,6 +86,9 @@ exports.manpowerRouter.post('/', (0, auth_1.requireRole)(['SUPER_ADMIN', 'COMPAN
         res.status(201).json(manpower);
     }
     catch (error) {
+        if (error.status === 403) {
+            return res.status(403).json({ error: error.message });
+        }
         res.status(500).json({ error: 'Failed to create manpower', details: error.message });
     }
 });

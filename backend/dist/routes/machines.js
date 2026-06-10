@@ -4,6 +4,7 @@ exports.machinesRouter = void 0;
 const express_1 = require("express");
 const auth_1 = require("../middleware/auth");
 const prisma_1 = require("../db/prisma");
+const subscription_1 = require("../utils/subscription");
 exports.machinesRouter = (0, express_1.Router)();
 exports.machinesRouter.use(auth_1.authenticate);
 exports.machinesRouter.get('/', async (req, res) => {
@@ -31,6 +32,13 @@ exports.machinesRouter.post('/', (0, auth_1.requireRole)(['SUPER_ADMIN', 'COMPAN
     const data = req.body;
     const prismaTenant = (0, prisma_1.getTenantPrisma)(tenantId);
     try {
+        // Verify subscription limit
+        if (Array.isArray(data)) {
+            await (0, subscription_1.verifySubscriptionLimit)(tenantId, 'machines', data.length);
+        }
+        else {
+            await (0, subscription_1.verifySubscriptionLimit)(tenantId, 'machines', 1);
+        }
         if (Array.isArray(data)) {
             const createdMachines = await prismaTenant.$transaction(async (tx) => {
                 const promises = data.map(async (item) => {
@@ -99,6 +107,9 @@ exports.machinesRouter.post('/', (0, auth_1.requireRole)(['SUPER_ADMIN', 'COMPAN
         res.status(201).json(machine);
     }
     catch (error) {
+        if (error.status === 403) {
+            return res.status(403).json({ error: error.message });
+        }
         console.error('Error in POST /api/machines:', error);
         res.status(500).json({ error: 'Failed to create machine', details: error.message });
     }

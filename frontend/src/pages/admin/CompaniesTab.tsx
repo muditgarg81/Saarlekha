@@ -12,6 +12,7 @@ interface Company {
   phone: string;
   email: string;
   retention_days?: number | null;
+  subscription_tier?: 'STARTER' | 'GROWTH' | 'ENTERPRISE';
 }
 
 function CompanyRetentionStatus({ companyId }: { companyId: string }) {
@@ -155,7 +156,8 @@ export function CompaniesTab() {
     contact_name: '',
     email: '',
     phone: '',
-    adminEmail: ''
+    adminEmail: '',
+    subscription_tier: 'STARTER' as 'STARTER' | 'GROWTH' | 'ENTERPRISE'
   });
   const [createdInviteLink, setCreatedInviteLink] = useState<string | null>(null);
   const [createdCompanyName, setCreatedCompanyName] = useState<string>('');
@@ -231,7 +233,8 @@ export function CompaniesTab() {
         contact_name: '',
         email: '',
         phone: '',
-        adminEmail: ''
+        adminEmail: '',
+        subscription_tier: 'STARTER'
       });
       fetchCompanies();
     } catch (err: any) {
@@ -367,6 +370,24 @@ export function CompaniesTab() {
                 
                 <div className="bg-surface p-3 rounded-lg border border-border space-y-3 mt-4">
                   <div className="text-xs font-bold text-text-primary uppercase tracking-wide">
+                    Subscription Tier
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-semibold text-text-secondary uppercase">Tier *</label>
+                    <select
+                      className="mt-1 w-full border border-border rounded px-2 py-1 text-sm bg-white"
+                      value={newCompany.subscription_tier}
+                      onChange={e => setNewCompany({ ...newCompany, subscription_tier: e.target.value as any })}
+                    >
+                      <option value="STARTER">Starter</option>
+                      <option value="GROWTH">Growth</option>
+                      <option value="ENTERPRISE">Enterprise</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="bg-surface p-3 rounded-lg border border-border space-y-3 mt-4">
+                  <div className="text-xs font-bold text-text-primary uppercase tracking-wide">
                     Provision First Company Admin
                   </div>
                   <div>
@@ -486,6 +507,20 @@ export function CompaniesTab() {
                         <option value="730">730 Days (2 Years)</option>
                       </select>
                     </div>
+                    {user?.role === 'SUPER_ADMIN' && (
+                      <div className="col-span-2">
+                        <label className="block text-xs font-semibold text-text-secondary uppercase">Subscription Tier</label>
+                        <select
+                          className="mt-1 w-full border border-border rounded-lg px-2 py-1 text-sm bg-white"
+                          value={editForm.subscription_tier || 'STARTER'}
+                          onChange={e => setEditForm({...editForm, subscription_tier: e.target.value as any})}
+                        >
+                          <option value="STARTER">Starter</option>
+                          <option value="GROWTH">Growth</option>
+                          <option value="ENTERPRISE">Enterprise</option>
+                        </select>
+                      </div>
+                    )}
                   </div>
                   <div className="flex gap-2 pt-2 border-t border-border justify-end">
                     <button onClick={() => setEditingId(null)} className="border border-border px-3 py-1 rounded text-sm hover:bg-gray-50 font-medium">Cancel</button>
@@ -501,8 +536,19 @@ export function CompaniesTab() {
                           <Building2 className="h-6 w-6 text-primary" />
                         </div>
                         <div>
-                          <h3 className="text-lg font-bold text-text-primary leading-tight">{company.name}</h3>
-                          <p className="text-xs text-text-secondary mt-0.5">GST: <span className="font-semibold text-text-primary">{company.gst || 'N/A'}</span></p>
+                          <div className="flex items-center gap-2">
+                            <h3 className="text-lg font-bold text-text-primary leading-tight">{company.name}</h3>
+                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider border ${
+                              company.subscription_tier === 'ENTERPRISE'
+                                ? 'bg-purple-50 text-purple-700 border-purple-200'
+                                : company.subscription_tier === 'GROWTH'
+                                ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                : 'bg-sky-50 text-sky-700 border-sky-200'
+                            }`}>
+                              {company.subscription_tier || 'STARTER'}
+                            </span>
+                          </div>
+                          <p className="text-xs text-text-secondary mt-1">GST: <span className="font-semibold text-text-primary">{company.gst || 'N/A'}</span></p>
                         </div>
                       </div>
                       

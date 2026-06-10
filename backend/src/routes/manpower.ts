@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { authenticate, requireRole } from '../middleware/auth';
 import { getTenantPrisma } from '../db/prisma';
 import { encrypt, maskAadhaar } from '../utils/crypto';
+import { verifySubscriptionLimit } from '../utils/subscription';
 
 export const manpowerRouter = Router();
 
@@ -50,6 +51,9 @@ manpowerRouter.post('/', requireRole(['SUPER_ADMIN', 'COMPANY_ADMIN']), async (r
   const prismaTenant = getTenantPrisma(tenantId);
 
   try {
+    // Verify subscription limit
+    await verifySubscriptionLimit(tenantId, 'manpower', 1);
+
     let aadhaarEncrypted = null;
     let aadhaarMasked = null;
 
@@ -89,6 +93,9 @@ manpowerRouter.post('/', requireRole(['SUPER_ADMIN', 'COMPANY_ADMIN']), async (r
 
     res.status(201).json(manpower);
   } catch (error: any) {
+    if (error.status === 403) {
+      return res.status(403).json({ error: error.message });
+    }
     res.status(500).json({ error: 'Failed to create manpower', details: error.message });
   }
 });
