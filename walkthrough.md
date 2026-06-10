@@ -583,9 +583,12 @@ ALL RLS TENANT ISOLATION TESTS PASSED! 🎉
   - Pushed the layout changes to the remote repository, triggering Vercel/Render automatic redeployments.
 
 ### 48. Razorpay Payment Gateway, Link Redirection, and Administrative Selection Reversion
-- **Reversion of Registration Tier Requirements**:
+- **Reversion of Registration Tier Requirements & Redesigned Administrative Selector**:
   - Reverted the registration form [Register.tsx](file:///c:/claude/Saarlekha/frontend/src/pages/auth/Register.tsx) to its previous clean credential/Google authentication layout. New users are no longer required to select a tier, and default to the `STARTER` plan on onboarding.
-  - Restored the **Subscription Tier** select dropdown inside the **Onboard New Company** and **Edit Company Details** modals in [CompaniesTab.tsx](file:///c:/claude/Saarlekha/frontend/src/pages/admin/CompaniesTab.tsx), placing control back in the hands of the Super Admin.
+  - Restored the **Subscription Tier** select dropdown inside the **Onboard New Company** modal in [CompaniesTab.tsx](file:///c:/claude/Saarlekha/frontend/src/pages/admin/CompaniesTab.tsx), placing control back in the hands of the Super Admin.
+  - Completely redesigned the subscription tier selection inside the **Edit Company Details** form in [CompaniesTab.tsx](file:///c:/claude/Saarlekha/frontend/src/pages/admin/CompaniesTab.tsx) into a gorgeous tabbed view. The editor is split into:
+    1. **General Details**: Name, Address, GST, Contact Name, Email, Phone, and Data Retention Policy.
+    2. **Subscription Plan**: Shows a list of all plans (Starter, Growth, Enterprise) featuring their pricing details, capacity resource limits (Workers/Machines limits), complete features checks (e.g. dynamic columns, custom exports, support priority), inline selection toggle status state markers, and interactive payment link generator buttons.
 - **Razorpay Payments Integration (Backend)**:
   - Created a database model `Payment` inside [schema.prisma](file:///c:/claude/Saarlekha/backend/prisma/schema.prisma) tracking transaction amounts, currencies, statuses (`PENDING`, `SUCCESS`, `FAILED`), Razorpay order, payment, signature, and link references.
   - Implemented [payments.ts](file:///c:/claude/Saarlekha/backend/src/routes/payments.ts) with endpoints:
