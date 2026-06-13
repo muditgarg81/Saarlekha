@@ -9,6 +9,10 @@ export interface FormatField {
     operator: string;
     right: string;
   };
+  carryBaseType?: 'text' | 'number' | 'date';
+  carrySourceFieldId?: string;
+  carryScope?: 'machine' | 'field' | 'overall';
+  carryScopeFieldId?: string;
 }
 
 export const REPORT_STANDARD_FIELDS: FormatField[] = [

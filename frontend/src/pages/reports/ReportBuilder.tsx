@@ -3,19 +3,7 @@ import api from '../../utils/api';
 import { useAuth } from '../../context/AuthContext';
 import { Plus, ListPlus, Settings2, Trash2, Edit2, Check, X, GripVertical, ArrowLeft } from 'lucide-react';
 import clsx from 'clsx';
-import { injectStandardFields, isStandardField } from '../../utils/standards';
-
-interface FormatField {
-  name: string;
-  type: string;
-  unit?: string;
-  options?: string[];
-  formula?: {
-    left: string;
-    operator: string;
-    right: string;
-  };
-}
+import { injectStandardFields, isStandardField, type FormatField } from '../../utils/standards';
 
 interface FormatVersion {
   id: string;
@@ -65,6 +53,18 @@ export function ReportBuilder() {
   // Drag and Drop State
   const [draggedIdx, setDraggedIdx] = useState<number | null>(null);
 
+  // Carry Forward State (Add Field)
+  const [newFieldCarryBaseType, setNewFieldCarryBaseType] = useState<'text' | 'number' | 'date'>('number');
+  const [newFieldCarrySourceFieldId, setNewFieldCarrySourceFieldId] = useState<string>('');
+  const [newFieldCarryScope, setNewFieldCarryScope] = useState<'machine' | 'field' | 'overall'>('machine');
+  const [newFieldCarryScopeFieldId, setNewFieldCarryScopeFieldId] = useState<string>('');
+
+  // Carry Forward State (Edit Field)
+  const [editingFieldCarryBaseType, setEditingFieldCarryBaseType] = useState<'text' | 'number' | 'date'>('number');
+  const [editingFieldCarrySourceFieldId, setEditingFieldCarrySourceFieldId] = useState<string>('');
+  const [editingFieldCarryScope, setEditingFieldCarryScope] = useState<'machine' | 'field' | 'overall'>('machine');
+  const [editingFieldCarryScopeFieldId, setEditingFieldCarryScopeFieldId] = useState<string>('');
+
   const isAdmin = ['SUPER_ADMIN', 'COMPANY_ADMIN'].includes(user?.role || '');
 
   const getNumericOperandOptions = (currentFields: FormatField[], excludeIdx?: number | null) => {
@@ -76,6 +76,39 @@ export function ReportBuilder() {
       }
     });
     return list;
+  };
+
+  const getInitialCarryForwardDefaults = (currentFields: FormatField[]) => {
+    const machineFields = currentFields.filter(f => f.type === 'machine');
+    const hasMachine = machineFields.length > 0;
+    return {
+      carryBaseType: 'number' as const,
+      carrySourceFieldId: '',
+      carryScope: (hasMachine ? 'machine' : 'overall') as 'machine' | 'overall',
+      carryScopeFieldId: hasMachine ? machineFields[0].name : ''
+    };
+  };
+
+  const handleNewFieldTypeChange = (type: string) => {
+    setNewFieldType(type);
+    if (type === 'carry_forward') {
+      const defaults = getInitialCarryForwardDefaults(fields);
+      setNewFieldCarryBaseType(defaults.carryBaseType);
+      setNewFieldCarrySourceFieldId(defaults.carrySourceFieldId);
+      setNewFieldCarryScope(defaults.carryScope);
+      setNewFieldCarryScopeFieldId(defaults.carryScopeFieldId);
+    }
+  };
+
+  const handleEditingFieldTypeChange = (type: string) => {
+    setEditingFieldType(type);
+    if (type === 'carry_forward') {
+      const defaults = getInitialCarryForwardDefaults(fields);
+      setEditingFieldCarryBaseType(defaults.carryBaseType);
+      setEditingFieldCarrySourceFieldId(defaults.carrySourceFieldId);
+      setEditingFieldCarryScope(defaults.carryScope);
+      setEditingFieldCarryScopeFieldId(defaults.carryScopeFieldId);
+    }
   };
 
   useEffect(() => {
@@ -158,7 +191,22 @@ export function ReportBuilder() {
       };
     }
 
-    setFields([...fields, { name: trimmedName, type: newFieldType, unit: newFieldUnit.trim() || undefined, options, formula }]);
+    const newField: FormatField = { 
+      name: trimmedName, 
+      type: newFieldType, 
+      unit: newFieldUnit.trim() || undefined, 
+      options, 
+      formula 
+    };
+
+    if (newFieldType === 'carry_forward') {
+      newField.carryBaseType = newFieldCarryBaseType;
+      newField.carrySourceFieldId = newFieldCarrySourceFieldId || undefined;
+      newField.carryScope = newFieldCarryScope;
+      newField.carryScopeFieldId = newFieldCarryScopeFieldId || undefined;
+    }
+
+    setFields([...fields, newField]);
     setNewFieldName('');
     setNewFieldUnit('');
     setNewFieldOptions('');
@@ -176,6 +224,12 @@ export function ReportBuilder() {
     setEditingFieldFormulaLeft(field.formula?.left || '');
     setEditingFieldFormulaOperator(field.formula?.operator || '-');
     setEditingFieldFormulaRight(field.formula?.right || '');
+    
+    // Carry forward configs
+    setEditingFieldCarryBaseType(field.carryBaseType || 'number');
+    setEditingFieldCarrySourceFieldId(field.carrySourceFieldId || '');
+    setEditingFieldCarryScope(field.carryScope || 'machine');
+    setEditingFieldCarryScopeFieldId(field.carryScopeFieldId || '');
   };
 
   const handleCancelEditField = () => {
@@ -221,13 +275,22 @@ export function ReportBuilder() {
     }
 
     const updated = [...fields];
-    updated[idx] = { 
+    const newField: FormatField = { 
       name: trimmedName, 
       type: editingFieldType, 
       unit: editingFieldUnit.trim() ? editingFieldUnit.trim() : undefined,
       options,
       formula
     };
+
+    if (editingFieldType === 'carry_forward') {
+      newField.carryBaseType = editingFieldCarryBaseType;
+      newField.carrySourceFieldId = editingFieldCarrySourceFieldId || undefined;
+      newField.carryScope = editingFieldCarryScope;
+      newField.carryScopeFieldId = editingFieldCarryScopeFieldId || undefined;
+    }
+
+    updated[idx] = newField;
     setFields(updated);
     setEditingFieldIdx(null);
     setEditingFieldOptions('');
@@ -415,7 +478,7 @@ export function ReportBuilder() {
                         </div>
                         <div>
                           <label className="block text-[10px] font-semibold text-text-secondary uppercase">Type</label>
-                          <select className="border border-border rounded px-2 py-1 text-sm focus:ring-primary focus:border-primary mt-1" value={editingFieldType} onChange={e => setEditingFieldType(e.target.value)}>
+                          <select className="border border-border rounded px-2 py-1 text-sm focus:ring-primary focus:border-primary mt-1" value={editingFieldType} onChange={e => handleEditingFieldTypeChange(e.target.value)}>
                             <option value="text">Text</option>
                             <option value="number">Number</option>
                             <option value="date">Date</option>
@@ -427,6 +490,7 @@ export function ReportBuilder() {
                             <option value="job_order">Job Order Number (Dropdown)</option>
                             <option value="item">Items (Dropdown)</option>
                             <option value="calculated">Calculated (Formula)</option>
+                            <option value="carry_forward">Carry Forward (previous value)</option>
                           </select>
                         </div>
                         <div>
@@ -478,6 +542,77 @@ export function ReportBuilder() {
                             </div>
                           </div>
                         )}
+                        {editingFieldType === 'carry_forward' && (
+                          <div className="w-full mt-2 p-3 bg-gray-50 rounded border border-border/60 grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+                            <div>
+                              <label className="block text-[10px] font-semibold text-text-secondary uppercase">Source Field</label>
+                              <select 
+                                className="border border-border rounded px-2 py-1.5 w-full bg-white mt-1"
+                                value={editingFieldCarrySourceFieldId}
+                                onChange={e => setEditingFieldCarrySourceFieldId(e.target.value)}
+                              >
+                                <option value="">This field (self)</option>
+                                {fields.map((f, i) => (
+                                  i !== editingFieldIdx && <option key={f.name} value={f.name}>{f.name}</option>
+                                ))}
+                              </select>
+                            </div>
+                            <div>
+                              <label className="block text-[10px] font-semibold text-text-secondary uppercase">Carry Scope</label>
+                              <select 
+                                className="border border-border rounded px-2 py-1.5 w-full bg-white mt-1"
+                                value={editingFieldCarryScope}
+                                onChange={e => {
+                                  const scope = e.target.value as any;
+                                  setEditingFieldCarryScope(scope);
+                                  if (scope === 'machine') {
+                                    const mFields = fields.filter(f => f.type === 'machine');
+                                    setEditingFieldCarryScopeFieldId(mFields[0]?.name || '');
+                                  } else if (scope === 'field') {
+                                    setEditingFieldCarryScopeFieldId(fields[0]?.name || '');
+                                  } else {
+                                    setEditingFieldCarryScopeFieldId('');
+                                  }
+                                }}
+                              >
+                                <option value="machine">Per machine</option>
+                                <option value="field">Per field</option>
+                                <option value="overall">Last entry overall</option>
+                              </select>
+                            </div>
+                            {(editingFieldCarryScope === 'machine' || editingFieldCarryScope === 'field') && (
+                              <div className="md:col-span-2">
+                                <label className="block text-[10px] font-semibold text-text-secondary uppercase">
+                                  {editingFieldCarryScope === 'machine' ? 'Machine Field' : 'Scope Key Field'}
+                                </label>
+                                <select 
+                                  className="border border-border rounded px-2 py-1.5 w-full bg-white mt-1"
+                                  value={editingFieldCarryScopeFieldId}
+                                  onChange={e => setEditingFieldCarryScopeFieldId(e.target.value)}
+                                >
+                                  <option value="">Select Field...</option>
+                                  {fields
+                                    .filter(f => editingFieldCarryScope === 'field' || f.type === 'machine')
+                                    .map(f => (
+                                      <option key={f.name} value={f.name}>{f.name}</option>
+                                    ))}
+                                </select>
+                              </div>
+                            )}
+                            <div>
+                              <label className="block text-[10px] font-semibold text-text-secondary uppercase">Base Type</label>
+                              <select 
+                                className="border border-border rounded px-2 py-1.5 w-full bg-white mt-1"
+                                value={editingFieldCarryBaseType}
+                                onChange={e => setEditingFieldCarryBaseType(e.target.value as any)}
+                              >
+                                <option value="number">Number</option>
+                                <option value="text">Text</option>
+                                <option value="date">Date</option>
+                              </select>
+                            </div>
+                          </div>
+                        )}
                         <div className="flex gap-1.5 ml-2 pb-1">
                           <button type="button" onClick={() => handleSaveEditField(idx)} className="text-green-600 hover:text-green-800 p-1.5 rounded hover:bg-green-50" title="Save Changes"><Check className="h-4 w-4" /></button>
                           <button type="button" onClick={handleCancelEditField} className="text-gray-400 hover:text-gray-600 p-1.5 rounded hover:bg-gray-100" title="Cancel"><X className="h-4 w-4" /></button>
@@ -487,9 +622,15 @@ export function ReportBuilder() {
                       <>
                         <div className="flex-1">
                           <span className="font-medium text-text-primary">{f.name}</span>
-                          <span className="ml-2 text-xs text-text-secondary uppercase px-2 py-0.5 bg-gray-100 rounded">
-                            {isStandardField(f.name, activeFormat.type) ? 'Standard' : f.type}
-                          </span>
+                          {f.type === 'carry_forward' ? (
+                            <span className="ml-2 text-xs text-teal-700 font-bold uppercase px-2 py-0.5 bg-teal-50 border border-teal-200 rounded">
+                              CARRY FWD
+                            </span>
+                          ) : (
+                            <span className="ml-2 text-xs text-text-secondary uppercase px-2 py-0.5 bg-gray-100 rounded">
+                              {isStandardField(f.name, activeFormat.type) ? 'Standard' : f.type}
+                            </span>
+                          )}
                           {f.unit && <span className="ml-2 text-xs text-secondary">({f.unit})</span>}
                           {f.type === 'dropdown' && f.options && (
                             <div className="text-xs text-text-secondary mt-1 font-medium bg-gray-50 px-2 py-1 rounded border border-border/40 inline-block">
@@ -499,6 +640,11 @@ export function ReportBuilder() {
                           {f.type === 'calculated' && f.formula && (
                             <div className="text-xs text-primary mt-1 font-semibold bg-blue-50/70 px-2 py-1 rounded border border-blue-100 inline-block">
                               Formula: {f.name} = {f.formula.left || '?'} {f.formula.operator} {f.formula.right || '?'}
+                            </div>
+                          )}
+                          {f.type === 'carry_forward' && (
+                            <div className="text-xs text-teal-700 mt-1 font-semibold bg-teal-50/50 px-2 py-1 rounded border border-teal-100/60 inline-block block">
+                              Carry: previous {f.carrySourceFieldId || 'self'} · {f.carryScope === 'overall' ? 'overall' : `per ${f.carryScopeFieldId || '?'}`} ({f.carryBaseType})
                             </div>
                           )}
                         </div>
@@ -531,7 +677,7 @@ export function ReportBuilder() {
               </div>
               <div>
                 <label className="block text-xs font-medium text-text-secondary">Data Type</label>
-                <select className="mt-1 block w-full border border-border rounded px-3 py-2 text-sm focus:ring-primary focus:border-primary" value={newFieldType} onChange={e => setNewFieldType(e.target.value)}>
+                <select className="mt-1 block w-full border border-border rounded px-3 py-2 text-sm focus:ring-primary focus:border-primary" value={newFieldType} onChange={e => handleNewFieldTypeChange(e.target.value)}>
                   <option value="text">Text</option>
                   <option value="number">Number</option>
                   <option value="date">Date</option>
@@ -543,6 +689,7 @@ export function ReportBuilder() {
                   <option value="job_order">Job Order Number (Dropdown)</option>
                   <option value="item">Items (Dropdown)</option>
                   <option value="calculated">Calculated (Formula)</option>
+                  <option value="carry_forward">Carry Forward (previous value)</option>
                 </select>
               </div>
               <div>
@@ -591,6 +738,77 @@ export function ReportBuilder() {
                     {getNumericOperandOptions(fields).map(opt => (
                       <option key={opt.value} value={opt.value}>{opt.label}</option>
                     ))}
+                  </select>
+                </div>
+              </div>
+            )}
+            {newFieldType === 'carry_forward' && (
+              <div className="mt-4 p-4 bg-gray-50 rounded border border-border/60 grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                <div>
+                  <label className="block text-xs font-semibold text-text-secondary uppercase">Source Field</label>
+                  <select 
+                    className="mt-1 block w-full border border-border rounded px-3 py-2 bg-white"
+                    value={newFieldCarrySourceFieldId}
+                    onChange={e => setNewFieldCarrySourceFieldId(e.target.value)}
+                  >
+                    <option value="">This field (self)</option>
+                    {fields.map(f => (
+                      <option key={f.name} value={f.name}>{f.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-text-secondary uppercase">Carry Scope</label>
+                  <select 
+                    className="mt-1 block w-full border border-border rounded px-3 py-2 bg-white"
+                    value={newFieldCarryScope}
+                    onChange={e => {
+                      const scope = e.target.value as any;
+                      setNewFieldCarryScope(scope);
+                      if (scope === 'machine') {
+                        const mFields = fields.filter(f => f.type === 'machine');
+                        setNewFieldCarryScopeFieldId(mFields[0]?.name || '');
+                      } else if (scope === 'field') {
+                        setNewFieldCarryScopeFieldId(fields[0]?.name || '');
+                      } else {
+                        setNewFieldCarryScopeFieldId('');
+                      }
+                    }}
+                  >
+                    <option value="machine">Per machine</option>
+                    <option value="field">Per field</option>
+                    <option value="overall">Last entry overall</option>
+                  </select>
+                </div>
+                {(newFieldCarryScope === 'machine' || newFieldCarryScope === 'field') && (
+                  <div className="md:col-span-2">
+                    <label className="block text-xs font-semibold text-text-secondary uppercase">
+                      {newFieldCarryScope === 'machine' ? 'Machine Field' : 'Scope Key Field'}
+                    </label>
+                    <select 
+                      className="mt-1 block w-full border border-border rounded px-3 py-2 bg-white"
+                      value={newFieldCarryScopeFieldId}
+                      onChange={e => setNewFieldCarryScopeFieldId(e.target.value)}
+                    >
+                      <option value="">Select Field...</option>
+                      {fields
+                        .filter(f => newFieldCarryScope === 'field' || f.type === 'machine')
+                        .map(f => (
+                          <option key={f.name} value={f.name}>{f.name}</option>
+                        ))}
+                    </select>
+                  </div>
+                )}
+                <div>
+                  <label className="block text-xs font-semibold text-text-secondary uppercase">Base Type</label>
+                  <select 
+                    className="mt-1 block w-full border border-border rounded px-3 py-2 bg-white"
+                    value={newFieldCarryBaseType}
+                    onChange={e => setNewFieldCarryBaseType(e.target.value as any)}
+                  >
+                    <option value="number">Number</option>
+                    <option value="text">Text</option>
+                    <option value="date">Date</option>
                   </select>
                 </div>
               </div>

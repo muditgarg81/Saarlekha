@@ -3,19 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import api from '../../utils/api';
 import { useAuth } from '../../context/AuthContext';
 import { Send, FileText, Trash2, Edit, Plus, X } from 'lucide-react';
-import { injectStandardFields, isStandardField } from '../../utils/standards';
-
-interface FormatField {
-  name: string;
-  type: string;
-  unit?: string;
-  options?: string[];
-  formula?: {
-    left: string;
-    operator: string;
-    right: string;
-  };
-}
+import { injectStandardFields, isStandardField, type FormatField } from '../../utils/standards';
 
 interface FormatVersion {
   id: string;
@@ -55,8 +43,18 @@ export function DataEntry() {
   const [batchEntries, setBatchEntries] = useState<Record<string, any>[]>([]);
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [editingSavedEntry, setEditingSavedEntry] = useState<any>(null);
+  const [currentSeededValues, setCurrentSeededValues] = useState<Record<string, any>>({});
 
   const { user } = useAuth();
+
+  const filteredFormats = filterType
+    ? formats.filter(f => f.type.toUpperCase() === filterType.toUpperCase())
+    : formats;
+
+  const activeFormat = formats.find(f => f.id === selectedFormatId);
+  const activeSchema = activeFormat
+    ? injectStandardFields(activeFormat.versions[0]?.fields_schema || [], activeFormat.type)
+    : [];
 
   useEffect(() => {
     fetchData();
@@ -71,6 +69,38 @@ export function DataEntry() {
       setSelectedFormatId(entry.format_version?.format_id || entry.format_version?.format?.id);
       setSelectedDepartment(entry.department_id);
       setPayload(entry.payload || {});
+
+      // Initialize carry forward seeds for the saved entry
+      const schema = injectStandardFields(entry.format_version?.fields_schema || [], entry.format_version?.format?.type);
+      const carryFields = schema.filter(f => f.type === 'carry_forward');
+      if (carryFields.length > 0) {
+        const newSeededValues: Record<string, any> = {};
+        for (const f of carryFields) {
+          const scopeFieldId = f.carryScope === 'overall' ? undefined : (f.carryScopeFieldId || schema.find(as => as.type === 'machine')?.name);
+          const scopeValue = scopeFieldId ? entry.payload[scopeFieldId] : undefined;
+
+          if (f.carryScope !== 'overall' && (scopeValue === undefined || scopeValue === null || scopeValue === '')) {
+            newSeededValues[f.name] = '';
+            continue;
+          }
+
+          try {
+            const params: any = {
+              sourceFieldId: f.carrySourceFieldId || f.name
+            };
+            if (f.carryScope !== 'overall' && scopeFieldId && scopeValue !== undefined) {
+              params.scopeFieldId = scopeFieldId;
+              params.scopeValue = scopeValue;
+            }
+            const lastValRes = await api.get(`/reports/formats/${entry.format_version?.format_id || entry.format_version?.format?.id}/last-value`, { params });
+            newSeededValues[f.name] = lastValRes.data.value ?? '';
+          } catch (err) {
+            console.error(err);
+            newSeededValues[f.name] = '';
+          }
+        }
+        setCurrentSeededValues(newSeededValues);
+      }
     } catch (err) {
       console.error('Failed to load entry:', err);
       alert('Failed to load the selected report entry.');
@@ -85,12 +115,56 @@ export function DataEntry() {
     } else {
       setEditingSavedEntry(null);
       setPayload({});
+      setCurrentSeededValues({});
       const fId = searchParams.get('formatId');
       if (fId) setSelectedFormatId(fId);
       const dId = searchParams.get('departmentId');
       if (dId) setSelectedDepartment(dId);
     }
   }, [entryId, searchParams]);
+
+  // Resolve overall carry forwards when format changes
+  useEffect(() => {
+    if (selectedFormatId && activeSchema.length > 0 && !editingSavedEntry) {
+      const carryFields = activeSchema.filter(f => f.type === 'carry_forward' && f.carryScope === 'overall');
+      if (carryFields.length > 0) {
+        const resolveOverall = async () => {
+          const newPayload = { ...payload };
+          const newSeededValues = { ...currentSeededValues };
+          for (const f of carryFields) {
+            let resolvedValue: any = undefined;
+            let foundInBatch = false;
+            const maxIndex = editingIndex !== null ? editingIndex : batchEntries.length;
+            for (let i = maxIndex - 1; i >= 0; i--) {
+              const entry = batchEntries[i];
+              const sourceField = f.carrySourceFieldId || f.name;
+              resolvedValue = entry[sourceField];
+              foundInBatch = true;
+              break;
+            }
+
+            if (foundInBatch) {
+              newPayload[f.name] = resolvedValue ?? '';
+              newSeededValues[f.name] = resolvedValue ?? '';
+            } else {
+              try {
+                const res = await api.get(`/reports/formats/${selectedFormatId}/last-value`, {
+                  params: { sourceFieldId: f.carrySourceFieldId || f.name }
+                });
+                newPayload[f.name] = res.data.value ?? '';
+                newSeededValues[f.name] = res.data.value ?? '';
+              } catch (err) {
+                console.error(err);
+              }
+            }
+          }
+          setPayload(newPayload);
+          setCurrentSeededValues(newSeededValues);
+        };
+        resolveOverall();
+      }
+    }
+  }, [selectedFormatId, activeSchema.length, editingSavedEntry]);
 
   const fetchData = async () => {
     try {
@@ -119,15 +193,6 @@ export function DataEntry() {
       if (!entryId) setLoading(false);
     }
   };
-
-  const filteredFormats = filterType
-    ? formats.filter(f => f.type.toUpperCase() === filterType.toUpperCase())
-    : formats;
-
-  const activeFormat = formats.find(f => f.id === selectedFormatId);
-  const activeSchema = activeFormat
-    ? injectStandardFields(activeFormat.versions[0]?.fields_schema || [], activeFormat.type)
-    : [];
 
   const evaluateReportCalculatedField = (
     field: FormatField,
@@ -167,8 +232,113 @@ export function DataEntry() {
     return result;
   };
 
-  const handleFieldChange = (fieldName: string, value: any) => {
-    setPayload(prev => ({ ...prev, [fieldName]: value }));
+  const resolveCarryForwardSeeds = async (currentPayload: Record<string, any>, updatedFieldName: string, updatedValue: any) => {
+    const tempPayload = { ...currentPayload, [updatedFieldName]: updatedValue };
+    
+    const carryFields = activeSchema.filter(f => f.type === 'carry_forward');
+    const affectedCarryFields = carryFields.filter(f => {
+      const scopeFieldId = f.carryScope === 'overall' ? undefined : (f.carryScopeFieldId || activeSchema.find(as => as.type === 'machine')?.name);
+      return scopeFieldId === updatedFieldName;
+    });
+
+    if (affectedCarryFields.length === 0) {
+      setPayload(tempPayload);
+      return;
+    }
+
+    const newPayload = { ...tempPayload };
+    const newSeededValues = { ...currentSeededValues };
+
+    for (const f of affectedCarryFields) {
+      const scopeFieldId = f.carryScope === 'overall' ? undefined : (f.carryScopeFieldId || activeSchema.find(as => as.type === 'machine')?.name);
+      const scopeValue = scopeFieldId ? tempPayload[scopeFieldId] : undefined;
+
+      if (f.carryScope !== 'overall' && (scopeValue === undefined || scopeValue === null || scopeValue === '')) {
+        newPayload[f.name] = '';
+        newSeededValues[f.name] = '';
+        continue;
+      }
+
+      let resolvedValue: any = undefined;
+      let foundInBatch = false;
+
+      const maxIndex = editingIndex !== null ? editingIndex : batchEntries.length;
+      for (let i = maxIndex - 1; i >= 0; i--) {
+        const entry = batchEntries[i];
+        const entryScopeVal = scopeFieldId ? entry[scopeFieldId] : undefined;
+        if (f.carryScope === 'overall' || String(entryScopeVal) === String(scopeValue)) {
+          const sourceField = f.carrySourceFieldId || f.name;
+          resolvedValue = entry[sourceField];
+          foundInBatch = true;
+          break;
+        }
+      }
+
+      if (foundInBatch) {
+        newPayload[f.name] = resolvedValue ?? '';
+        newSeededValues[f.name] = resolvedValue ?? '';
+      } else {
+        try {
+          const params: any = {
+            sourceFieldId: f.carrySourceFieldId || f.name
+          };
+          if (f.carryScope !== 'overall' && scopeFieldId && scopeValue !== undefined) {
+            params.scopeFieldId = scopeFieldId;
+            params.scopeValue = scopeValue;
+          }
+          
+          const res = await api.get(`/reports/formats/${selectedFormatId}/last-value`, { params });
+          const dbValue = res.data.value;
+          newPayload[f.name] = dbValue ?? '';
+          newSeededValues[f.name] = dbValue ?? '';
+        } catch (err) {
+          console.error("Failed to fetch carry forward seed:", err);
+          newPayload[f.name] = '';
+          newSeededValues[f.name] = '';
+        }
+      }
+    }
+
+    setPayload(newPayload);
+    setCurrentSeededValues(newSeededValues);
+  };
+
+  const handleFieldChange = async (fieldName: string, value: any) => {
+    const carryFields = activeSchema.filter(f => f.type === 'carry_forward');
+    const affectedCarryFields = carryFields.filter(f => {
+      const scopeFieldId = f.carryScope === 'overall' ? undefined : (f.carryScopeFieldId || activeSchema.find(as => as.type === 'machine')?.name);
+      return scopeFieldId === fieldName;
+    });
+
+    if (affectedCarryFields.length > 0) {
+      let hasAmended = false;
+      let amendedFieldNames: string[] = [];
+
+      affectedCarryFields.forEach(f => {
+        const currentValue = payload[f.name];
+        const seededValue = currentSeededValues[f.name];
+        const hasCurrent = currentValue !== undefined && currentValue !== null && currentValue !== '';
+        const matchesSeed = String(currentValue ?? '') === String(seededValue ?? '');
+        
+        if (hasCurrent && !matchesSeed) {
+          hasAmended = true;
+          amendedFieldNames.push(f.name);
+        }
+      });
+
+      if (hasAmended) {
+        const confirmChange = window.confirm(
+          `Change ${fieldName} to "${value}"? The opening/carried values you entered for "${payload[fieldName]}" (${amendedFieldNames.join(', ')}) will be replaced.`
+        );
+        if (!confirmChange) {
+          return;
+        }
+      }
+
+      await resolveCarryForwardSeeds(payload, fieldName, value);
+    } else {
+      setPayload(prev => ({ ...prev, [fieldName]: value }));
+    }
   };
 
   const handleUpdateSavedEntry = async (e: React.FormEvent) => {
@@ -261,6 +431,7 @@ export function DataEntry() {
 
     // Reset current form inputs
     setPayload({});
+    setCurrentSeededValues({});
   };
 
   const handleSubmitForm = (e: React.FormEvent) => {
@@ -271,9 +442,63 @@ export function DataEntry() {
     }
   };
 
+  const initSeededValuesForEditing = async (rowPayload: Record<string, any>, index: number) => {
+    const carryFields = activeSchema.filter(f => f.type === 'carry_forward');
+    if (carryFields.length === 0) return;
+
+    const newSeededValues = { ...currentSeededValues };
+
+    for (const f of carryFields) {
+      const scopeFieldId = f.carryScope === 'overall' ? undefined : (f.carryScopeFieldId || activeSchema.find(as => as.type === 'machine')?.name);
+      const scopeValue = scopeFieldId ? rowPayload[scopeFieldId] : undefined;
+
+      if (f.carryScope !== 'overall' && (scopeValue === undefined || scopeValue === null || scopeValue === '')) {
+        newSeededValues[f.name] = '';
+        continue;
+      }
+
+      let resolvedValue: any = undefined;
+      let foundInBatch = false;
+
+      for (let i = index - 1; i >= 0; i--) {
+        const entry = batchEntries[i];
+        const entryScopeVal = scopeFieldId ? entry[scopeFieldId] : undefined;
+        if (f.carryScope === 'overall' || String(entryScopeVal) === String(scopeValue)) {
+          const sourceField = f.carrySourceFieldId || f.name;
+          resolvedValue = entry[sourceField];
+          foundInBatch = true;
+          break;
+        }
+      }
+
+      if (foundInBatch) {
+        newSeededValues[f.name] = resolvedValue ?? '';
+      } else {
+        try {
+          const params: any = {
+            sourceFieldId: f.carrySourceFieldId || f.name
+          };
+          if (f.carryScope !== 'overall' && scopeFieldId && scopeValue !== undefined) {
+            params.scopeFieldId = scopeFieldId;
+            params.scopeValue = scopeValue;
+          }
+          const res = await api.get(`/reports/formats/${selectedFormatId}/last-value`, { params });
+          newSeededValues[f.name] = res.data.value ?? '';
+        } catch (err) {
+          console.error(err);
+          newSeededValues[f.name] = '';
+        }
+      }
+    }
+
+    setCurrentSeededValues(newSeededValues);
+  };
+
   const handleEditRow = (index: number) => {
     setEditingIndex(index);
-    setPayload(batchEntries[index]);
+    const rowPayload = batchEntries[index];
+    setPayload(rowPayload);
+    initSeededValuesForEditing(rowPayload, index);
   };
 
   const handleDeleteRow = (index: number) => {
@@ -282,6 +507,7 @@ export function DataEntry() {
     if (editingIndex === index) {
       setEditingIndex(null);
       setPayload({});
+      setCurrentSeededValues({});
     } else if (editingIndex !== null && editingIndex > index) {
       setEditingIndex(editingIndex - 1);
     }
@@ -290,6 +516,7 @@ export function DataEntry() {
   const handleCancelEdit = () => {
     setEditingIndex(null);
     setPayload({});
+    setCurrentSeededValues({});
   };
 
   const handleSubmitBatch = async () => {
@@ -612,6 +839,54 @@ export function DataEntry() {
                               </span>
                             )}
                           </div>
+                        ) : field.type === 'carry_forward' ? (
+                          (() => {
+                            const scopeFieldId = field.carryScope === 'overall' ? undefined : (field.carryScopeFieldId || activeSchema.find(as => as.type === 'machine')?.name);
+                            const scopeValue = scopeFieldId ? payload[scopeFieldId] : undefined;
+                            const isScopeRequiredButMissing = field.carryScope !== 'overall' && (scopeValue === undefined || scopeValue === null || scopeValue === '');
+                            
+                            const baseType = field.carryBaseType || 'text';
+                            const inputType = baseType === 'number' ? 'number' : baseType === 'date' ? 'date' : 'text';
+                            
+                            const currentValue = payload[field.name];
+                            const seededValue = currentSeededValues[field.name];
+                            const hasCurrent = currentValue !== undefined && currentValue !== null && currentValue !== '';
+                            const isAmended = hasCurrent && String(currentValue ?? '') !== String(seededValue ?? '');
+
+                            return (
+                              <div className="relative mt-1">
+                                <input
+                                  type={inputType}
+                                  step={baseType === 'number' ? 'any' : undefined}
+                                  required={!isScopeRequiredButMissing}
+                                  disabled={isScopeRequiredButMissing}
+                                  placeholder={isScopeRequiredButMissing ? `Select ${scopeFieldId || 'machine'} first` : `Enter ${field.name.toLowerCase()}`}
+                                  className={`block w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 ${
+                                    isScopeRequiredButMissing 
+                                      ? 'bg-gray-50 border-gray-200 text-gray-400 cursor-not-allowed' 
+                                      : isAmended 
+                                        ? 'border-amber-300 bg-amber-50/20' 
+                                        : 'border-border bg-white'
+                                  }`}
+                                  value={payload[field.name] !== undefined ? payload[field.name] : ''}
+                                  onChange={e => handleFieldChange(field.name, baseType === 'number' ? (e.target.value === '' ? '' : Number(e.target.value)) : e.target.value)}
+                                />
+                                {!isScopeRequiredButMissing && (
+                                  <div className="mt-1 flex items-center justify-between text-[10px]">
+                                    {isAmended ? (
+                                      <span className="text-amber-600 font-medium">
+                                        Amended (originally carried: {seededValue !== undefined && seededValue !== null && seededValue !== '' ? String(seededValue) : 'blank'})
+                                      </span>
+                                    ) : (
+                                      <span className="text-teal-600 font-medium">
+                                        Carried forward — editable
+                                      </span>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })()
                         ) : (
                           <input
                             type={field.type === 'number' ? 'number' : field.type === 'date' ? 'date' : 'text'}

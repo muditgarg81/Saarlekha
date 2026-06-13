@@ -3,20 +3,7 @@ import api from '../../utils/api';
 import { useAuth } from '../../context/AuthContext';
 import { Plus, ListPlus, Settings2, Trash2, Edit2, Check, X, ClipboardList, GripVertical } from 'lucide-react';
 import clsx from 'clsx';
-import { injectStandardFields, isStandardField } from '../../utils/standards';
-
-interface FormatField {
-  name: string;
-  type: string;
-  unit?: string;
-  open?: boolean;
-  options?: string[];
-  formula?: {
-    left: string;
-    operator: string;
-    right: string;
-  };
-}
+import { injectStandardFields, isStandardField, type FormatField } from '../../utils/standards';
 
 interface FormatVersion {
   id: string;

@@ -200,6 +200,69 @@ reportsRouter.delete('/formats/:id', requireRole(['SUPER_ADMIN', 'COMPANY_ADMIN'
   }
 });
 
+// GET /api/reports/formats/:formatId/last-value
+reportsRouter.get('/formats/:formatId/last-value', async (req, res) => {
+  const tenantId = req.tenantId;
+  const formatId = req.params.formatId as string;
+  const { sourceFieldId, scopeFieldId, scopeValue } = req.query;
+  const prismaTenant = getTenantPrisma(tenantId!);
+
+  if (!sourceFieldId) {
+    return res.status(400).json({ error: 'sourceFieldId is required' });
+  }
+
+  try {
+    const whereClause: any = {
+      format_version: { format_id: formatId }
+    };
+
+    if (scopeFieldId && scopeValue !== undefined && scopeValue !== null && scopeValue !== '') {
+      const stringValue = String(scopeValue);
+      const numValue = Number(scopeValue);
+      const isNum = !isNaN(numValue);
+
+      const conditions: any[] = [
+        {
+          payload: {
+            path: [scopeFieldId as string],
+            equals: stringValue
+          }
+        }
+      ];
+
+      if (isNum) {
+        conditions.push({
+          payload: {
+            path: [scopeFieldId as string],
+            equals: numValue
+          }
+        });
+      }
+
+      whereClause.OR = conditions;
+    }
+
+    const lastEntry = await prismaTenant.reportEntry.findFirst({
+      where: whereClause,
+      orderBy: [
+        { entry_date: 'desc' },
+        { created_at: 'desc' }
+      ]
+    });
+
+    if (!lastEntry) {
+      return res.json({ value: null });
+    }
+
+    const payload = lastEntry.payload as Record<string, any>;
+    const value = payload ? payload[sourceFieldId as string] : null;
+
+    res.json({ value: value ?? null });
+  } catch (error: any) {
+    res.status(500).json({ error: 'Failed to fetch last value', details: error.message });
+  }
+});
+
 // 2. Report Entries (Data Entry)
 reportsRouter.get('/entries', async (req, res) => {
   const tenantId = req.tenantId;

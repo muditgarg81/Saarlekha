@@ -608,6 +608,27 @@ ALL RLS TENANT ISOLATION TESTS PASSED! 🎉
   - Built Vite/React production assets via `cmd /c npm run build` successfully.
   - Pushed changes to GitHub repository, triggering Vercel/Render automatic redeployments.
 
+### 49. Carry Forward Field Type (Machine-Scoped Seeding)
+- **Shared Standards Extension**:
+  - Extended the central `FormatField` interface inside [standards.ts](file:///c:/claude/Saarlekha/frontend/src/utils/standards.ts) with `carryBaseType` (`'number' | 'text' | 'date'`), `carrySourceFieldId` (source field name), `carryScope` (`'machine' | 'field' | 'overall'`), and `carryScopeFieldId` (scope key field name) optional configuration properties.
+  - Replaced duplicate inline `FormatField` interface definitions across master and reporting pages, referencing the unified definition from `standards.ts`.
+- **Backend Carry-Forward Endpoint**:
+  - Implemented `GET /api/reports/formats/:formatId/last-value` in [reports.ts](file:///c:/claude/Saarlekha/backend/src/routes/reports.ts) to retrieve the most recent value for carry-forward seeding.
+  - The query uses tenant-scoped database isolation and resolves the newest matching entry ordered by `entry_date desc`, then `created_at desc`.
+  - Employs a robust `OR` filter for dynamic JSON path query parameters matching both string and numeric types of machine/field values.
+  - Implemented a complete backend unit test suite in [carry-forward.test.ts](file:///c:/claude/Saarlekha/backend/src/tests/carry-forward.test.ts) to assert the resolution correctness.
+- **Report Builder Setup UI**:
+  - Added **"Carry Forward (previous value)"** to the field type selection dropdown in [ReportBuilder.tsx](file:///c:/claude/Saarlekha/frontend/src/pages/reports/ReportBuilder.tsx).
+  - Designed sub-forms for configuring Source Field, Carry Scope (Per machine, Per field, Last entry overall), scope key picker, Base Type (Number, Text, Date), and Units.
+  - Renders custom badge labels `CARRY FWD` and detail summaries underneath fields in the builder listing.
+- **Data Entry Seeding & Warn-on-Change**:
+  - Incorporated a local react resolver hook in [DataEntry.tsx](file:///c:/claude/Saarlekha/frontend/src/pages/reports/DataEntry.tsx) to resolve defaults on frontend: scans preceding rows in the active batch first, then retrieves database records from the backend API if no preceding batch row matches.
+  - Postpones value seeding until the row's scope key (e.g. machine) is selected; re-resolves silently if unchanged/empty fields are re-targeted.
+  - If a user changes the scope/machine on a row where a carry-forward value was manually modified, prompts the operator with a `window.confirm` modal to prevent accidental data loss.
+- **Verification**:
+  - Successfully compiled both the backend (`tsc`) and frontend (`npm run build`) packages with zero compilation errors.
+
+
 
 
 

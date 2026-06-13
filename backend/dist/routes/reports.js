@@ -178,6 +178,59 @@ exports.reportsRouter.delete('/formats/:id', (0, auth_1.requireRole)(['SUPER_ADM
         res.status(500).json({ error: 'Failed to delete format', details: error.message });
     }
 });
+// GET /api/reports/formats/:formatId/last-value
+exports.reportsRouter.get('/formats/:formatId/last-value', async (req, res) => {
+    const tenantId = req.tenantId;
+    const formatId = req.params.formatId;
+    const { sourceFieldId, scopeFieldId, scopeValue } = req.query;
+    const prismaTenant = (0, prisma_1.getTenantPrisma)(tenantId);
+    if (!sourceFieldId) {
+        return res.status(400).json({ error: 'sourceFieldId is required' });
+    }
+    try {
+        const whereClause = {
+            format_version: { format_id: formatId }
+        };
+        if (scopeFieldId && scopeValue !== undefined && scopeValue !== null && scopeValue !== '') {
+            const stringValue = String(scopeValue);
+            const numValue = Number(scopeValue);
+            const isNum = !isNaN(numValue);
+            const conditions = [
+                {
+                    payload: {
+                        path: [scopeFieldId],
+                        equals: stringValue
+                    }
+                }
+            ];
+            if (isNum) {
+                conditions.push({
+                    payload: {
+                        path: [scopeFieldId],
+                        equals: numValue
+                    }
+                });
+            }
+            whereClause.OR = conditions;
+        }
+        const lastEntry = await prismaTenant.reportEntry.findFirst({
+            where: whereClause,
+            orderBy: [
+                { entry_date: 'desc' },
+                { created_at: 'desc' }
+            ]
+        });
+        if (!lastEntry) {
+            return res.json({ value: null });
+        }
+        const payload = lastEntry.payload;
+        const value = payload ? payload[sourceFieldId] : null;
+        res.json({ value: value ?? null });
+    }
+    catch (error) {
+        res.status(500).json({ error: 'Failed to fetch last value', details: error.message });
+    }
+});
 // 2. Report Entries (Data Entry)
 exports.reportsRouter.get('/entries', async (req, res) => {
     const tenantId = req.tenantId;

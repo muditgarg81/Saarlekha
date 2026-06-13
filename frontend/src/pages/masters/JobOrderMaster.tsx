@@ -5,7 +5,7 @@ import { useAuth } from '../../context/AuthContext';
 import { ExportBar } from '../../utils/export';
 import { Plus, ClipboardList, Trash2, Edit, CheckCircle, XCircle, Lock, MoreVertical, X, Search } from 'lucide-react';
 import clsx from 'clsx';
-import { injectStandardFields, isStandardField } from '../../utils/standards';
+import { injectStandardFields, isStandardField, type FormatField } from '../../utils/standards';
 
 interface Customer {
   id: string;
@@ -37,19 +37,6 @@ interface JobOrder {
   production_qty?: number;
   production_qty_unit?: string;
   custom_data?: Record<string, any>;
-}
-
-interface FormatField {
-  name: string;
-  type: string;
-  unit?: string;
-  open?: boolean;
-  options?: string[];
-  formula?: {
-    left: string;
-    operator: string;
-    right: string;
-  };
 }
 
 export function JobOrderMaster() {
