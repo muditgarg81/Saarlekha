@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import api from '../../utils/api';
 import { useAuth } from '../../context/AuthContext';
-import { Plus, Check, X, AlertTriangle, Wrench, Trash2, Edit, MoreVertical } from 'lucide-react';
+import { Plus, Check, X, AlertTriangle, Wrench, Trash2, Edit, MoreVertical, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
 import { ExportBar } from '../../utils/export';
 import type { ExportOptions } from '../../utils/export';
 import clsx from 'clsx';
@@ -20,6 +20,98 @@ export function MachineMaintenance() {
   const [departments, setDepartments] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const { user } = useAuth();
+
+  const [sortField, setSortField] = useState<string>('maintenance date');
+  const [sortAsc, setSortAsc] = useState<boolean>(false);
+
+  const handleSort = (field: string) => {
+    const normField = field.trim();
+    if (sortField === normField) {
+      setSortAsc(!sortAsc);
+    } else {
+      setSortField(normField);
+      setSortAsc(true);
+    }
+  };
+
+  const getSortValue = (record: any, field: string) => {
+    const norm = field.toLowerCase().trim();
+    if (norm === 'department') {
+      return record.department?.name ?? '';
+    }
+    if (norm === 'maintenance date') {
+      return new Date(record.entry_date).getTime();
+    }
+    if (norm === 'machine') {
+      return record.payload?._machine ?? '';
+    }
+    if (norm === 'maintenance type') {
+      return record.payload?._maintenance_type ?? '';
+    }
+    if (norm === 'status') {
+      return record.payload?._status ?? '';
+    }
+    const val = record.payload?.[field];
+    if (val === undefined || val === null || val === '' || val === '—') {
+      return '';
+    }
+    return val;
+  };
+
+  const sortedRecords = React.useMemo(() => {
+    if (!sortField) return records;
+    return [...records].sort((a, b) => {
+      const valA = getSortValue(a, sortField);
+      const valB = getSortValue(b, sortField);
+
+      const numA = Number(valA);
+      const numB = Number(valB);
+      const isNumA = !isNaN(numA) && valA !== '' && valA !== null && valA !== undefined && typeof valA !== 'boolean';
+      const isNumB = !isNaN(numB) && valB !== '' && valB !== null && valB !== undefined && typeof valB !== 'boolean';
+
+      let comparison = 0;
+      if (isNumA && isNumB) {
+        comparison = numA - numB;
+      } else if (isNumA) {
+        comparison = -1;
+      } else if (isNumB) {
+        comparison = 1;
+      } else {
+        const strA = String(valA).toLowerCase();
+        const strB = String(valB).toLowerCase();
+        comparison = strA.localeCompare(strB, undefined, { numeric: true, sensitivity: 'base' });
+      }
+
+      return sortAsc ? comparison : -comparison;
+    });
+  }, [records, sortField, sortAsc]);
+
+  const renderSortableHeader = (field: string, label: string, align: 'left' | 'right' = 'left') => {
+    const isSorted = sortField === field;
+    return (
+      <th
+        onClick={() => handleSort(field)}
+        className={clsx(
+          "group cursor-pointer select-none px-6 py-3 text-xs font-semibold text-text-secondary uppercase hover:bg-border/30 transition-colors",
+          align === 'right' ? 'text-right' : 'text-left'
+        )}
+      >
+        <div className={clsx("flex items-center gap-1.5", align === 'right' ? 'justify-end' : 'justify-start')}>
+          <span>{label}</span>
+          {isSorted ? (
+            sortAsc ? (
+              <ArrowUp className="h-3 w-3 text-primary shrink-0" />
+            ) : (
+              <ArrowDown className="h-3 w-3 text-primary shrink-0" />
+            )
+          ) : (
+            <ArrowUpDown className="h-3 w-3 text-text-secondary/30 opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
+          )}
+        </div>
+      </th>
+    );
+  };
+
 
   // Selected Record Modal State
   const [selectedRecord, setSelectedRecord] = useState<any>(null);
@@ -304,7 +396,7 @@ export function MachineMaintenance() {
                 { header: 'Department', key: 'department' },
                 ...fields.map((f: any) => ({ header: f.name + (f.unit ? ` (${f.unit})` : ''), key: f.name }))
               ],
-              rows: (selectedIds.length > 0 ? records.filter(r => selectedIds.includes(r.id)) : records).map(r => {
+              rows: (selectedIds.length > 0 ? sortedRecords.filter(r => selectedIds.includes(r.id)) : sortedRecords).map(r => {
                 const rowData: Record<string, any> = {
                   department: r.department?.name || 'N/A'
                 };
@@ -448,10 +540,10 @@ export function MachineMaintenance() {
               </button>
             )}
           </div>
-          <span className="text-sm text-text-secondary">{records.length} records</span>
+          <span className="text-sm text-text-secondary">{sortedRecords.length} records</span>
         </div>
 
-        {records.length === 0 ? (
+        {sortedRecords.length === 0 ? (
           <div className="p-12 text-center">
             <Wrench className="mx-auto h-12 w-12 text-gray-300 mb-4" />
             <p className="text-text-secondary">No maintenance records yet. Use "Log Maintenance" to start.</p>
@@ -464,22 +556,20 @@ export function MachineMaintenance() {
                   <th className="w-12 px-6 py-3 text-left">
                     <input
                       type="checkbox"
-                      checked={records.filter(r => canModify(r)).length > 0 && selectedIds.length === records.filter(r => canModify(r)).length}
+                      checked={sortedRecords.filter(r => canModify(r)).length > 0 && selectedIds.length === sortedRecords.filter(r => canModify(r)).length}
                       onChange={handleToggleSelectAll}
                       className="rounded border-border text-primary focus:ring-primary h-4 w-4 cursor-pointer"
                     />
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-semibold text-text-secondary uppercase">Department</th>
-                  {fields.map((field: any, idx: number) => (
-                    <th key={idx} className="px-6 py-3 text-left text-xs font-semibold text-text-secondary uppercase">
-                      {field.name}{field.unit ? ` (${field.unit})` : ''}
-                    </th>
-                  ))}
+                  {renderSortableHeader('department', 'Department')}
+                  {fields.map((field: any, idx: number) => 
+                    renderSortableHeader(field.name, field.name + (field.unit ? ` (${field.unit})` : ''))
+                  )}
                   <th className="px-6 py-3 text-right text-xs font-semibold text-text-secondary uppercase w-24">Actions</th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-border">
-                {records.map(record => {
+                {sortedRecords.map(record => {
                   const modifiable = canModify(record);
                   return (
                     <tr 

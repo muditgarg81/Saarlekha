@@ -5,7 +5,7 @@ import { useAuth } from '../../context/AuthContext';
 import { ExportBar } from '../../utils/export';
 import type { ExportOptions } from '../../utils/export';
 import { injectStandardFields } from '../../utils/standards';
-import { Plus, TrendingUp, Trash2, MoreVertical, Edit } from 'lucide-react';
+import { Plus, TrendingUp, Trash2, MoreVertical, Edit, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
 import clsx from 'clsx';
 
 interface ReportFormat {
@@ -100,10 +100,100 @@ export function ProductionDetail() {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [activeDropdown, setActiveDropdown] = useState<{ id: string; top: number; left: number } | null>(null);
 
+  const [sortField, setSortField] = useState<string>('date');
+  const [sortAsc, setSortAsc] = useState<boolean>(false);
+
   const today = new Date().toISOString().split('T')[0];
   const thirtyAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
   const [startDate, setStartDate] = useState(thirtyAgo);
   const [endDate, setEndDate] = useState(today);
+
+  const handleSort = (field: string) => {
+    const normField = field.trim();
+    if (sortField === normField) {
+      setSortAsc(!sortAsc);
+    } else {
+      setSortField(normField);
+      setSortAsc(true);
+    }
+  };
+
+  const getSortValue = (entry: ReportEntry, field: string) => {
+    const norm = field.toLowerCase().trim();
+    if (norm === 'date') {
+      return new Date(entry.entry_date).getTime();
+    }
+    if (norm === 'department') {
+      return entry.department?.name ?? '';
+    }
+    if (norm === 'logged by' || norm === 'submitted by' || norm === 'by') {
+      return entry.submitter?.email ?? '';
+    }
+    if (norm === 'efficiency' || norm === 'efficiency %') {
+      const eff = calculateRowEfficiency(entry.payload);
+      return eff && eff !== 'N/A' ? parseFloat(eff) : -1;
+    }
+    const val = entry.payload?.[field];
+    if (val === undefined || val === null || val === '' || val === '—') {
+      return '';
+    }
+    return val;
+  };
+
+  const sortedEntries = React.useMemo(() => {
+    if (!sortField) return entries;
+    return [...entries].sort((a, b) => {
+      const valA = getSortValue(a, sortField);
+      const valB = getSortValue(b, sortField);
+
+      const numA = Number(valA);
+      const numB = Number(valB);
+      const isNumA = !isNaN(numA) && valA !== '' && valA !== null && valA !== undefined && typeof valA !== 'boolean';
+      const isNumB = !isNaN(numB) && valB !== '' && valB !== null && valB !== undefined && typeof valB !== 'boolean';
+
+      let comparison = 0;
+      if (isNumA && isNumB) {
+        comparison = numA - numB;
+      } else if (isNumA) {
+        comparison = -1;
+      } else if (isNumB) {
+        comparison = 1;
+      } else {
+        const strA = String(valA).toLowerCase();
+        const strB = String(valB).toLowerCase();
+        comparison = strA.localeCompare(strB, undefined, { numeric: true, sensitivity: 'base' });
+      }
+
+      return sortAsc ? comparison : -comparison;
+    });
+  }, [entries, sortField, sortAsc]);
+
+  const renderSortableHeader = (field: string, label: string, align: 'left' | 'right' = 'left') => {
+    const isSorted = sortField === field;
+    return (
+      <th
+        onClick={() => handleSort(field)}
+        className={clsx(
+          "group cursor-pointer select-none px-6 py-3 text-xs font-semibold text-text-secondary uppercase hover:bg-border/30 transition-colors",
+          align === 'right' ? 'text-right' : 'text-left'
+        )}
+      >
+        <div className={clsx("flex items-center gap-1.5", align === 'right' ? 'justify-end' : 'justify-start')}>
+          <span>{label}</span>
+          {isSorted ? (
+            sortAsc ? (
+              <ArrowUp className="h-3 w-3 text-primary shrink-0" />
+            ) : (
+              <ArrowDown className="h-3 w-3 text-primary shrink-0" />
+            )
+          ) : (
+            <ArrowUpDown className="h-3 w-3 text-text-secondary/30 opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
+          )}
+        </div>
+      </th>
+    );
+  };
+
 
   const fetchFormats = useCallback(async () => {
     try {
@@ -246,7 +336,7 @@ export function ProductionDetail() {
         { header: 'Submitted By', key: 'submittedBy' }
       ];
 
-  const exportRows = (selectedIds.length > 0 ? entries.filter(e => selectedIds.includes(e.id)) : entries).map(e => {
+  const exportRows = (selectedIds.length > 0 ? sortedEntries.filter(e => selectedIds.includes(e.id)) : sortedEntries).map(e => {
     if (selectedFormatId) {
       const rowData: Record<string, any> = {};
       displayFields.forEach(f => {
@@ -329,7 +419,7 @@ export function ProductionDetail() {
               </button>
             )}
           </div>
-          <span className="text-sm text-text-secondary">{entries.length} records</span>
+          <span className="text-sm text-text-secondary">{sortedEntries.length} records</span>
         </div>
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-border">
@@ -344,24 +434,20 @@ export function ProductionDetail() {
                   />
                 </th>
                 {selectedFormatId ? (
-                  displayFields.map(f => (
-                    <th key={f.name} className="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase">
-                      {f.name}{f.unit ? ` (${f.unit})` : ''}
-                    </th>
-                  ))
+                  displayFields.map(f => 
+                    renderSortableHeader(f.name, f.name + (f.unit ? ` (${f.unit})` : ''))
+                  )
                 ) : (
                   <>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase">Date</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase">Department</th>
-                    {displayFields.map(f => (
-                      <th key={f.name} className="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase">
-                        {f.name}{f.unit ? ` (${f.unit})` : ''}
-                      </th>
-                    ))}
-                    <th className="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase">By</th>
+                    {renderSortableHeader('date', 'Date')}
+                    {renderSortableHeader('department', 'Department')}
+                    {displayFields.map(f => 
+                      renderSortableHeader(f.name, f.name + (f.unit ? ` (${f.unit})` : ''))
+                    )}
+                    {renderSortableHeader('by', 'By')}
                   </>
                 )}
-                <th className="px-6 py-3 text-right text-xs font-medium text-text-secondary uppercase">Efficiency %</th>
+                {renderSortableHeader('efficiency', 'Efficiency %', 'right')}
                 <th className="px-6 py-3 text-right text-xs font-medium text-text-secondary uppercase w-20">Actions</th>
               </tr>
             </thead>
@@ -372,14 +458,14 @@ export function ProductionDetail() {
                     Loading records...
                   </td>
                 </tr>
-              ) : entries.length === 0 ? (
+              ) : sortedEntries.length === 0 ? (
                 <tr>
                   <td colSpan={selectedFormatId ? displayFields.length + 3 : displayFields.length + 6} className="px-6 py-8 text-center text-sm text-text-secondary">
                     No records in this period.
                   </td>
                 </tr>
               ) : (
-                entries.map(entry => {
+                sortedEntries.map(entry => {
                   const canDelete = user?.role !== 'OPERATIONS' || entry.submitted_by === user?.id;
                   const eff = calculateRowEfficiency(entry.payload);
                   return (

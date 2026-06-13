@@ -5,7 +5,7 @@ import { useAuth } from '../../context/AuthContext';
 import { ExportBar } from '../../utils/export';
 import type { ExportOptions } from '../../utils/export';
 import { injectStandardFields } from '../../utils/standards';
-import { ShieldCheck, Plus, ClipboardList, Trash2, MoreVertical, Edit, ChevronDown, ChevronUp } from 'lucide-react';
+import { ShieldCheck, Plus, ClipboardList, Trash2, MoreVertical, Edit, ChevronDown, ChevronUp, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
 import clsx from 'clsx';
 
 interface ReportEntry {
@@ -31,10 +31,95 @@ export function QualityDetail() {
   const [activeDropdown, setActiveDropdown] = useState<{ id: string; top: number; left: number } | null>(null);
   const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({});
 
+  const [sortField, setSortField] = useState<string>('date');
+  const [sortAsc, setSortAsc] = useState<boolean>(false);
+
   const today = new Date().toISOString().split('T')[0];
   const thirtyAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
   const [startDate, setStartDate] = useState(thirtyAgo);
   const [endDate, setEndDate] = useState(today);
+
+  const handleSort = (field: string) => {
+    const normField = field.trim();
+    if (sortField === normField) {
+      setSortAsc(!sortAsc);
+    } else {
+      setSortField(normField);
+      setSortAsc(true);
+    }
+  };
+
+  const getSortValue = (entry: ReportEntry, field: string) => {
+    const norm = field.toLowerCase().trim();
+    if (norm === 'date') {
+      return new Date(entry.entry_date).getTime();
+    }
+    if (norm === 'department') {
+      return entry.department?.name ?? '';
+    }
+    if (norm === 'logged by' || norm === 'submitted by' || norm === 'by') {
+      return entry.submitter?.email ?? '';
+    }
+    const val = entry.payload?.[field];
+    if (val === undefined || val === null || val === '' || val === '—') {
+      return '';
+    }
+    return val;
+  };
+
+  const renderSortableHeader = (field: string, label: string, align: 'left' | 'right' = 'left') => {
+    const isSorted = sortField === field;
+    return (
+      <th
+        onClick={() => handleSort(field)}
+        className={clsx(
+          "group cursor-pointer select-none px-6 py-3 text-xs font-semibold text-text-secondary uppercase hover:bg-border/30 transition-colors",
+          align === 'right' ? 'text-right' : 'text-left'
+        )}
+      >
+        <div className={clsx("flex items-center gap-1.5", align === 'right' ? 'justify-end' : 'justify-start')}>
+          <span>{label}</span>
+          {isSorted ? (
+            sortAsc ? (
+              <ArrowUp className="h-3 w-3 text-primary shrink-0" />
+            ) : (
+              <ArrowDown className="h-3 w-3 text-primary shrink-0" />
+            )
+          ) : (
+            <ArrowUpDown className="h-3 w-3 text-text-secondary/30 opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
+          )}
+        </div>
+      </th>
+    );
+  };
+
+  const sortedEntries = React.useMemo(() => {
+    if (!sortField) return entries;
+    return [...entries].sort((a, b) => {
+      const valA = getSortValue(a, sortField);
+      const valB = getSortValue(b, sortField);
+
+      const numA = Number(valA);
+      const numB = Number(valB);
+      const isNumA = !isNaN(numA) && valA !== '' && valA !== null && valA !== undefined && typeof valA !== 'boolean';
+      const isNumB = !isNaN(numB) && valB !== '' && valB !== null && valB !== undefined && typeof valB !== 'boolean';
+
+      let comparison = 0;
+      if (isNumA && isNumB) {
+        comparison = numA - numB;
+      } else if (isNumA) {
+        comparison = -1;
+      } else if (isNumB) {
+        comparison = 1;
+      } else {
+        const strA = String(valA).toLowerCase();
+        const strB = String(valB).toLowerCase();
+        comparison = strA.localeCompare(strB, undefined, { numeric: true, sensitivity: 'base' });
+      }
+
+      return sortAsc ? comparison : -comparison;
+    });
+  }, [entries, sortField, sortAsc]);
 
   const fetchEntries = useCallback(async () => {
     setLoading(true);
@@ -108,7 +193,7 @@ export function QualityDetail() {
       entries: ReportEntry[];
     }> = {};
 
-    entries.forEach(entry => {
+    sortedEntries.forEach(entry => {
       const format = entry.format_version?.format;
       if (!format) return;
       
@@ -125,7 +210,7 @@ export function QualityDetail() {
     });
 
     return Object.values(groups);
-  }, [entries]);
+  }, [sortedEntries]);
 
   const toggleGroup = (formatId: string) => {
     setCollapsedGroups(prev => ({
@@ -213,7 +298,7 @@ export function QualityDetail() {
               { header: 'Submitted By', key: 'submittedBy' },
               ...allUniqueFields.map((f: any) => ({ header: f.name + (f.unit ? ` (${f.unit})` : ''), key: f.name }))
             ],
-            rows: (selectedIds.length > 0 ? entries.filter(e => selectedIds.includes(e.id)) : entries).map(e => {
+            rows: (selectedIds.length > 0 ? sortedEntries.filter(e => selectedIds.includes(e.id)) : sortedEntries).map(e => {
               const rowData: Record<string, any> = {
                 date: new Date(e.entry_date).toLocaleDateString(),
                 format: e.format_version?.format?.name ?? '',
@@ -305,11 +390,9 @@ export function QualityDetail() {
                                 className="rounded border-border text-primary focus:ring-primary h-4 w-4 cursor-pointer"
                               />
                             </th>
-                            {group.fields.map(f => (
-                              <th key={f.name} className="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase">
-                                {f.name}{f.unit ? ` (${f.unit})` : ''}
-                              </th>
-                            ))}
+                            {group.fields.map(f => 
+                              renderSortableHeader(f.name, f.name + (f.unit ? ` (${f.unit})` : ''))
+                            )}
                             <th className="px-6 py-3 text-right text-xs font-medium text-text-secondary uppercase w-20">Actions</th>
                           </tr>
                         </thead>
