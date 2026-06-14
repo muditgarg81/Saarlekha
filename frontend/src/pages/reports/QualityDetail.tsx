@@ -419,72 +419,179 @@ export function QualityDetail() {
 
                   {/* Group Table */}
                   {!isCollapsed && (
-                    <div className="overflow-x-auto">
-                      <table className="min-w-full divide-y divide-border">
-                        <thead className="bg-surface">
-                          <tr>
-                            <th className="w-12 px-6 py-3 text-left">
-                              <input
-                                type="checkbox"
-                                checked={groupDeletableIds.length > 0 && isGroupAllSelected}
-                                onChange={(e) => {
-                                  e.stopPropagation();
-                                  handleToggleSelectGroupAll(group.entries);
-                                }}
-                                className="rounded border-border text-primary focus:ring-primary h-4 w-4 cursor-pointer"
-                              />
-                            </th>
-                            {group.fields.map(f => 
-                              renderSortableHeader(f.name, f.name + (f.unit ? ` (${f.unit})` : ''))
-                            )}
-                            <th className="px-6 py-3 text-right text-xs font-medium text-text-secondary uppercase w-20">Actions</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-border bg-white">
-                          {group.entries.map(entry => {
-                            const canDelete = user?.role !== 'OPERATIONS' || entry.submitted_by === user?.id;
-                            return (
-                              <tr 
-                                key={entry.id} 
-                                onClick={() => navigate(`/data-entry?entryId=${entry.id}`)}
-                                className="hover:bg-surface cursor-pointer transition-colors"
-                              >
-                                <td className="w-12 px-6 py-3" onClick={(e) => e.stopPropagation()}>
-                                  <input
-                                    type="checkbox"
-                                    disabled={!canDelete}
-                                    checked={selectedIds.includes(entry.id)}
-                                    onChange={() => handleToggleSelect(entry.id)}
-                                    className={clsx(
-                                      "rounded h-4 w-4 cursor-pointer",
-                                      canDelete 
-                                        ? "border-border text-primary focus:ring-primary" 
-                                        : "border-gray-200 text-gray-300 cursor-not-allowed opacity-55"
-                                    )}
-                                  />
-                                </td>
-                                {group.fields.map(f => {
-                                  const val = getFieldValue(entry, f.name);
-                                  const l = f.name.toLowerCase().replace(/[^a-z0-9]/g, '');
-                                  const isJobOrder = l.startsWith('joborder') || l === 'joborderno' || l === 'jobordernumber' || l === 'joborderid' || l === 'order';
-                                  
-                                  return (
-                                    <td key={f.name} className="px-6 py-3 text-sm text-text-primary tabular-nums">
-                                      {isJobOrder && val && val !== '—' ? (
-                                        <Link 
-                                          to={`/job-orders/summary/${encodeURIComponent(String(val))}`}
-                                          className="text-primary hover:underline font-semibold"
-                                          onClick={(e) => e.stopPropagation()}
-                                        >
-                                          {val}
-                                        </Link>
-                                      ) : (
-                                        val
+                    <>
+                      {/* Desktop Table View */}
+                      <div className="hidden sm:block overflow-x-auto">
+                        <table className="min-w-full divide-y divide-border">
+                          <thead className="bg-surface">
+                            <tr>
+                              <th className="w-12 px-6 py-3 text-left">
+                                <input
+                                  type="checkbox"
+                                  checked={groupDeletableIds.length > 0 && isGroupAllSelected}
+                                  onChange={(e) => {
+                                    e.stopPropagation();
+                                    handleToggleSelectGroupAll(group.entries);
+                                  }}
+                                  className="rounded border-border text-primary focus:ring-primary h-4 w-4 cursor-pointer"
+                                />
+                              </th>
+                              {group.fields.map(f => 
+                                renderSortableHeader(f.name, f.name + (f.unit ? ` (${f.unit})` : ''))
+                              )}
+                              <th className="px-6 py-3 text-right text-xs font-medium text-text-secondary uppercase w-20">Actions</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-border bg-white">
+                            {group.entries.map(entry => {
+                              const canDelete = user?.role !== 'OPERATIONS' || entry.submitted_by === user?.id;
+                              return (
+                                <tr 
+                                  key={entry.id} 
+                                  onClick={() => navigate(`/data-entry?entryId=${entry.id}`)}
+                                  className="hover:bg-surface cursor-pointer transition-colors"
+                                >
+                                  <td className="w-12 px-6 py-3" onClick={(e) => e.stopPropagation()}>
+                                    <input
+                                      type="checkbox"
+                                      disabled={!canDelete}
+                                      checked={selectedIds.includes(entry.id)}
+                                      onChange={() => handleToggleSelect(entry.id)}
+                                      className={clsx(
+                                        "rounded h-4 w-4 cursor-pointer",
+                                        canDelete 
+                                          ? "border-border text-primary focus:ring-primary" 
+                                          : "border-gray-200 text-gray-300 cursor-not-allowed opacity-55"
                                       )}
-                                    </td>
-                                  );
-                                })}
-                                <td className="px-6 py-3 text-right" onClick={(e) => e.stopPropagation()}>
+                                    />
+                                  </td>
+                                  {group.fields.map(f => {
+                                    const val = getFieldValue(entry, f.name);
+                                    const l = f.name.toLowerCase().replace(/[^a-z0-9]/g, '');
+                                    const isJobOrder = l.startsWith('joborder') || l === 'joborderno' || l === 'jobordernumber' || l === 'joborderid' || l === 'order';
+                                    
+                                    return (
+                                      <td key={f.name} className="px-6 py-3 text-sm text-text-primary tabular-nums">
+                                        {isJobOrder && val && val !== '—' ? (
+                                          <Link 
+                                            to={`/job-orders/summary/${encodeURIComponent(String(val))}`}
+                                            className="text-primary hover:underline font-semibold"
+                                            onClick={(e) => e.stopPropagation()}
+                                          >
+                                            {val}
+                                          </Link>
+                                        ) : (
+                                          val
+                                        )}
+                                      </td>
+                                    );
+                                  })}
+                                  <td className="px-6 py-3 text-right" onClick={(e) => e.stopPropagation()}>
+                                    <div className="relative inline-block text-left">
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          if (activeDropdown?.id === entry.id) {
+                                            setActiveDropdown(null);
+                                          } else {
+                                            const rect = e.currentTarget.getBoundingClientRect();
+                                            setActiveDropdown({
+                                              id: entry.id,
+                                              top: rect.bottom + 4,
+                                              left: rect.right - 112
+                                            });
+                                          }
+                                        }}
+                                        className="p-1 rounded-md text-text-secondary hover:bg-surface hover:text-text-primary transition-colors focus:outline-none"
+                                        title="Actions"
+                                      >
+                                        <MoreVertical className="h-4 w-4" />
+                                      </button>
+
+                                      {activeDropdown?.id === entry.id && (
+                                        <>
+                                          <div 
+                                            className="fixed inset-0 z-40" 
+                                            onClick={() => setActiveDropdown(null)} 
+                                          />
+                                          <div 
+                                            style={{
+                                              position: 'fixed',
+                                              top: activeDropdown ? `${activeDropdown.top}px` : undefined,
+                                              left: activeDropdown ? `${activeDropdown.left}px` : undefined,
+                                            }}
+                                            className="w-28 bg-white rounded-md border border-border shadow-lg z-50 py-1 text-left"
+                                          >
+                                            <button
+                                              onClick={() => {
+                                                setActiveDropdown(null);
+                                                navigate(`/data-entry?entryId=${entry.id}`);
+                                              }}
+                                              className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-text-primary hover:bg-surface transition-colors"
+                                            >
+                                              <Edit className="h-3.5 w-3.5 text-text-secondary" /> Edit
+                                            </button>
+                                            {canDelete && (
+                                              <button
+                                                onClick={async () => {
+                                                  setActiveDropdown(null);
+                                                  if (window.confirm('Are you sure you want to delete this report entry?')) {
+                                                    try {
+                                                      await api.delete(`/reports/entries/${entry.id}`);
+                                                      fetchEntries();
+                                                    } catch (err: any) {
+                                                      alert(err.response?.data?.error || 'Failed to delete report entry');
+                                                    }
+                                                  }
+                                                }}
+                                                className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-danger hover:bg-red-50 transition-colors"
+                                              >
+                                                <Trash2 className="h-3.5 w-3.5 text-danger" /> Delete
+                                              </button>
+                                            )}
+                                          </div>
+                                        </>
+                                      )}
+                                    </div>
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+
+                      {/* Mobile Card List View */}
+                      <div className="block sm:hidden divide-y divide-border bg-white p-4 space-y-4">
+                        {group.entries.map(entry => {
+                          const canDelete = user?.role !== 'OPERATIONS' || entry.submitted_by === user?.id;
+                          return (
+                            <div 
+                              key={entry.id} 
+                              onClick={() => navigate(`/data-entry?entryId=${entry.id}`)}
+                              className="border border-border rounded-card p-4 shadow-sm space-y-3 bg-white hover:border-primary transition-all relative"
+                            >
+                              <div className="flex items-center justify-between border-b border-border pb-2">
+                                <div className="flex items-center gap-2">
+                                  <div onClick={(e) => e.stopPropagation()}>
+                                    <input
+                                      type="checkbox"
+                                      disabled={!canDelete}
+                                      checked={selectedIds.includes(entry.id)}
+                                      onChange={() => handleToggleSelect(entry.id)}
+                                      className={clsx(
+                                        "rounded h-4 w-4 cursor-pointer",
+                                        canDelete 
+                                          ? "border-border text-primary focus:ring-primary" 
+                                          : "border-gray-200 text-gray-300 cursor-not-allowed opacity-55"
+                                      )}
+                                    />
+                                  </div>
+                                  <span className="text-sm font-bold text-text-primary font-mono tabular-nums">
+                                    {getFieldValue(entry, 'date')}
+                                  </span>
+                                </div>
+                                <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
                                   <div className="relative inline-block text-left">
                                     <button
                                       onClick={(e) => {
@@ -505,13 +612,9 @@ export function QualityDetail() {
                                     >
                                       <MoreVertical className="h-4 w-4" />
                                     </button>
-
                                     {activeDropdown?.id === entry.id && (
                                       <>
-                                        <div 
-                                          className="fixed inset-0 z-40" 
-                                          onClick={() => setActiveDropdown(null)} 
-                                        />
+                                        <div className="fixed inset-0 z-40" onClick={() => setActiveDropdown(null)} />
                                         <div 
                                           style={{
                                             position: 'fixed',
@@ -551,13 +654,36 @@ export function QualityDetail() {
                                       </>
                                     )}
                                   </div>
-                                </td>
-                              </tr>
-                            );
-                          })}
-                        </tbody>
-                      </table>
-                    </div>
+                                </div>
+                              </div>
+
+                              <div className="grid grid-cols-2 gap-2 text-xs pt-1">
+                                {group.fields.map(f => {
+                                  const norm = f.name.toLowerCase().trim();
+                                  if (norm === 'date') return null;
+                                  const val = getFieldValue(entry, f.name);
+                                  const l = f.name.toLowerCase().replace(/[^a-z0-9]/g, '');
+                                  const isJobOrder = l.startsWith('joborder') || l === 'joborderno' || l === 'jobordernumber' || l === 'joborderid' || l === 'order';
+
+                                  return (
+                                    <div key={f.name} className="bg-surface/40 p-2 rounded border border-border/40">
+                                      <span className="block text-[10px] text-text-secondary uppercase font-semibold">{f.name}</span>
+                                      <span className="font-medium text-text-primary font-mono tabular-nums">
+                                        {isJobOrder && val && val !== '—' ? (
+                                          <span className="text-primary font-semibold">{val}</span>
+                                        ) : (
+                                          val
+                                        )}
+                                      </span>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </>
                   )}
                 </div>
               );

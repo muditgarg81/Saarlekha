@@ -571,7 +571,8 @@ export function MachineMaintenance() {
             <p className="text-text-secondary">No maintenance records yet. Use "Log Maintenance" to start.</p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
+          <>
+            <div className="hidden sm:block overflow-x-auto">
             <table className="min-w-full divide-y divide-border">
               <thead className="bg-surface">
                 <tr>
@@ -724,6 +725,134 @@ export function MachineMaintenance() {
               </tbody>
             </table>
           </div>
+
+          {/* Mobile Card List View */}
+          <div className="block sm:hidden divide-y divide-border bg-white p-4 space-y-4">
+            {sortedRecords.map(record => {
+              const modifiable = canModify(record);
+              const status = record.payload?._status || 'completed';
+              return (
+                <div 
+                  key={record.id} 
+                  onClick={() => setSelectedRecord(record)}
+                  className="border border-border rounded-card p-4 shadow-sm space-y-3 bg-white hover:border-primary transition-all relative cursor-pointer"
+                >
+                  {/* Header: Date, checkbox, Status, Dropdown actions */}
+                  <div className="flex items-center justify-between border-b border-border pb-2">
+                    <div className="flex items-center gap-2">
+                      <div onClick={(e) => e.stopPropagation()}>
+                        <input
+                          type="checkbox"
+                          disabled={!modifiable}
+                          checked={selectedIds.includes(record.id)}
+                          onChange={() => handleToggleSelect(record.id)}
+                          className={clsx(
+                            "rounded h-4 w-4 cursor-pointer",
+                            modifiable 
+                              ? "border-border text-primary focus:ring-primary" 
+                              : "border-gray-200 text-gray-300 cursor-not-allowed opacity-55"
+                          )}
+                        />
+                      </div>
+                      <span className="text-sm font-bold text-text-primary font-mono tabular-nums">
+                        {new Date(record.entry_date).toLocaleDateString()}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                      <div className="mr-1">{getStatusBadge(status)}</div>
+                      {modifiable && (
+                        <div className="relative inline-block text-left">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (activeDropdown?.id === record.id) {
+                                setActiveDropdown(null);
+                              } else {
+                                const rect = e.currentTarget.getBoundingClientRect();
+                                setActiveDropdown({
+                                  id: record.id,
+                                  top: rect.bottom + 4,
+                                  left: rect.right - 112
+                                });
+                              }
+                            }}
+                            className="p-1 rounded-md text-text-secondary hover:bg-surface hover:text-text-primary transition-colors focus:outline-none"
+                            title="Actions"
+                          >
+                            <MoreVertical className="h-4 w-4" />
+                          </button>
+                          {activeDropdown?.id === record.id && (
+                            <>
+                              <div className="fixed inset-0 z-40" onClick={() => setActiveDropdown(null)} />
+                              <div 
+                                style={{
+                                  position: 'fixed',
+                                  top: activeDropdown ? `${activeDropdown.top}px` : undefined,
+                                  left: activeDropdown ? `${activeDropdown.left}px` : undefined,
+                                }}
+                                className="w-28 bg-white rounded-md border border-border shadow-lg z-50 py-1 text-left"
+                              >
+                                <button
+                                  onClick={() => {
+                                    setActiveDropdown(null);
+                                    handleStartEdit(record);
+                                  }}
+                                  className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-text-primary hover:bg-surface transition-colors"
+                                >
+                                  <Edit className="h-3.5 w-3.5 text-text-secondary" /> Edit
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    setActiveDropdown(null);
+                                    handleDelete(record.id);
+                                  }}
+                                  className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-danger hover:bg-red-50 transition-colors"
+                                >
+                                  <Trash2 className="h-3.5 w-3.5 text-danger" /> Delete
+                                </button>
+                              </div>
+                            </>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Metadata details (Department & Machine) */}
+                  <div className="text-xs text-text-secondary flex justify-between">
+                    <span>Dept: <span className="font-semibold text-text-primary">{record.department?.name || 'N/A'}</span></span>
+                    <span>Machine: <span className="font-bold text-primary">{record.payload?._machine || 'N/A'}</span></span>
+                  </div>
+
+                  {/* Content grid */}
+                  <div className="grid grid-cols-2 gap-2 text-xs pt-1">
+                    {fields.map((field: any, idx: number) => {
+                      const normName = field.name.toLowerCase().trim();
+                      if (normName === 'maintenance date' || normName === 'machine' || normName === 'status') {
+                        return null;
+                      }
+                      const val = record.payload?.[field.name];
+                      let displayVal = val;
+                      if (field.type === 'boolean') {
+                        displayVal = val === 'ok' ? 'OK ✓' : val === 'issue' ? 'Issue ⚠' : val;
+                      }
+                      const displayStr = displayVal !== null && displayVal !== undefined && displayVal !== '' ? String(displayVal) : '—';
+                      return (
+                        <div key={idx} className="bg-surface/40 p-2 rounded border border-border/40">
+                          <span className="block text-[10px] text-text-secondary uppercase font-semibold">{field.name}</span>
+                          <span className={clsx(
+                            "font-medium font-mono tabular-nums",
+                            displayStr.startsWith('Issue') ? "text-danger font-bold" : "text-text-primary"
+                          )}>{displayStr}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          </>
         )}
       </div>
 
