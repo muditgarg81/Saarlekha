@@ -37,6 +37,15 @@ export function DepartmentsTab() {
     if (!newDeptName.trim()) return;
     setError(null);
     
+    const isDuplicate = departments.some(
+      d => d.name.toLowerCase().trim() === newDeptName.toLowerCase().trim()
+    );
+    if (isDuplicate) {
+      if (!window.confirm(`A department named "${newDeptName.trim()}" already exists. Do you want to create a duplicate?`)) {
+        return;
+      }
+    }
+    
     try {
       const res = await api.post('/departments', { name: newDeptName });
       setDepartments([...departments, res.data].sort((a, b) => a.name.localeCompare(b.name)));
@@ -60,6 +69,15 @@ export function DepartmentsTab() {
   const handleSaveEdit = async (id: string) => {
     if (!editingName.trim()) return;
     setError(null);
+
+    const isDuplicate = departments.some(
+      d => d.name.toLowerCase().trim() === editingName.toLowerCase().trim() && d.id !== id
+    );
+    if (isDuplicate) {
+      if (!window.confirm(`A department named "${editingName.trim()}" already exists. Do you want to save this change?`)) {
+        return;
+      }
+    }
 
     try {
       const res = await api.put(`/departments/${id}`, { name: editingName });

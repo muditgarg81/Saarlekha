@@ -63,6 +63,24 @@ export function CustomerMaster() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    const isDuplicateName = customers.some(
+      c => c.name.toLowerCase().trim() === formData.name.toLowerCase().trim() && c.id !== editingCustomer?.id
+    );
+    const isDuplicateGst = formData.gst?.trim() && customers.some(
+      c => c.gst && c.gst.toLowerCase().trim() === formData.gst.toLowerCase().trim() && c.id !== editingCustomer?.id
+    );
+
+    if (isDuplicateName) {
+      if (!window.confirm(`A customer company named "${formData.name.trim()}" already exists. Do you want to save this duplicate?`)) {
+        return;
+      }
+    } else if (isDuplicateGst) {
+      if (!window.confirm(`A customer with GST number "${formData.gst.trim()}" already exists. Do you want to save this duplicate?`)) {
+        return;
+      }
+    }
+
     try {
       if (editingCustomer) {
         await api.put(`/customers/${editingCustomer.id}`, formData);

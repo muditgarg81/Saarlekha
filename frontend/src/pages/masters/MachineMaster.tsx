@@ -147,6 +147,18 @@ export function MachineMaster() {
       alert('Please enter a machine name/ID.');
       return;
     }
+    
+    const isDuplicate = machines.some(
+      m => m.name.toLowerCase().trim() === formData.name.toLowerCase().trim()
+    ) || batchMachines.some(
+      (m, idx) => m.name.toLowerCase().trim() === formData.name.toLowerCase().trim() && idx !== editingBatchIndex
+    );
+    if (isDuplicate) {
+      if (!window.confirm(`A machine named "${formData.name.trim()}" already exists. Do you want to add it to the batch?`)) {
+        return;
+      }
+    }
+
     const dept = departments.find(d => d.id === formData.department_id);
     const newRow = {
       name: formData.name.trim(),
@@ -190,6 +202,14 @@ export function MachineMaster() {
   const handleSaveBatch = async () => {
     const toSubmit = [...batchMachines];
     if (formData.name.trim() !== '' && editingBatchIndex === null) {
+      const isDuplicate = machines.some(
+        m => m.name.toLowerCase().trim() === formData.name.toLowerCase().trim()
+      );
+      if (isDuplicate) {
+        if (!window.confirm(`A machine named "${formData.name.trim()}" already exists. Do you want to save it?`)) {
+          return;
+        }
+      }
       toSubmit.push({
         name: formData.name.trim(),
         type: formData.type.trim(),
@@ -216,6 +236,14 @@ export function MachineMaster() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (editingId) {
+      const isDuplicate = machines.some(
+        m => m.name.toLowerCase().trim() === formData.name.toLowerCase().trim() && m.id !== editingId
+      );
+      if (isDuplicate) {
+        if (!window.confirm(`A machine named "${formData.name.trim()}" already exists. Do you want to update it?`)) {
+          return;
+        }
+      }
       try {
         const payload = {
           ...formData,

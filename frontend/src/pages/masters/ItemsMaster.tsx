@@ -53,6 +53,16 @@ export function ItemsMaster() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    const isDuplicate = items.some(
+      item => item.name.toLowerCase().trim() === name.toLowerCase().trim() && item.id !== editingItem?.id
+    );
+    if (isDuplicate) {
+      if (!window.confirm(`An item named "${name.trim()}" already exists. Do you want to save this duplicate?`)) {
+        return;
+      }
+    }
+
     try {
       if (editingItem) {
         await api.put(`/items/${editingItem.id}`, { name });

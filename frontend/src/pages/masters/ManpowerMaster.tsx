@@ -122,6 +122,33 @@ export function ManpowerMaster() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    const isDuplicateName = manpower.some(
+      m => m.name.toLowerCase().trim() === formData.name.toLowerCase().trim() && m.id !== editingId
+    );
+    const enteredPhoneClean = formData.phone.replace(/\D/g, '');
+    const isDuplicatePhone = enteredPhoneClean && manpower.some(
+      m => m.phone.replace(/\D/g, '') === enteredPhoneClean && m.id !== editingId
+    );
+    const enteredAadhaarLast4 = formData.aadhaar.replace(/\s/g, '').slice(-4);
+    const isDuplicateAadhaar = enteredAadhaarLast4 && enteredAadhaarLast4.length === 4 && manpower.some(
+      m => m.aadhaar_masked && m.aadhaar_masked.replace(/\s/g, '').slice(-4) === enteredAadhaarLast4 && m.id !== editingId
+    );
+
+    if (isDuplicateName) {
+      if (!window.confirm(`A manpower person named "${formData.name.trim()}" already exists. Do you want to save this duplicate?`)) {
+        return;
+      }
+    } else if (isDuplicatePhone) {
+      if (!window.confirm(`A manpower person with phone number "${formData.phone.trim()}" already exists. Do you want to save this duplicate?`)) {
+        return;
+      }
+    } else if (isDuplicateAadhaar) {
+      if (!window.confirm(`A manpower person with Aadhaar ending in "${enteredAadhaarLast4}" already exists. Do you want to save this duplicate?`)) {
+        return;
+      }
+    }
+
     try {
       if (editingId) {
         await api.put(`/manpower/${editingId}`, formData);
