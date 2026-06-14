@@ -1,5 +1,6 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { SpeedInsights } from '@vercel/speed-insights/react';
 import { AuthProvider } from './context/AuthContext';
 import { PublicLayout, PrivateLayout } from './components/Layout';
 import { Login } from './pages/auth/Login';
@@ -89,6 +90,7 @@ function App() {
             <Route path="/legal/conditions" element={<TermsConditions isPrivate={true} />} />
           </Route>
         </Routes>
+        <SpeedInsights />
       </BrowserRouter>
     </AuthProvider>
   );
