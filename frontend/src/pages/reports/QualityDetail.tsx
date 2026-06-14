@@ -20,6 +20,7 @@ interface ReportEntry {
   };
   department: { name: string };
   submitter: { email: string };
+  created_at?: string;
 }
 
 export function QualityDetail() {
@@ -69,7 +70,7 @@ export function QualityDetail() {
   const getSortValue = (entry: ReportEntry, field: string) => {
     const norm = field.toLowerCase().trim();
     if (norm === 'date') {
-      return new Date(entry.entry_date).getTime();
+      return new Date(entry.created_at || entry.entry_date).getTime();
     }
     if (norm === 'department') {
       return entry.department?.name ?? '';
@@ -197,7 +198,12 @@ export function QualityDetail() {
   const getFieldValue = (entry: ReportEntry, fieldName: string) => {
     const norm = fieldName.toLowerCase().trim();
     if (norm === 'date') {
-      return new Date(entry.entry_date).toLocaleDateString();
+      const dateStr = new Date(entry.entry_date).toLocaleDateString();
+      if (entry.created_at) {
+        const timeStr = new Date(entry.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        return `${dateStr} ${timeStr}`;
+      }
+      return dateStr;
     }
     if (norm === 'department') {
       return entry.department?.name ?? '';
@@ -335,8 +341,10 @@ export function QualityDetail() {
               ...allUniqueFields.map((f: any) => ({ header: f.name + (f.unit ? ` (${f.unit})` : ''), key: f.name }))
             ],
             rows: (selectedIds.length > 0 ? sortedEntries.filter(e => selectedIds.includes(e.id)) : sortedEntries).map(e => {
+              const dateStr = new Date(e.entry_date).toLocaleDateString();
+              const timeStr = e.created_at ? new Date(e.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
               const rowData: Record<string, any> = {
-                date: new Date(e.entry_date).toLocaleDateString(),
+                date: timeStr ? `${dateStr} ${timeStr}` : dateStr,
                 format: e.format_version?.format?.name ?? '',
                 department: e.department?.name ?? '',
                 submittedBy: e.submitter?.email ?? '',
