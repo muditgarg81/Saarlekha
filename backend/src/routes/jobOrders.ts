@@ -29,9 +29,9 @@ jobOrdersRouter.get('/', async (req, res) => {
     const orders = await prismaTenant.jobOrder.findMany({
       where,
       include: {
-        customer: { select: { name: true } },
-        department: { select: { name: true } },
-        item: { select: { name: true } }
+        customer: { select: { id: true, name: true } },
+        department: { select: { id: true, name: true } },
+        item: { select: { id: true, name: true } }
       },
       orderBy: {
         order_number: 'asc'

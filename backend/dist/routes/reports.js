@@ -11,8 +11,17 @@ exports.reportsRouter.use(auth_1.authenticate);
 exports.reportsRouter.get('/formats', async (req, res) => {
     const tenantId = req.tenantId;
     const prismaTenant = (0, prisma_1.getTenantPrisma)(tenantId);
+    const { departmentId } = req.query;
     try {
+        const whereClause = {};
+        if (departmentId) {
+            whereClause.OR = [
+                { department_ids: { has: departmentId } },
+                { department_ids: { equals: [] } }
+            ];
+        }
         const formats = await prismaTenant.reportFormat.findMany({
+            where: whereClause,
             include: {
                 versions: {
                     orderBy: { version_num: 'desc' },
@@ -28,7 +37,7 @@ exports.reportsRouter.get('/formats', async (req, res) => {
 });
 exports.reportsRouter.post('/formats', (0, auth_1.requireRole)(['SUPER_ADMIN', 'COMPANY_ADMIN']), async (req, res) => {
     const tenantId = req.tenantId;
-    const { name, type, initialFields } = req.body;
+    const { name, type, initialFields, department_ids } = req.body;
     const prismaTenant = (0, prisma_1.getTenantPrisma)(tenantId);
     try {
         const result = await prismaTenant.$transaction(async (tx) => {
@@ -51,7 +60,8 @@ exports.reportsRouter.post('/formats', (0, auth_1.requireRole)(['SUPER_ADMIN', '
                 data: {
                     company_id: tenantId,
                     name,
-                    type
+                    type,
+                    department_ids: department_ids || []
                 }
             });
             const version = await tx.reportFormatVersion.create({
@@ -68,7 +78,7 @@ exports.reportsRouter.post('/formats', (0, auth_1.requireRole)(['SUPER_ADMIN', '
                     entity_type: 'ReportFormat',
                     entity_id: format.id,
                     company_id: tenantId,
-                    details: { name, type }
+                    details: { name, type, department_ids }
                 }
             });
             return { format, version };
@@ -114,13 +124,13 @@ exports.reportsRouter.post('/formats/:id/versions', (0, auth_1.requireRole)(['SU
         res.status(500).json({ error: 'Failed to update format version', details: error.message });
     }
 });
-// Update a format name
+// Update a format
 exports.reportsRouter.put('/formats/:id', (0, auth_1.requireRole)(['SUPER_ADMIN', 'COMPANY_ADMIN']), async (req, res) => {
     const tenantId = req.tenantId;
     const id = req.params.id;
-    const { name } = req.body;
+    const { name, department_ids } = req.body;
     const prismaTenant = (0, prisma_1.getTenantPrisma)(tenantId);
-    if (!name || !name.trim()) {
+    if (name !== undefined && (!name || !name.trim())) {
         return res.status(400).json({ error: 'Format name is required.' });
     }
     try {
@@ -130,9 +140,14 @@ exports.reportsRouter.put('/formats/:id', (0, auth_1.requireRole)(['SUPER_ADMIN'
         if (!existing) {
             return res.status(404).json({ error: 'Report format not found' });
         }
+        const updateData = {};
+        if (name !== undefined)
+            updateData.name = name.trim();
+        if (department_ids !== undefined)
+            updateData.department_ids = department_ids;
         const updated = await prismaTenant.reportFormat.update({
             where: { id },
-            data: { name: name.trim() }
+            data: updateData
         });
         await prismaTenant.auditLogEntry.create({
             data: {
@@ -141,13 +156,16 @@ exports.reportsRouter.put('/formats/:id', (0, auth_1.requireRole)(['SUPER_ADMIN'
                 entity_type: 'ReportFormat',
                 entity_id: id,
                 company_id: tenantId,
-                details: { before: { name: existing.name }, after: { name: updated.name } }
+                details: {
+                    before: { name: existing.name, department_ids: existing.department_ids },
+                    after: { name: updated.name, department_ids: updated.department_ids }
+                }
             }
         });
         res.json(updated);
     }
     catch (error) {
-        res.status(500).json({ error: 'Failed to update report format name', details: error.message });
+        res.status(500).json({ error: 'Failed to update report format', details: error.message });
     }
 });
 // Delete a format
