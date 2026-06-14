@@ -628,10 +628,23 @@ ALL RLS TENANT ISOLATION TESTS PASSED! 🎉
 - **Verification**:
   - Successfully compiled both the backend (`tsc`) and frontend (`npm run build`) packages with zero compilation errors.
 
-
-
-
-
-
+### 50. Department & Customer Selection Filters & Department-Scoped Report Formats
+- **Quality Logs (`QualityDetail.tsx`)**:
+  - Fetched the list of departments on mount if the user is an admin.
+  - Updated the API fetch request to pass the `departmentId` parameter.
+  - Added a department selection select element in the header next to the date inputs.
+- **General Logs (`GeneralDetail.tsx`)**:
+  - Fetched the list of departments on mount if the user is an admin.
+  - Updated the API fetch request to pass the `departmentId` parameter.
+  - Added a department selection select element in the header next to the format filter.
+- **Machine Maintenance (`MachineMaintenance.tsx`)**:
+  - Filtered records client-side using a new `selectedFilterDeptId` state hook.
+  - Integrated the client-side filter into the main table listing, the total record count, and the Excel, PDF, CSV, and TXT export generator.
+  - Rendered a department selection select element next to the records count/export header.
+- **Type Safety & Bug Fixes**:
+  - Resolved `Property 'department_id' does not exist on type 'JobOrder'` and `Property 'customer_id' does not exist on type 'JobOrder'` errors in `JobOrderMaster.tsx` by using `order.department?.id` and `order.customer?.id` respectively.
+  - Added `department_ids?: string[]` declaration to the `ReportFormat` interface in `DataEntry.tsx` to fix TypeScript compilation errors.
+- **Verification**:
+  - Built the React production application successfully using `cmd /c npm run build` with zero compiler/TypeScript errors.
 
 

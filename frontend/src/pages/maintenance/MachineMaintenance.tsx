@@ -21,6 +21,9 @@ export function MachineMaintenance() {
   const [loading, setLoading] = useState(true);
   const { user } = useAuth();
 
+  const isAdmin = ['SUPER_ADMIN', 'COMPANY_ADMIN'].includes(user?.role || '');
+  const [selectedFilterDeptId, setSelectedFilterDeptId] = useState<string>('');
+
   const [sortField, setSortField] = useState<string>('maintenance date');
   const [sortAsc, setSortAsc] = useState<boolean>(false);
 
@@ -58,9 +61,14 @@ export function MachineMaintenance() {
     return val;
   };
 
+  const filteredRecords = React.useMemo(() => {
+    if (!selectedFilterDeptId) return records;
+    return records.filter(r => r.department_id === selectedFilterDeptId);
+  }, [records, selectedFilterDeptId]);
+
   const sortedRecords = React.useMemo(() => {
-    if (!sortField) return records;
-    return [...records].sort((a, b) => {
+    if (!sortField) return filteredRecords;
+    return [...filteredRecords].sort((a, b) => {
       const valA = getSortValue(a, sortField);
       const valB = getSortValue(b, sortField);
 
@@ -84,7 +92,7 @@ export function MachineMaintenance() {
 
       return sortAsc ? comparison : -comparison;
     });
-  }, [records, sortField, sortAsc]);
+  }, [filteredRecords, sortField, sortAsc]);
 
   const renderSortableHeader = (field: string, label: string, align: 'left' | 'right' = 'left') => {
     const isSorted = sortField === field;
@@ -540,7 +548,21 @@ export function MachineMaintenance() {
               </button>
             )}
           </div>
-          <span className="text-sm text-text-secondary">{sortedRecords.length} records</span>
+          <div className="flex items-center gap-3">
+            {isAdmin && (
+              <select
+                value={selectedFilterDeptId}
+                onChange={e => setSelectedFilterDeptId(e.target.value)}
+                className="border border-border bg-white rounded-md px-3 py-1.5 text-sm shadow-sm outline-none focus:ring-1 focus:ring-primary focus:border-primary text-text-primary font-semibold"
+              >
+                <option value="">All Departments</option>
+                {departments.map(d => (
+                  <option key={d.id} value={d.id}>{d.name}</option>
+                ))}
+              </select>
+            )}
+            <span className="text-sm text-text-secondary font-semibold">{sortedRecords.length} records</span>
+          </div>
         </div>
 
         {sortedRecords.length === 0 ? (

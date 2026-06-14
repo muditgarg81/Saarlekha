@@ -45,6 +45,8 @@ export function JobOrderMaster() {
   const [departments, setDepartments] = useState<Department[]>([]);
   const [itemsMaster, setItemsMaster] = useState<Item[]>([]);
   const [joSchema, setJoSchema] = useState<FormatField[]>([]);
+  const [selectedDeptFilter, setSelectedDeptFilter] = useState('');
+  const [selectedCustFilter, setSelectedCustFilter] = useState('');
   const [loading, setLoading] = useState(true);
 
   const evaluateCalculatedField = (field: FormatField, record: any) => {
@@ -152,6 +154,16 @@ export function JobOrderMaster() {
       if (!(orderDate >= start && orderDate <= end)) {
         return false;
       }
+    }
+
+    // 1.1 Department Filter (only active for admin)
+    if (isAdmin && selectedDeptFilter && order.department?.id !== selectedDeptFilter) {
+      return false;
+    }
+
+    // 1.2 Customer Filter (only active for admin)
+    if (isAdmin && selectedCustFilter && order.customer?.id !== selectedCustFilter) {
+      return false;
     }
 
     // 2. Search Term Filter
@@ -555,6 +567,37 @@ export function JobOrderMaster() {
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div className="flex flex-wrap items-center gap-4">
           <h1 className="text-2xl font-semibold text-text-primary">Job Orders</h1>
+          {isAdmin && (
+            <>
+              <select
+                value={selectedDeptFilter}
+                onChange={e => {
+                  setSelectedDeptFilter(e.target.value);
+                  setSelectedOrders([]);
+                }}
+                className="border border-border bg-white rounded-md px-3 py-1.5 text-sm shadow-sm outline-none focus:ring-1 focus:ring-primary focus:border-primary text-text-primary font-medium"
+              >
+                <option value="">All Departments</option>
+                {departments.map(d => (
+                  <option key={d.id} value={d.id}>{d.name}</option>
+                ))}
+              </select>
+
+              <select
+                value={selectedCustFilter}
+                onChange={e => {
+                  setSelectedCustFilter(e.target.value);
+                  setSelectedOrders([]);
+                }}
+                className="border border-border bg-white rounded-md px-3 py-1.5 text-sm shadow-sm outline-none focus:ring-1 focus:ring-primary focus:border-primary text-text-primary font-medium"
+              >
+                <option value="">All Customers</option>
+                {customers.map(c => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
+                ))}
+              </select>
+            </>
+          )}
           <div className="flex items-center gap-2 bg-white border border-border rounded-md px-3 py-1.5 shadow-sm text-sm">
             <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="outline-none bg-transparent" placeholder="Start Date" />
             <span className="text-text-secondary">→</span>

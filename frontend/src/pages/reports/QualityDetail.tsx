@@ -30,6 +30,10 @@ export function QualityDetail() {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [activeDropdown, setActiveDropdown] = useState<{ id: string; top: number; left: number } | null>(null);
   const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({});
+  const [departments, setDepartments] = useState<any[]>([]);
+  const [selectedDepartmentId, setSelectedDepartmentId] = useState<string>('');
+
+  const isAdmin = ['SUPER_ADMIN', 'COMPANY_ADMIN'].includes(user?.role || '');
 
   const [sortField, setSortField] = useState<string>('date');
   const [sortAsc, setSortAsc] = useState<boolean>(false);
@@ -38,6 +42,19 @@ export function QualityDetail() {
   const thirtyAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
   const [startDate, setStartDate] = useState(thirtyAgo);
   const [endDate, setEndDate] = useState(today);
+
+  useEffect(() => {
+    if (!isAdmin) return;
+    const fetchDepts = async () => {
+      try {
+        const res = await api.get('/departments');
+        setDepartments(res.data);
+      } catch (err) {
+        console.error('Failed to load departments', err);
+      }
+    };
+    fetchDepts();
+  }, [user, isAdmin]);
 
   const handleSort = (field: string) => {
     const normField = field.trim();
@@ -124,7 +141,14 @@ export function QualityDetail() {
   const fetchEntries = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await api.get('/reports/entries', { params: { startDate, endDate, type: 'QUALITY' } });
+      const res = await api.get('/reports/entries', { 
+        params: { 
+          startDate, 
+          endDate, 
+          type: 'QUALITY',
+          departmentId: selectedDepartmentId || undefined
+        } 
+      });
       setEntries(res.data);
       setSelectedIds([]);
     } catch (err) {
@@ -132,7 +156,7 @@ export function QualityDetail() {
     } finally {
       setLoading(false);
     }
-  }, [startDate, endDate]);
+  }, [startDate, endDate, selectedDepartmentId]);
 
   const deletableEntries = entries.filter(e => user?.role !== 'OPERATIONS' || e.submitted_by === user?.id);
 
@@ -282,6 +306,18 @@ export function QualityDetail() {
           >
             <ClipboardList className="h-4 w-4" /> Daily Quality Report
           </button>
+          {isAdmin && (
+            <select
+              value={selectedDepartmentId}
+              onChange={e => setSelectedDepartmentId(e.target.value)}
+              className="border border-border bg-white rounded-md px-3 py-2 text-sm shadow-sm outline-none focus:ring-1 focus:ring-primary focus:border-primary text-text-primary font-semibold"
+            >
+              <option value="">All Departments</option>
+              {departments.map(d => (
+                <option key={d.id} value={d.id}>{d.name}</option>
+              ))}
+            </select>
+          )}
           <div className="flex items-center gap-2 bg-white border border-border rounded-md px-3 py-2 shadow-sm text-sm">
             <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="outline-none bg-transparent" />
             <span className="text-text-secondary">→</span>

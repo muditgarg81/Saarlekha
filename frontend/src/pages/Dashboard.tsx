@@ -138,6 +138,8 @@ export function Dashboard() {
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [departments, setDepartments] = useState<any[]>([]);
+  const [selectedDepartmentId, setSelectedDepartmentId] = useState('');
 
   // Date range — default to last 30 days
   const today = new Date().toISOString().split('T')[0];
@@ -247,7 +249,7 @@ export function Dashboard() {
     setError(null);
     try {
       const res = await api.get('/dashboard/summary', {
-        params: { startDate, endDate }
+        params: { startDate, endDate, departmentId: selectedDepartmentId || undefined }
       });
       setData(res.data);
     } catch (err: any) {
@@ -255,7 +257,24 @@ export function Dashboard() {
     } finally {
       setLoading(false);
     }
-  }, [startDate, endDate, user, selectedCompanyId]);
+  }, [startDate, endDate, user, selectedCompanyId, selectedDepartmentId]);
+
+  const isAdmin = ['SUPER_ADMIN', 'COMPANY_ADMIN'].includes(user?.role || '');
+
+  useEffect(() => {
+    if (user?.role === 'SUPER_ADMIN' && !selectedCompanyId) return;
+    if (!isAdmin) return;
+
+    const fetchDepts = async () => {
+      try {
+        const res = await api.get('/departments');
+        setDepartments(res.data);
+      } catch (err) {
+        console.error('Failed to load departments for dashboard', err);
+      }
+    };
+    fetchDepts();
+  }, [user, selectedCompanyId, isAdmin]);
 
   useEffect(() => { 
     if (user?.role === 'SUPER_ADMIN' && !selectedCompanyId) {
@@ -331,6 +350,18 @@ export function Dashboard() {
           >
             <ClipboardList className="mr-2 h-4 w-4" /> Generate Daily Report
           </Link>
+          {isAdmin && (
+            <select
+              value={selectedDepartmentId}
+              onChange={e => setSelectedDepartmentId(e.target.value)}
+              className="border border-border bg-white rounded-md px-3 py-2 text-sm shadow-sm outline-none focus:ring-1 focus:ring-primary focus:border-primary text-text-primary font-medium"
+            >
+              <option value="">All Departments</option>
+              {departments.map(d => (
+                <option key={d.id} value={d.id}>{d.name}</option>
+              ))}
+            </select>
+          )}
           <div className="flex items-center gap-2 bg-white border border-border rounded-md px-3 py-2 shadow-sm">
             <input
               type="date" value={startDate}

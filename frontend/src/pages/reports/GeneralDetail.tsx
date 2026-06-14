@@ -41,6 +41,10 @@ export function GeneralDetail() {
   const [selectedFormatId, setSelectedFormatId] = useState<string>('');
   const [loading, setLoading] = useState(true);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [departments, setDepartments] = useState<any[]>([]);
+  const [selectedDepartmentId, setSelectedDepartmentId] = useState<string>('');
+
+  const isAdmin = ['SUPER_ADMIN', 'COMPANY_ADMIN'].includes(user?.role || '');
 
   const [sortField, setSortField] = useState<string>('date');
   const [sortAsc, setSortAsc] = useState<boolean>(false);
@@ -49,6 +53,19 @@ export function GeneralDetail() {
   const thirtyAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
   const [startDate, setStartDate] = useState(thirtyAgo);
   const [endDate, setEndDate] = useState(today);
+
+  useEffect(() => {
+    if (!isAdmin) return;
+    const fetchDepts = async () => {
+      try {
+        const res = await api.get('/departments');
+        setDepartments(res.data);
+      } catch (err) {
+        console.error('Failed to load departments', err);
+      }
+    };
+    fetchDepts();
+  }, [user, isAdmin]);
 
   const handleSort = (field: string) => {
     const normField = field.trim();
@@ -158,6 +175,9 @@ export function GeneralDetail() {
       if (selectedFormatId) {
         params.formatId = selectedFormatId;
       }
+      if (selectedDepartmentId) {
+        params.departmentId = selectedDepartmentId;
+      }
       const res = await api.get('/reports/entries', { params });
       setEntries(res.data);
       setSelectedIds([]);
@@ -166,7 +186,7 @@ export function GeneralDetail() {
     } finally {
       setLoading(false);
     }
-  }, [startDate, endDate, selectedFormatId]);
+  }, [startDate, endDate, selectedFormatId, selectedDepartmentId]);
 
   useEffect(() => {
     fetchFormats();
@@ -280,6 +300,19 @@ export function GeneralDetail() {
               <option key={f.id} value={f.id}>{f.name}</option>
             ))}
           </select>
+
+          {isAdmin && (
+            <select
+              value={selectedDepartmentId}
+              onChange={e => setSelectedDepartmentId(e.target.value)}
+              className="border border-border bg-white rounded-md px-3 py-2 text-sm shadow-sm outline-none focus:ring-1 focus:ring-primary focus:border-primary text-text-primary font-semibold"
+            >
+              <option value="">All Departments</option>
+              {departments.map(d => (
+                <option key={d.id} value={d.id}>{d.name}</option>
+              ))}
+            </select>
+          )}
 
           <div className="flex items-center gap-2 bg-white border border-border rounded-md px-3 py-2 shadow-sm text-sm">
             <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="outline-none bg-transparent" />

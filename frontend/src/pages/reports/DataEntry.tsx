@@ -16,6 +16,7 @@ interface ReportFormat {
   name: string;
   type: string;
   versions: FormatVersion[];
+  department_ids?: string[];
 }
 
 export function DataEntry() {
@@ -47,9 +48,19 @@ export function DataEntry() {
 
   const { user } = useAuth();
 
-  const filteredFormats = filterType
-    ? formats.filter(f => f.type.toUpperCase() === filterType.toUpperCase())
-    : formats;
+  const filteredFormats = formats.filter(f => {
+    // 1. Filter by type (PRODUCTION, QUALITY, GENERAL, etc.) if query param exists
+    if (filterType && f.type.toUpperCase() !== filterType.toUpperCase()) {
+      return false;
+    }
+    // 2. Filter by selected department if selected
+    if (selectedDepartment) {
+      if (f.department_ids && f.department_ids.length > 0) {
+        return f.department_ids.includes(selectedDepartment);
+      }
+    }
+    return true;
+  });
 
   const activeFormat = formats.find(f => f.id === selectedFormatId);
   const activeSchema = activeFormat

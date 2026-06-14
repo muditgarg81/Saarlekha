@@ -10,9 +10,18 @@ reportsRouter.use(authenticate);
 reportsRouter.get('/formats', async (req, res) => {
   const tenantId = req.tenantId;
   const prismaTenant = getTenantPrisma(tenantId!);
+  const { departmentId } = req.query;
 
   try {
+    const whereClause: any = {};
+    if (departmentId) {
+      whereClause.OR = [
+        { department_ids: { has: departmentId as string } },
+        { department_ids: { equals: [] } }
+      ];
+    }
     const formats = await prismaTenant.reportFormat.findMany({
+      where: whereClause,
       include: {
         versions: {
           orderBy: { version_num: 'desc' },
@@ -28,7 +37,7 @@ reportsRouter.get('/formats', async (req, res) => {
 
 reportsRouter.post('/formats', requireRole(['SUPER_ADMIN', 'COMPANY_ADMIN']), async (req, res) => {
   const tenantId = req.tenantId;
-  const { name, type, initialFields } = req.body;
+  const { name, type, initialFields, department_ids } = req.body;
   const prismaTenant = getTenantPrisma(tenantId!);
 
   try {
@@ -53,7 +62,8 @@ reportsRouter.post('/formats', requireRole(['SUPER_ADMIN', 'COMPANY_ADMIN']), as
         data: {
           company_id: tenantId!,
           name,
-          type
+          type,
+          department_ids: department_ids || []
         }
       });
 
@@ -72,7 +82,7 @@ reportsRouter.post('/formats', requireRole(['SUPER_ADMIN', 'COMPANY_ADMIN']), as
           entity_type: 'ReportFormat',
           entity_id: format.id,
           company_id: tenantId,
-          details: { name, type }
+          details: { name, type, department_ids }
         }
       });
 
@@ -125,14 +135,14 @@ reportsRouter.post('/formats/:id/versions', requireRole(['SUPER_ADMIN', 'COMPANY
   }
 });
 
-// Update a format name
+// Update a format
 reportsRouter.put('/formats/:id', requireRole(['SUPER_ADMIN', 'COMPANY_ADMIN']), async (req, res) => {
   const tenantId = req.tenantId as string;
   const id = req.params.id as string;
-  const { name } = req.body;
+  const { name, department_ids } = req.body;
   const prismaTenant = getTenantPrisma(tenantId);
 
-  if (!name || !name.trim()) {
+  if (name !== undefined && (!name || !name.trim())) {
     return res.status(400).json({ error: 'Format name is required.' });
   }
 
@@ -145,9 +155,13 @@ reportsRouter.put('/formats/:id', requireRole(['SUPER_ADMIN', 'COMPANY_ADMIN']),
       return res.status(404).json({ error: 'Report format not found' });
     }
 
+    const updateData: any = {};
+    if (name !== undefined) updateData.name = name.trim();
+    if (department_ids !== undefined) updateData.department_ids = department_ids;
+
     const updated = await prismaTenant.reportFormat.update({
       where: { id },
-      data: { name: name.trim() }
+      data: updateData
     });
 
     await prismaTenant.auditLogEntry.create({
@@ -157,13 +171,16 @@ reportsRouter.put('/formats/:id', requireRole(['SUPER_ADMIN', 'COMPANY_ADMIN']),
         entity_type: 'ReportFormat',
         entity_id: id,
         company_id: tenantId,
-        details: { before: { name: existing.name }, after: { name: updated.name } }
+        details: {
+          before: { name: existing.name, department_ids: existing.department_ids },
+          after: { name: updated.name, department_ids: updated.department_ids }
+        }
       }
     });
 
     res.json(updated);
   } catch (error: any) {
-    res.status(500).json({ error: 'Failed to update report format name', details: error.message });
+    res.status(500).json({ error: 'Failed to update report format', details: error.message });
   }
 });
 

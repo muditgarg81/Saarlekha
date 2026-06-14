@@ -56,6 +56,8 @@ export function OtherProduction() {
   const [loading, setLoading] = useState(true);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [activeDropdown, setActiveDropdown] = useState<{ id: string; top: number; left: number } | null>(null);
+  const [departments, setDepartments] = useState<any[]>([]);
+  const [selectedDepartmentId, setSelectedDepartmentId] = useState<string>('');
 
   const [sortField, setSortField] = useState<string>('date');
   const [sortAsc, setSortAsc] = useState<boolean>(false);
@@ -162,12 +164,30 @@ export function OtherProduction() {
     }
   }, []);
 
+  const isAdmin = ['SUPER_ADMIN', 'COMPANY_ADMIN'].includes(user?.role || '');
+
+  useEffect(() => {
+    if (!isAdmin) return;
+    const fetchDepartments = async () => {
+      try {
+        const res = await api.get('/departments');
+        setDepartments(res.data);
+      } catch (err) {
+        console.error('Failed to fetch departments', err);
+      }
+    };
+    fetchDepartments();
+  }, [isAdmin]);
+
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
       const params: any = { startDate, endDate };
       if (selectedFormatId) {
         params.formatId = selectedFormatId;
+      }
+      if (selectedDepartmentId) {
+        params.departmentId = selectedDepartmentId;
       }
       
       const res = await api.get('/reports/entries', { params });
@@ -185,7 +205,7 @@ export function OtherProduction() {
     } finally {
       setLoading(false);
     }
-  }, [startDate, endDate, selectedFormatId, formats]);
+  }, [startDate, endDate, selectedFormatId, formats, selectedDepartmentId]);
 
   useEffect(() => {
     fetchFormats();
@@ -326,6 +346,18 @@ export function OtherProduction() {
             <Plus className="h-4 w-4" /> Log Entry
           </button>
           
+          {isAdmin && (
+            <select
+              value={selectedDepartmentId}
+              onChange={e => setSelectedDepartmentId(e.target.value)}
+              className="border border-border bg-white rounded-md px-3 py-2 text-sm shadow-sm outline-none text-text-primary font-medium"
+            >
+              <option value="">All Departments</option>
+              {departments.map(d => (
+                <option key={d.id} value={d.id}>{d.name}</option>
+              ))}
+            </select>
+          )}
           <select 
             value={selectedFormatId} 
             onChange={e => setSelectedFormatId(e.target.value)}

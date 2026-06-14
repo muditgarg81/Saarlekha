@@ -65,6 +65,11 @@ export function ReportBuilder() {
   const [editingFieldCarryScope, setEditingFieldCarryScope] = useState<'machine' | 'field' | 'overall'>('machine');
   const [editingFieldCarryScopeFieldId, setEditingFieldCarryScopeFieldId] = useState<string>('');
 
+  // Department mapping states
+  const [departments, setDepartments] = useState<any[]>([]);
+  const [selectedDepts, setSelectedDepts] = useState<string[]>([]);
+  const [newFormatDepts, setNewFormatDepts] = useState<string[]>([]);
+
   const isAdmin = ['SUPER_ADMIN', 'COMPANY_ADMIN'].includes(user?.role || '');
 
   const getNumericOperandOptions = (currentFields: FormatField[], excludeIdx?: number | null) => {
@@ -113,6 +118,15 @@ export function ReportBuilder() {
 
   useEffect(() => {
     fetchFormats();
+    const fetchDepartments = async () => {
+      try {
+        const res = await api.get('/departments');
+        setDepartments(res.data);
+      } catch (err) {
+        console.error('Failed to fetch departments', err);
+      }
+    };
+    fetchDepartments();
   }, []);
 
   const fetchFormats = async () => {
@@ -135,6 +149,7 @@ export function ReportBuilder() {
     setEditingFieldIdx(null);
     setNewFieldName('');
     setNewFieldUnit('');
+    setSelectedDepts((format as any).department_ids || []);
   };
 
   const handleCreateFormat = async (e: React.FormEvent) => {
@@ -143,10 +158,12 @@ export function ReportBuilder() {
       await api.post('/reports/formats', {
         name: newFormatName,
         type: newFormatType,
-        initialFields: [] // Start empty, force them to use "add field"
+        initialFields: [],
+        department_ids: newFormatDepts
       });
       setShowNewFormat(false);
       setNewFormatName('');
+      setNewFormatDepts([]);
       fetchFormats();
     } catch (err) {
       alert('Failed to create format');
@@ -325,12 +342,11 @@ export function ReportBuilder() {
   const handleSaveFormatSchema = async () => {
     if (!activeFormat || !formatName.trim()) return;
     try {
-      // 1. If format name has changed, update it
-      if (formatName.trim() !== activeFormat.name) {
-        await api.put(`/reports/formats/${activeFormat.id}`, {
-          name: formatName.trim()
-        });
-      }
+      // 1. Update name and department associations
+      await api.put(`/reports/formats/${activeFormat.id}`, {
+        name: formatName.trim(),
+        department_ids: selectedDepts
+      });
 
       // 2. Save the fields schema version
       await api.post(`/reports/formats/${activeFormat.id}/versions`, {
@@ -396,23 +412,60 @@ export function ReportBuilder() {
       </div>
 
       {showNewFormat && (
-        <div className="bg-white p-6 rounded-card border border-border shadow-sm">
+        <div className="bg-white p-6 rounded-card border border-border shadow-sm animate-in fade-in slide-in-from-top-4 duration-200">
           <h3 className="text-lg font-medium text-text-primary mb-4">Create New Report Format</h3>
-          <form onSubmit={handleCreateFormat} className="flex gap-4 items-end">
-            <div className="flex-1">
-              <label className="block text-sm font-medium text-text-secondary">Format Name</label>
-              <input required type="text" className="mt-1 block w-full border border-border rounded-md px-3 py-2" value={newFormatName} onChange={e => setNewFormatName(e.target.value)} />
+          <form onSubmit={handleCreateFormat} className="space-y-4">
+            <div className="flex flex-col md:flex-row gap-4 items-end">
+              <div className="flex-1">
+                <label className="block text-sm font-medium text-text-secondary">Format Name</label>
+                <input required type="text" className="mt-1 block w-full border border-border rounded-md px-3 py-2 bg-white text-text-primary text-sm focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary" value={newFormatName} onChange={e => setNewFormatName(e.target.value)} />
+              </div>
+              <div className="w-48">
+                <label className="block text-sm font-medium text-text-secondary">Type</label>
+                <select className="mt-1 block w-full border border-border rounded-md px-3 py-2 bg-white text-text-primary text-sm focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary" value={newFormatType} onChange={e => setNewFormatType(e.target.value)}>
+                  <option value="QUALITY">Quality</option>
+                  <option value="PRODUCTION">Production</option>
+                </select>
+              </div>
             </div>
-            <div className="w-48">
-              <label className="block text-sm font-medium text-text-secondary">Type</label>
-              <select className="mt-1 block w-full border border-border rounded-md px-3 py-2" value={newFormatType} onChange={e => setNewFormatType(e.target.value)}>
-                <option value="QUALITY">Quality</option>
-                <option value="PRODUCTION">Production</option>
-              </select>
+
+            {/* Departments Checklist */}
+            <div>
+              <label className="block text-sm font-semibold text-text-secondary uppercase mb-2">Pertains to Departments</label>
+              <div className="flex flex-wrap gap-4 bg-surface p-3 rounded-lg border border-border">
+                {departments.length === 0 ? (
+                  <span className="text-xs text-text-secondary">No departments found. Create departments in the Admin Panel first.</span>
+                ) : (
+                  departments.map(d => (
+                    <label key={d.id} className="inline-flex items-center text-sm font-medium text-text-primary cursor-pointer gap-2 select-none">
+                      <input
+                        type="checkbox"
+                        checked={newFormatDepts.includes(d.id)}
+                        onChange={e => {
+                          if (e.target.checked) {
+                            setNewFormatDepts([...newFormatDepts, d.id]);
+                          } else {
+                            setNewFormatDepts(newFormatDepts.filter(id => id !== d.id));
+                          }
+                        }}
+                        className="rounded border-border text-primary focus:ring-primary h-4 w-4"
+                      />
+                      {d.name}
+                    </label>
+                  ))
+                )}
+              </div>
+              <p className="text-xs text-text-secondary mt-1">If no departments are selected, the format will be visible to all departments.</p>
             </div>
-            <button type="submit" className="bg-primary text-white px-4 py-2 rounded-md hover:bg-primary-light h-[42px] text-sm font-semibold">
-              Create
-            </button>
+
+            <div className="flex justify-end gap-3 pt-2">
+              <button type="submit" className="bg-primary text-white px-4 py-2 rounded-md hover:bg-primary-light text-sm font-semibold shadow-sm transition-colors">
+                Create Format
+              </button>
+              <button type="button" onClick={() => setShowNewFormat(false)} className="bg-gray-100 text-text-secondary px-4 py-2 rounded-md hover:bg-gray-200 text-sm font-semibold transition-colors">
+                Cancel
+              </button>
+            </div>
           </form>
         </div>
       )}
@@ -420,17 +473,49 @@ export function ReportBuilder() {
       {/* Add Field Builder Pane */}
       {activeFormat && (
         <div className="bg-surface p-6 rounded-card border border-border shadow-inner">
-          <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-6 pb-4 border-b border-border">
-            <div className="flex-1 max-w-md">
-              <label className="block text-xs font-bold text-text-secondary uppercase">Report Format Name</label>
-              <input
-                type="text"
-                required
-                className="mt-1 w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 bg-white font-semibold text-text-primary"
-                value={formatName}
-                onChange={e => setFormatName(e.target.value)}
-              />
+          <div className="flex flex-col md:flex-row md:items-start justify-between gap-4 mb-6 pb-4 border-b border-border">
+            <div className="flex-1 space-y-4 max-w-xl">
+              <div>
+                <label className="block text-xs font-bold text-text-secondary uppercase">Report Format Name</label>
+                <input
+                  type="text"
+                  required
+                  className="mt-1 w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 bg-white font-semibold text-text-primary"
+                  value={formatName}
+                  onChange={e => setFormatName(e.target.value)}
+                />
+              </div>
+
+              {/* Department Scoping */}
+              <div>
+                <label className="block text-xs font-bold text-text-secondary uppercase mb-2">Pertains to Departments</label>
+                <div className="flex flex-wrap gap-4 bg-white p-3 rounded-lg border border-border">
+                  {departments.length === 0 ? (
+                    <span className="text-xs text-text-secondary">No departments found.</span>
+                  ) : (
+                    departments.map(d => (
+                      <label key={d.id} className="inline-flex items-center text-sm font-medium text-text-primary cursor-pointer gap-2 select-none">
+                        <input
+                          type="checkbox"
+                          checked={selectedDepts.includes(d.id)}
+                          onChange={e => {
+                            if (e.target.checked) {
+                              setSelectedDepts([...selectedDepts, d.id]);
+                            } else {
+                              setSelectedDepts(selectedDepts.filter(id => id !== d.id));
+                            }
+                          }}
+                          className="rounded border-border text-primary focus:ring-primary h-4 w-4"
+                        />
+                        {d.name}
+                      </label>
+                    ))
+                  )}
+                </div>
+                <p className="text-[11px] text-text-secondary mt-1">If no departments are selected, the format will be visible to all departments.</p>
+              </div>
             </div>
+
             <div className="flex items-center gap-3">
               <span className="text-xs text-text-secondary font-mono">
                 Version {activeFormat.versions[0]?.version_num || 0}
@@ -438,7 +523,7 @@ export function ReportBuilder() {
               <button 
                 type="button"
                 onClick={() => setActiveFormat(null)} 
-                className="text-text-secondary hover:text-text-primary font-semibold text-sm border border-border px-3 py-1.5 rounded-lg bg-white"
+                className="text-text-secondary hover:text-text-primary font-semibold text-sm border border-border px-3 py-1.5 rounded-lg bg-white transition-colors"
               >
                 Close Editor
               </button>
