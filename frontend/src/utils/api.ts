@@ -32,11 +32,16 @@ export const updateApiBaseURL = (newUrl: string) => {
   api.defaults.baseURL = formatted;
 };
 
-// Request interceptor to add the JWT token to every request
+// Request interceptor to add the JWT token and cache-control headers to every request
 api.interceptors.request.use(
   (config) => {
     // Dynamically align baseURL on every request just in case it was updated
     config.baseURL = getApiBaseURL();
+    
+    // Disable caching for all API requests
+    config.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate';
+    config.headers['Pragma'] = 'no-cache';
+    config.headers['Expires'] = '0';
     
     const token = localStorage.getItem('token');
     if (token) {

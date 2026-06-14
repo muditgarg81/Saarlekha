@@ -110,7 +110,9 @@ export function JobOrderMaster() {
     name: ''
   });
   const [selectedOrders, setSelectedOrders] = useState<string[]>([]);
-  const { user } = useAuth();
+  const { user, selectedCompanyId } = useAuth();
+  const [showDebug, setShowDebug] = useState(false);
+  const [fetchError, setFetchError] = useState<string | null>(null);
   
   const [showForm, setShowForm] = useState(false);
   const [editingOrder, setEditingOrder] = useState<JobOrder | null>(null);
@@ -286,7 +288,7 @@ export function JobOrderMaster() {
 
   useEffect(() => {
     fetchData();
-  }, []);
+  }, [selectedCompanyId]);
 
   useEffect(() => {
     const handleOutsideClick = () => {
@@ -301,6 +303,7 @@ export function JobOrderMaster() {
 
   const fetchData = async () => {
     try {
+      setFetchError(null);
       const [ordRes, custRes, formatRes, deptRes, itemsRes] = await Promise.all([
         api.get('/job-orders'),
         api.get('/customers'),
@@ -311,19 +314,21 @@ export function JobOrderMaster() {
       const sortedOrders = (ordRes.data || []).sort((a: any, b: any) =>
         (a.order_number || '').localeCompare(b.order_number || '', undefined, { numeric: true, sensitivity: 'base' })
       );
-      setOrders(sortedOrders);
-      setCustomers(custRes.data);
-      setDepartments(deptRes.data);
-      setItemsMaster(itemsRes.data);
+      setOrders(sortedOrders || []);
+      setCustomers(custRes.data || []);
+      setDepartments(deptRes.data || []);
+      setItemsMaster(itemsRes.data || []);
       setSelectedOrders([]);
-      const joFmt = formatRes.data.find((f: any) => f.type === 'JOB_ORDER');
+      const formats = formatRes.data || [];
+      const joFmt = formats.find((f: any) => f.type === 'JOB_ORDER');
       if (joFmt && joFmt.versions && joFmt.versions[0]) {
         setJoSchema(injectStandardFields(joFmt.versions[0].fields_schema || [], 'JOB_ORDER'));
       } else {
         setJoSchema(injectStandardFields([], 'JOB_ORDER'));
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
+      setFetchError(err.response?.data?.error || err.message || String(err));
     } finally {
       setLoading(false);
     }
@@ -1387,6 +1392,34 @@ export function JobOrderMaster() {
               </div>
             </form>
           </div>
+        </div>
+      )}
+
+      {user?.role === 'SUPER_ADMIN' && (
+        <div className="mt-8 border border-border bg-surface rounded-card p-4 text-xs font-mono shadow-sm animate-in slide-in-from-bottom duration-200">
+          <div className="flex justify-between items-center cursor-pointer border-b border-border/50 pb-2 mb-2 select-none" onClick={() => setShowDebug(!showDebug)}>
+            <span className="font-bold text-primary flex items-center gap-1.5">
+              <span>🔧 Super Admin Debug Diagnostics</span>
+              <span className="text-[10px] bg-primary/10 text-primary px-1.5 py-0.5 rounded font-semibold">
+                {showDebug ? 'Hide' : 'Show'}
+              </span>
+            </span>
+            <span className="text-text-secondary">Click to toggle</span>
+          </div>
+          {showDebug && (
+            <div className="space-y-1.5 animate-in fade-in duration-100">
+              <div><strong>API Base URL:</strong> {api.defaults.baseURL}</div>
+              <div><strong>Selected Tenant ID:</strong> {selectedCompanyId || 'None'}</div>
+              <div><strong>Selected Tenant Name:</strong> {localStorage.getItem('selected_tenant_name') || 'None'}</div>
+              <div><strong>User Email:</strong> {user?.email}</div>
+              <div><strong>User Role:</strong> {user?.role}</div>
+              <div><strong>Loaded Orders Count:</strong> {orders.length}</div>
+              <div><strong>Loaded Departments Count:</strong> {departments.length} ({departments.map(d => d.name).join(', ') || 'none'})</div>
+              <div><strong>Loaded Customers Count:</strong> {customers.length} ({customers.map(c => c.name).join(', ') || 'none'})</div>
+              <div><strong>Loaded Items Count:</strong> {itemsMaster.length}</div>
+              <div><strong>Fetch Error Status:</strong> {fetchError || 'None'}</div>
+            </div>
+          )}
         </div>
       )}
     </div>
