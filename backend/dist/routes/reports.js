@@ -14,11 +14,30 @@ exports.reportsRouter.get('/formats', async (req, res) => {
     const { departmentId } = req.query;
     try {
         const whereClause = {};
-        if (departmentId) {
-            whereClause.OR = [
-                { department_ids: { has: departmentId } },
-                { department_ids: { equals: [] } }
-            ];
+        if (req.user?.role === 'OPERATIONS') {
+            // Get assigned departments for the operations user
+            const userDepts = await prismaTenant.userDepartment.findMany({
+                where: { user_id: req.user.id }
+            });
+            const allowedDeptIds = userDepts.map(ud => ud.department_id);
+            if (departmentId) {
+                const deptStr = departmentId;
+                if (!allowedDeptIds.includes(deptStr)) {
+                    return res.json([]);
+                }
+                whereClause.department_ids = { has: deptStr };
+            }
+            else {
+                if (allowedDeptIds.length === 0) {
+                    return res.json([]);
+                }
+                whereClause.department_ids = { hasSome: allowedDeptIds };
+            }
+        }
+        else {
+            if (departmentId) {
+                whereClause.department_ids = { has: departmentId };
+            }
         }
         const formats = await prismaTenant.reportFormat.findMany({
             where: whereClause,

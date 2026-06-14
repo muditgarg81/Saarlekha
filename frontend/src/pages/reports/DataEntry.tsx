@@ -49,15 +49,22 @@ export function DataEntry() {
   const { user } = useAuth();
 
   const filteredFormats = formats.filter(f => {
+    // Exclude JOB_ORDER and MAINTENANCE format types from general data entry
+    if (f.type === 'JOB_ORDER' || f.type === 'MAINTENANCE') {
+      return false;
+    }
     // 1. Filter by type (PRODUCTION, QUALITY, GENERAL, etc.) if query param exists
     if (filterType && f.type.toUpperCase() !== filterType.toUpperCase()) {
       return false;
     }
     // 2. Filter by selected department if selected
     if (selectedDepartment) {
-      if (f.department_ids && f.department_ids.length > 0) {
-        return f.department_ids.includes(selectedDepartment);
-      }
+      return f.department_ids?.includes(selectedDepartment) || false;
+    }
+    // 3. Filter by user's assigned departments if role is OPERATIONS and no department selected
+    if (user?.role === 'OPERATIONS') {
+      const userDeptIds = departments.map(d => d.id);
+      return f.department_ids?.some(id => userDeptIds.includes(id)) || false;
     }
     return true;
   });
