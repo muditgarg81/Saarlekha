@@ -355,7 +355,7 @@ export function ManpowerMaster() {
       </div>
 
       <div className="bg-white rounded-card border border-border shadow-sm overflow-hidden">
-        <div className="overflow-x-auto">
+        <div className="hidden sm:block overflow-x-auto">
           <table className="min-w-full divide-y divide-border">
             <thead className="bg-surface">
               <tr>
@@ -423,6 +423,93 @@ export function ManpowerMaster() {
               )}
             </tbody>
           </table>
+        </div>
+
+        {/* Mobile Card List View */}
+        <div className="block sm:hidden divide-y divide-border bg-white">
+          {filteredManpower.length === 0 ? (
+            <div className="p-8 text-center text-sm text-text-secondary">
+              No manpower records found.
+            </div>
+          ) : (
+            <div className="p-4 space-y-4">
+              {filteredManpower.map((person) => (
+                <div 
+                  key={person.id} 
+                  className="border border-border rounded-card p-4 shadow-sm space-y-3 bg-white hover:border-primary transition-all relative"
+                >
+                  {/* Header: User icon, Name, and Selection check */}
+                  <div className="flex items-center justify-between border-b border-border pb-2">
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        checked={selectedIds.includes(person.id)}
+                        onChange={() => handleToggleSelect(person.id)}
+                        className="rounded border-border text-primary focus:ring-primary h-4 w-4 cursor-pointer"
+                      />
+                      <div className="flex items-center">
+                        <User className="h-6 w-6 text-text-secondary bg-surface p-1 rounded-full mr-2" />
+                        <span className="text-sm font-semibold text-text-primary">{person.name}</span>
+                      </div>
+                    </div>
+                    
+                    {/* Role Badge */}
+                    <span className="px-2.5 py-0.5 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-50 text-primary">
+                      {person.role}
+                    </span>
+                  </div>
+
+                  {/* Body Content Grid */}
+                  <div className="grid grid-cols-2 gap-2 text-xs">
+                    <div className="bg-surface/40 p-2 rounded border border-border/40">
+                      <span className="block text-[10px] text-text-secondary uppercase font-semibold">Department</span>
+                      <span className="font-medium text-text-primary font-mono">{person.department?.name || '—'}</span>
+                    </div>
+                    <div className="bg-surface/40 p-2 rounded border border-border/40">
+                      <span className="block text-[10px] text-text-secondary uppercase font-semibold">Phone</span>
+                      <span className="font-medium text-text-primary font-mono">{person.phone || '—'}</span>
+                    </div>
+                    <div className="bg-surface/40 p-2 rounded border border-border/40">
+                      <span className="block text-[10px] text-text-secondary uppercase font-semibold">Masked Aadhaar</span>
+                      <span className="font-medium text-text-primary font-mono">{person.aadhaar_masked || '—'}</span>
+                    </div>
+                    <div className="bg-surface/40 p-2 rounded border border-border/40">
+                      <span className="block text-[10px] text-text-secondary uppercase font-semibold">Blood Group</span>
+                      <span className="font-medium text-text-primary font-mono">{person.blood_group || '—'}</span>
+                    </div>
+                    {person.emergency_contact && (
+                      <div className="bg-surface/40 p-2 rounded border border-border/40 col-span-2">
+                        <span className="block text-[10px] text-text-secondary uppercase font-semibold">Emergency Contact</span>
+                        <span className="font-medium text-text-primary font-mono">{person.emergency_contact}</span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Actions Row (Admin only) */}
+                  {isAdmin && (
+                    <div className="flex justify-end gap-3 pt-2 border-t border-border/50">
+                      <button 
+                        onClick={() => handleEdit(person)} 
+                        className="text-primary hover:bg-blue-50 p-1.5 rounded border border-border flex items-center gap-1 text-xs font-semibold"
+                        title="Edit details"
+                      >
+                        <Edit2 className="h-3.5 w-3.5" />
+                        <span>Edit</span>
+                      </button>
+                      <button 
+                        onClick={() => handleDelete(person.id)} 
+                        className="text-danger hover:bg-red-50 p-1.5 rounded border border-border flex items-center gap-1 text-xs font-semibold"
+                        title="Delete record"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                        <span>Delete</span>
+                      </button>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </div>

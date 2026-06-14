@@ -286,7 +286,8 @@ export function JobOrderSummary() {
             No production logs recorded against this Job Order.
           </div>
         ) : (
-          <div className="overflow-x-auto">
+          <>
+            <div className="hidden sm:block overflow-x-auto">
             <table className="min-w-full divide-y divide-border">
               <thead className="bg-surface">
                 <tr>
@@ -324,6 +325,42 @@ export function JobOrderSummary() {
               </tbody>
             </table>
           </div>
+
+          {/* Mobile Card List View for Production Logs */}
+          <div className="block sm:hidden divide-y divide-border bg-white p-4 space-y-4">
+            {data.productionLogs.map(log => (
+              <div 
+                key={log.id} 
+                onClick={() => navigate(`/data-entry?entryId=${log.id}`)}
+                className="border border-border rounded-card p-4 shadow-sm space-y-3 bg-white hover:border-primary transition-all relative cursor-pointer"
+              >
+                {/* Header: Date, Format */}
+                <div className="flex items-center justify-between border-b border-border pb-2">
+                  <span className="text-sm font-bold text-text-primary font-mono tabular-nums">
+                    {new Date(log.date).toLocaleDateString()}
+                  </span>
+                  <span className="text-xs bg-gray-100 text-text-secondary px-2 py-0.5 rounded-full font-semibold">
+                    {log.format?.name ?? 'N/A'}
+                  </span>
+                </div>
+
+                {/* Info row */}
+                <div className="text-xs text-text-secondary flex justify-between">
+                  <span>Dept: <span className="font-semibold text-text-primary">{log.department}</span></span>
+                  <span>By: <span className="font-semibold">{log.submitter?.split('@')[0]}</span></span>
+                </div>
+
+                {/* Produced Quantity Card style */}
+                <div className="bg-primary/5 p-3 rounded-lg border border-primary/10 flex justify-between items-center text-sm font-medium">
+                  <span className="text-xs text-text-secondary">Produced Qty</span>
+                  <span className="text-primary font-bold font-mono tabular-nums">
+                    {log.productionQty.toLocaleString()} <span className="text-[11px] font-normal text-text-secondary">{unit}</span>
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+          </>
         )}
       </div>
 
@@ -392,7 +429,8 @@ export function JobOrderSummary() {
 
                   {/* Subsection logs table */}
                   {!isCollapsed && (
-                    <div className="overflow-x-auto">
+                    <>
+                      <div className="hidden sm:block overflow-x-auto">
                       <table className="min-w-full divide-y divide-border">
                         <thead className="bg-surface">
                           <tr>
@@ -432,6 +470,47 @@ export function JobOrderSummary() {
                         </tbody>
                       </table>
                     </div>
+
+                    {/* Mobile Card List View for Quality Logs */}
+                    <div className="block sm:hidden divide-y divide-border bg-white p-4 space-y-4">
+                      {group.entries.map(log => (
+                        <div 
+                          key={log.id} 
+                          onClick={() => navigate(`/data-entry?entryId=${log.id}`)}
+                          className="border border-border rounded-card p-4 shadow-sm space-y-3 bg-white hover:border-primary transition-all relative cursor-pointer"
+                        >
+                          {/* Header: Date, Submitter */}
+                          <div className="flex items-center justify-between border-b border-border pb-2 text-xs">
+                            <span className="text-sm font-bold text-text-primary font-mono tabular-nums">
+                              {new Date(log.date).toLocaleDateString()}
+                            </span>
+                            <span className="text-text-secondary flex items-center gap-1">
+                              <User className="h-3 w-3" /> {log.submitter?.split('@')[0]}
+                            </span>
+                          </div>
+
+                          {/* Dept info */}
+                          <div className="text-xs text-text-secondary">
+                            Dept: <span className="font-semibold text-text-primary">{log.department}</span>
+                          </div>
+
+                          {/* Quality metrics grid */}
+                          <div className="grid grid-cols-2 gap-2 text-xs pt-1">
+                            {group.fields.map(f => (
+                              <div key={f.name} className="bg-surface/40 p-2 rounded border border-border/40">
+                                <span className="block text-[10px] text-text-secondary uppercase font-semibold">
+                                  {f.name}{f.unit ? ` (${f.unit})` : ''}
+                                </span>
+                                <span className="font-medium text-text-primary font-mono tabular-nums">
+                                  {log.payload?.[f.name] !== undefined ? String(log.payload[f.name]) : '—'}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    </>
                   )}
                 </div>
               );

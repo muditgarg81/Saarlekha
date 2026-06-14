@@ -109,7 +109,7 @@ export function AuditLog() {
 
       {/* Log Table */}
       <div className="bg-white rounded-card border border-border shadow-sm overflow-hidden">
-        <div className="overflow-x-auto">
+        <div className="hidden sm:block overflow-x-auto">
           <table className="min-w-full divide-y divide-border">
             <thead className="bg-surface">
               <tr>
@@ -171,6 +171,77 @@ export function AuditLog() {
               )}
             </tbody>
           </table>
+        </div>
+
+        {/* Mobile Card List View */}
+        <div className="block sm:hidden divide-y divide-border bg-white">
+          {loading ? (
+            <div className="p-4 space-y-4">
+              {Array.from({ length: 5 }).map((_, i) => (
+                <div key={i} className="border border-border rounded-card p-4 shadow-sm space-y-3 bg-white animate-pulse">
+                  <div className="h-4 bg-gray-100 rounded w-1/3" />
+                  <div className="h-4 bg-gray-100 rounded w-2/3" />
+                  <div className="h-4 bg-gray-100 rounded w-1/2" />
+                </div>
+              ))}
+            </div>
+          ) : logs.length === 0 ? (
+            <div className="p-8 text-center text-sm text-text-secondary">
+              No audit log entries found.
+            </div>
+          ) : (
+            <div className="p-4 space-y-4">
+              {logs.map((log) => (
+                <div 
+                  key={log.id} 
+                  className="border border-border rounded-card p-4 shadow-sm space-y-3 bg-white hover:border-primary transition-all relative"
+                >
+                  {/* Header: Timestamp, Action Badge */}
+                  <div className="flex items-center justify-between border-b border-border pb-2">
+                    <span className="text-xs font-semibold text-text-secondary font-mono tabular-nums">
+                      {new Date(log.timestamp).toLocaleString()}
+                    </span>
+                    <span className={clsx(
+                      'inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold uppercase tracking-wide',
+                      ACTION_COLORS[log.action] || 'bg-gray-100 text-gray-700'
+                    )}>
+                      {log.action}
+                    </span>
+                  </div>
+
+                  {/* Body Content */}
+                  <div className="text-xs space-y-2">
+                    {/* User */}
+                    <div className="flex justify-between">
+                      <span className="text-text-secondary font-medium">User:</span>
+                      <div className="text-right">
+                        <div className="font-semibold text-text-primary">{log.user?.email}</div>
+                        <div className="text-[10px] text-text-secondary capitalize">
+                          {log.user?.role.replace('_', ' ').toLowerCase()}
+                        </div>
+                      </div>
+                    </div>
+                    {/* Entity */}
+                    <div className="flex justify-between">
+                      <span className="text-text-secondary font-medium">Entity:</span>
+                      <span className="font-medium text-text-primary">
+                        {log.entity_type} <span className="text-xs font-mono text-text-secondary">({log.entity_id.slice(0, 8)}…)</span>
+                      </span>
+                    </div>
+                    {/* Details block */}
+                    {log.details && (
+                      <div className="bg-surface/50 p-2.5 rounded border border-border/40 text-[11px] overflow-x-auto font-mono max-h-32 overflow-y-auto">
+                        <span className="block text-[9px] text-text-secondary uppercase font-semibold font-sans mb-1">Details</span>
+                        <pre className="text-text-primary whitespace-pre-wrap word-break">
+                          {typeof log.details === 'object' ? JSON.stringify(log.details, null, 2) : String(log.details)}
+                        </pre>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Pagination */}

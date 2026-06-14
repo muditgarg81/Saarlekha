@@ -132,7 +132,8 @@ export function DepartmentsTab() {
       </div>
 
       <div className="bg-white rounded-card border border-border shadow-sm overflow-hidden">
-        <table className="min-w-full divide-y divide-border">
+        <div className="hidden sm:block overflow-x-auto">
+          <table className="min-w-full divide-y divide-border">
           <thead className="bg-surface">
             <tr>
               <th className="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">
@@ -208,6 +209,81 @@ export function DepartmentsTab() {
             )}
           </tbody>
         </table>
+        </div>
+
+        {/* Mobile Card List View */}
+        <div className="block sm:hidden divide-y divide-border bg-white">
+          {departments.length === 0 ? (
+            <div className="p-8 text-center text-sm text-text-secondary">
+              No departments found.
+            </div>
+          ) : (
+            <div className="p-4 space-y-4">
+              {departments.map((dept) => (
+                <div 
+                  key={dept.id} 
+                  className="border border-border rounded-card p-4 shadow-sm space-y-3 bg-white hover:border-primary transition-all relative"
+                >
+                  <div className="text-sm font-medium text-text-primary">
+                    {editingId === dept.id ? (
+                      <input
+                        type="text"
+                        className="border border-border rounded px-2 py-1 text-sm w-full focus:ring-primary focus:border-primary"
+                        value={editingName}
+                        onChange={e => setEditingName(e.target.value)}
+                        autoFocus
+                      />
+                    ) : (
+                      dept.name
+                    )}
+                  </div>
+
+                  <div className="flex justify-end pt-2 border-t border-border/50">
+                    {editingId === dept.id ? (
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => handleSaveEdit(dept.id)}
+                          className="text-green-600 hover:bg-green-50 p-1.5 rounded border border-border flex items-center gap-1 text-xs font-semibold"
+                          title="Save Changes"
+                        >
+                          <Check className="h-3.5 w-3.5" />
+                          <span>Save</span>
+                        </button>
+                        <button
+                          onClick={handleCancelEdit}
+                          className="text-text-secondary hover:bg-surface p-1.5 rounded border border-border flex items-center gap-1 text-xs font-semibold"
+                          title="Cancel Edit"
+                        >
+                          <X className="h-3.5 w-3.5" />
+                          <span>Cancel</span>
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => handleStartEdit(dept)}
+                          className="text-primary hover:bg-blue-50 p-1.5 rounded border border-border flex items-center gap-1 text-xs font-semibold"
+                          title="Edit Department"
+                        >
+                          <Edit2 className="h-3.5 w-3.5" />
+                          <span>Edit</span>
+                        </button>
+                        <button
+                          onClick={() => handleDelete(dept.id, dept.name)}
+                          className="text-danger hover:bg-red-50 p-1.5 rounded border border-border flex items-center gap-1 text-xs font-semibold"
+                          title="Delete Department"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                          <span>Delete</span>
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

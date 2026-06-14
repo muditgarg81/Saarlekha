@@ -173,7 +173,8 @@ export function UsersTab() {
       </div>
 
       <div className="bg-white rounded-card border border-border shadow-sm overflow-hidden">
-        <table className="min-w-full divide-y divide-border">
+        <div className="hidden sm:block overflow-x-auto">
+          <table className="min-w-full divide-y divide-border">
           <thead className="bg-surface">
             <tr>
               <th className="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">User</th>
@@ -214,6 +215,63 @@ export function UsersTab() {
             ))}
           </tbody>
         </table>
+        </div>
+
+        {/* Mobile Card List View */}
+        <div className="block sm:hidden divide-y divide-border bg-white">
+          {users.length === 0 ? (
+            <div className="p-8 text-center text-sm text-text-secondary">
+              No users found.
+            </div>
+          ) : (
+            <div className="p-4 space-y-4">
+              {users.map((u) => (
+                <div 
+                  key={u.id} 
+                  className="border border-border rounded-card p-4 shadow-sm space-y-3 bg-white hover:border-primary transition-all relative"
+                >
+                  {/* Header: Email and Role badge */}
+                  <div className="flex items-center justify-between border-b border-border pb-2">
+                    <div className="flex items-center gap-1.5 min-w-0 flex-1">
+                      <Mail className="h-4 w-4 text-text-secondary flex-shrink-0" />
+                      <span className="text-sm font-semibold text-text-primary truncate">{u.email}</span>
+                    </div>
+                    
+                    <span className={`px-2 py-0.5 inline-flex text-xs leading-5 font-semibold rounded-full flex-shrink-0 ${
+                      u.role === 'SUPER_ADMIN' ? 'bg-purple-100 text-purple-800' :
+                      u.role === 'COMPANY_ADMIN' ? 'bg-blue-100 text-blue-800' :
+                      'bg-green-100 text-green-800'
+                    }`}>
+                      {u.role.replace('_', ' ')}
+                    </span>
+                  </div>
+
+                  {/* Body: Departments list */}
+                  <div className="text-xs text-text-secondary">
+                    <span className="block text-[10px] text-text-secondary uppercase font-semibold">Assigned Departments</span>
+                    <span className="font-medium text-text-primary mt-1 block">
+                      {u.departments.map(d => d.department.name).join(', ') || '-'}
+                    </span>
+                  </div>
+
+                  {/* Actions Row */}
+                  {u.role !== 'SUPER_ADMIN' && (
+                    <div className="flex justify-end pt-2 border-t border-border/50">
+                      <button 
+                        onClick={() => handleDelete(u.id)} 
+                        className="text-danger hover:bg-red-50 p-1.5 rounded border border-border flex items-center gap-1 text-xs font-semibold"
+                        title="Delete user"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                        <span>Delete User</span>
+                      </button>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

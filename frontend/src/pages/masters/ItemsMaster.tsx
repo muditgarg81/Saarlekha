@@ -189,7 +189,8 @@ export function ItemsMaster() {
       </div>
 
       <div className="bg-white rounded-card border border-border shadow-sm overflow-hidden">
-        <table className="min-w-full divide-y divide-border">
+        <div className="hidden sm:block overflow-x-auto">
+          <table className="min-w-full divide-y divide-border">
           <thead className="bg-surface">
             <tr>
               <th className="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase">Item Name</th>
@@ -248,6 +249,94 @@ export function ItemsMaster() {
             ))}
           </tbody>
         </table>
+        </div>
+
+        {/* Mobile Card List View */}
+        <div className="block sm:hidden divide-y divide-border bg-white">
+          {filteredItems.length === 0 ? (
+            <div className="p-8 text-center text-sm text-text-secondary">
+              No matching items found.
+            </div>
+          ) : (
+            <div className="p-4 space-y-4">
+              {filteredItems.map((item) => (
+                <div 
+                  key={item.id} 
+                  className="border border-border rounded-card p-4 shadow-sm space-y-3 bg-white hover:border-primary transition-all relative"
+                >
+                  {/* Header: Name and Status Badge */}
+                  <div className="flex items-center justify-between border-b border-border pb-2">
+                    <span className="text-sm font-semibold text-text-primary">{item.name}</span>
+                    <span className={clsx(
+                      "px-2 inline-flex text-xs leading-5 font-semibold rounded-full",
+                      item.status === 'ACTIVE' && 'bg-green-100 text-green-800',
+                      item.status === 'PENDING' && 'bg-yellow-100 text-yellow-800',
+                      item.status === 'REJECTED' && 'bg-red-100 text-red-800'
+                    )}>
+                      {item.status}
+                    </span>
+                  </div>
+
+                  {/* Body: Submitted By and rejection reason */}
+                  <div className="text-xs text-text-secondary">
+                    <span>Submitted By: <span className="font-medium text-text-primary">{item.submitter?.email}</span></span>
+                    {item.status === 'REJECTED' && item.reject_reason && (
+                      <div className="text-xs text-danger mt-1 bg-red-55/10 p-2 rounded border border-red-200">
+                        Reason: {item.reject_reason}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Actions Row */}
+                  {(isAdmin || (isAdmin && item.status === 'PENDING')) && (
+                    <div className="flex justify-end gap-2 pt-2 border-t border-border/50">
+                      {isAdmin && item.status === 'PENDING' && (
+                        <>
+                          <button 
+                            onClick={() => handleApprove(item.id)} 
+                            className="text-green-600 hover:bg-green-55/10 p-1.5 rounded border border-border flex items-center gap-1 text-xs font-semibold"
+                            title="Approve Item"
+                          >
+                            <Check className="h-3.5 w-3.5" />
+                            <span>Approve</span>
+                          </button>
+                          <button 
+                            onClick={() => handleReject(item.id)} 
+                            className="text-danger hover:bg-red-55/10 p-1.5 rounded border border-border flex items-center gap-1 text-xs font-semibold"
+                            title="Reject Item"
+                          >
+                            <X className="h-3.5 w-3.5" />
+                            <span>Reject</span>
+                          </button>
+                        </>
+                      )}
+                      {isAdmin && (
+                        <>
+                          <button 
+                            onClick={() => handleStartEdit(item)} 
+                            className="text-primary hover:bg-blue-50 p-1.5 rounded border border-border flex items-center gap-1 text-xs font-semibold"
+                            title="Edit Item"
+                          >
+                            <Edit className="h-3.5 w-3.5" />
+                            <span>Edit</span>
+                          </button>
+                          <button 
+                            onClick={() => handleDelete(item.id, item.name)} 
+                            className="text-danger hover:bg-red-50 p-1.5 rounded border border-border flex items-center gap-1 text-xs font-semibold"
+                            title="Delete Item"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                            <span>Delete</span>
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

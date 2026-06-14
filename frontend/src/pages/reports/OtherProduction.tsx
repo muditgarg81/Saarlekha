@@ -406,7 +406,8 @@ export function OtherProduction() {
         ) : sortedEntries.length === 0 ? (
           <div className="p-8 text-center text-sm text-text-secondary">No other production sheet entries in this period.</div>
         ) : (
-          <div className="overflow-x-auto">
+          <>
+            <div className="hidden sm:block overflow-x-auto">
             <table className="min-w-full divide-y divide-border">
               <thead className="bg-surface">
                 <tr>
@@ -585,6 +586,130 @@ export function OtherProduction() {
               </tbody>
             </table>
           </div>
+
+          {/* Mobile Card List View */}
+          <div className="block sm:hidden divide-y divide-border bg-white p-4 space-y-4">
+            {sortedEntries.map(entry => {
+              const canDelete = user?.role !== 'OPERATIONS' || entry.submitted_by === user?.id;
+              return (
+                <div 
+                  key={entry.id} 
+                  onClick={() => navigate(`/data-entry?entryId=${entry.id}`)}
+                  className="border border-border rounded-card p-4 shadow-sm space-y-3 bg-white hover:border-primary transition-all relative cursor-pointer"
+                >
+                  {/* Header: Date, Checkbox, Submitter, and dropdown actions */}
+                  <div className="flex items-center justify-between border-b border-border pb-2">
+                    <div className="flex items-center gap-2">
+                      <div onClick={(e) => e.stopPropagation()}>
+                        <input
+                          type="checkbox"
+                          disabled={!canDelete}
+                          checked={selectedIds.includes(entry.id)}
+                          onChange={() => handleToggleSelect(entry.id)}
+                          className={clsx(
+                            "rounded h-4 w-4 cursor-pointer",
+                            canDelete 
+                              ? "border-border text-primary focus:ring-primary" 
+                              : "border-gray-200 text-gray-300 cursor-not-allowed opacity-55"
+                          )}
+                        />
+                      </div>
+                      <span className="text-sm font-bold text-text-primary font-mono tabular-nums">
+                        {new Date(entry.entry_date).toLocaleDateString()}
+                      </span>
+                    </div>
+                    
+                    <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                      <div className="relative inline-block text-left">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (activeDropdown?.id === entry.id) {
+                              setActiveDropdown(null);
+                            } else {
+                              const rect = e.currentTarget.getBoundingClientRect();
+                              setActiveDropdown({
+                                id: entry.id,
+                                top: rect.bottom + 4,
+                                left: rect.right - 112
+                              });
+                            }
+                          }}
+                          className="p-1 rounded-md text-text-secondary hover:bg-surface hover:text-text-primary transition-colors focus:outline-none"
+                          title="Actions"
+                        >
+                          <MoreVertical className="h-4 w-4" />
+                        </button>
+                        
+                        {activeDropdown?.id === entry.id && (
+                          <>
+                            <div className="fixed inset-0 z-40" onClick={() => setActiveDropdown(null)} />
+                            <div 
+                              style={{
+                                position: 'fixed',
+                                top: activeDropdown ? `${activeDropdown.top}px` : undefined,
+                                left: activeDropdown ? `${activeDropdown.left}px` : undefined,
+                              }}
+                              className="w-28 bg-white rounded-md border border-border shadow-lg z-50 py-1 text-left"
+                            >
+                              <button
+                                onClick={() => {
+                                  setActiveDropdown(null);
+                                  navigate(`/data-entry?entryId=${entry.id}`);
+                                }}
+                                className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-text-primary hover:bg-surface transition-colors"
+                              >
+                                <Edit className="h-3.5 w-3.5 text-text-secondary" /> Edit
+                              </button>
+                              {canDelete && (
+                                <button
+                                  onClick={async () => {
+                                    setActiveDropdown(null);
+                                    if (window.confirm('Are you sure you want to delete this report entry?')) {
+                                      try {
+                                        await api.delete(`/reports/entries/${entry.id}`);
+                                        fetchData();
+                                      } catch (err: any) {
+                                        alert(err.response?.data?.error || 'Failed to delete report entry');
+                                      }
+                                    }
+                                  }}
+                                  className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-danger hover:bg-red-50 transition-colors"
+                                >
+                                  <Trash2 className="h-3.5 w-3.5 text-danger" /> Delete
+                                </button>
+                              )}
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Metadata: Department, Submitter */}
+                  <div className="text-xs text-text-secondary flex justify-between">
+                    <span>Dept: <span className="font-semibold text-text-primary">{entry.department?.name || 'N/A'}</span></span>
+                    <span>By: <span className="font-semibold">{entry.submitter?.email?.split('@')[0]}</span></span>
+                  </div>
+
+                  {/* Content grid */}
+                  <div className="grid grid-cols-2 gap-2 text-xs pt-1">
+                    {displayFields.map(f => {
+                      const val = entry.payload?.[f.name];
+                      const displayVal = val !== undefined && val !== null ? String(val) : '—';
+                      return (
+                        <div key={f.name} className="bg-surface/40 p-2 rounded border border-border/40">
+                          <span className="block text-[10px] text-text-secondary uppercase font-semibold">{f.name}</span>
+                          <span className="font-medium text-text-primary font-mono tabular-nums">{displayVal}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          </>
         )}
       </div>
     </div>

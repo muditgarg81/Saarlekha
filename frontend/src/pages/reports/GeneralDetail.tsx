@@ -351,7 +351,8 @@ export function GeneralDetail() {
         ) : sortedEntries.length === 0 ? (
           <div className="p-8 text-center text-sm text-text-secondary">No general report entries in this period.</div>
         ) : (
-          <div className="overflow-x-auto">
+          <>
+            <div className="hidden sm:block overflow-x-auto">
             <table className="min-w-full divide-y divide-border">
               <thead className="bg-surface">
                 <tr>
@@ -450,6 +451,104 @@ export function GeneralDetail() {
               </tbody>
             </table>
           </div>
+
+          {/* Mobile Card List View */}
+          <div className="block sm:hidden divide-y divide-border bg-white p-4 space-y-4">
+            {sortedEntries.map(entry => {
+              const canDelete = user?.role !== 'OPERATIONS' || entry.submitted_by === user?.id;
+              return (
+                <div 
+                  key={entry.id} 
+                  onClick={() => navigate(`/data-entry?entryId=${entry.id}`)}
+                  className="border border-border rounded-card p-4 shadow-sm space-y-3 bg-white hover:border-primary transition-all relative cursor-pointer"
+                >
+                  {/* Header: Date, Format, Checkbox */}
+                  <div className="flex items-center justify-between border-b border-border pb-2">
+                    <div className="flex items-center gap-2">
+                      <div onClick={(e) => e.stopPropagation()}>
+                        <input
+                          type="checkbox"
+                          disabled={!canDelete}
+                          checked={selectedIds.includes(entry.id)}
+                          onChange={() => handleToggleSelect(entry.id)}
+                          className={clsx(
+                            "rounded h-4 w-4 cursor-pointer",
+                            canDelete 
+                              ? "border-border text-primary focus:ring-primary" 
+                              : "border-gray-200 text-gray-300 cursor-not-allowed opacity-55"
+                          )}
+                        />
+                      </div>
+                      <span className="text-sm font-bold text-text-primary font-mono tabular-nums">
+                        {new Date(entry.entry_date).toLocaleDateString()}
+                      </span>
+                    </div>
+                    <span className="text-xs bg-gray-100 text-text-secondary px-2 py-0.5 rounded-full font-semibold">
+                      {entry.format_version?.format?.name}
+                    </span>
+                  </div>
+
+                  {/* Metadata */}
+                  <div className="text-xs text-text-secondary flex justify-between">
+                    <span>Dept: <span className="font-semibold text-text-primary">{entry.department?.name || 'N/A'}</span></span>
+                    <span>By: <span className="font-semibold">{entry.submitter?.email?.split('@')[0]}</span></span>
+                  </div>
+
+                  {/* Content grid */}
+                  <div className="grid grid-cols-2 gap-2 text-xs pt-1">
+                    {selectedFormatId ? (
+                      activeFields.map(f => {
+                        const val = getFieldValue(entry, f.name);
+                        return (
+                          <div key={f.name} className="bg-surface/40 p-2 rounded border border-border/40">
+                            <span className="block text-[10px] text-text-secondary uppercase font-semibold">{f.name}</span>
+                            <span className="font-medium text-text-primary font-mono tabular-nums">{String(val)}</span>
+                          </div>
+                        );
+                      })
+                    ) : (
+                      <div className="col-span-2 bg-surface/40 p-2 rounded border border-border/40 text-[11px]">
+                        <span className="block text-[10px] text-text-secondary uppercase font-semibold">Logged Details</span>
+                        <div className="font-medium text-text-primary mt-1 space-y-1">
+                          {Object.entries(entry.payload || {}).map(([k, v]) => (
+                            <div key={k} className="flex justify-between border-b border-border/30 pb-0.5 last:border-0 last:pb-0">
+                              <span className="text-text-secondary">{k}:</span>
+                              <span className="font-mono">{String(v)}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Actions Row */}
+                  {canDelete && (
+                    <div className="flex justify-end pt-2 border-t border-border/50" onClick={(e) => e.stopPropagation()}>
+                      <button
+                        onClick={async (e) => {
+                          e.stopPropagation();
+                          if (window.confirm('Are you sure you want to delete this report entry?')) {
+                            try {
+                              await api.delete(`/reports/entries/${entry.id}`);
+                              fetchEntries();
+                            } catch (err: any) {
+                              alert(err.response?.data?.error || 'Failed to delete report entry');
+                            }
+                          }
+                        }}
+                        className="text-danger hover:bg-red-50 p-1.5 rounded border border-border flex items-center gap-1 text-xs font-semibold"
+                        title="Delete Entry"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                        <span>Delete</span>
+                      </button>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+          </>
         )}
       </div>
     </div>

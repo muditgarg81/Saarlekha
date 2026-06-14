@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import api from '../../utils/api';
 import { useAuth } from '../../context/AuthContext';
 import { ExportBar } from '../../utils/export';
@@ -40,6 +40,7 @@ interface JobOrder {
 }
 
 export function JobOrderMaster() {
+  const navigate = useNavigate();
   const [orders, setOrders] = useState<JobOrder[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
@@ -1008,7 +1009,7 @@ export function JobOrderMaster() {
       </div>
 
       <div className="bg-white rounded-card border border-border shadow-sm overflow-hidden">
-        <div className="overflow-x-auto min-h-[260px]">
+        <div className="hidden sm:block overflow-x-auto min-h-[260px]">
           <table className="min-w-full divide-y divide-border">
             <thead className="bg-surface">
               <tr>
@@ -1209,6 +1210,197 @@ export function JobOrderMaster() {
               ))}
             </tbody>
           </table>
+        </div>
+
+        {/* Mobile Card List View */}
+        <div className="block sm:hidden divide-y divide-border bg-white">
+          {loading ? (
+            <div className="p-8 text-center text-sm text-text-secondary animate-pulse">
+              Loading job orders...
+            </div>
+          ) : filteredOrders.length === 0 ? (
+            <div className="p-8 text-center text-sm text-text-secondary">
+              No matching job orders found.
+            </div>
+          ) : (
+            <div className="p-4 space-y-4">
+              {filteredOrders.map(order => {
+                return (
+                  <div 
+                    key={order.id} 
+                    onClick={() => navigate(`/job-orders/summary/${encodeURIComponent(order.order_number)}`)}
+                    className="border border-border rounded-card p-4 shadow-sm space-y-3 bg-white hover:border-primary transition-all relative cursor-pointer"
+                  >
+                    {/* Header */}
+                    <div className="flex items-center justify-between border-b border-border pb-2">
+                      <div className="flex items-center gap-2">
+                        {isAdmin && (
+                          <div onClick={(e) => e.stopPropagation()}>
+                            <input
+                              type="checkbox"
+                              checked={selectedOrders.includes(order.id)}
+                              onChange={() => handleToggleSelectOrder(order.id)}
+                              className="rounded border-border text-primary focus:ring-primary h-4 w-4 cursor-pointer"
+                            />
+                          </div>
+                        )}
+                        <span className="text-sm font-bold text-primary hover:underline">
+                          {order.order_number}
+                        </span>
+                      </div>
+                      
+                      {/* Status */}
+                      <span className={clsx(
+                        "px-2.5 py-0.5 inline-flex text-xs leading-5 font-semibold rounded-full",
+                        order.status === 'OPEN' && 'bg-blue-100 text-blue-800',
+                        order.status === 'IN_PROGRESS' && 'bg-yellow-100 text-yellow-800',
+                        order.status === 'COMPLETED' && 'bg-green-100 text-green-800',
+                        order.status === 'CANCELLED' && 'bg-red-100 text-red-800'
+                      )}>
+                        {order.status.replace('_', ' ')}
+                      </span>
+                    </div>
+
+                    {/* Customer & Dept */}
+                    <div className="text-xs text-text-secondary flex justify-between">
+                      <span>Customer: <span className="font-semibold text-text-primary">{order.customer?.name || '—'}</span></span>
+                      <span>Dept: <span className="font-semibold text-text-primary">{order.department?.name || '—'}</span></span>
+                    </div>
+
+                    {/* dynamic Fields Grid */}
+                    <div className="grid grid-cols-2 gap-2 text-xs pt-1">
+                      {joSchema.map((field, idx) => {
+                        const normName = field.name.toLowerCase().trim();
+                        if (normName === 'order number' || normName === 'customer' || normName === 'department' || normName === 'status') {
+                          return null;
+                        }
+                        
+                        let val = order.custom_data?.[field.name];
+                        if (field.type === 'calculated') {
+                          val = evaluateCalculatedField(field, order);
+                        }
+                        
+                        let displayVal = val;
+                        if (normName === 'item description') {
+                          displayVal = order.custom_item ? order.custom_item : (order.item?.name || '—');
+                        } else if (normName === 'start date') {
+                          displayVal = order.start_date ? new Date(order.start_date).toLocaleDateString() : 'N/A';
+                        } else if (normName === 'end/target date') {
+                          displayVal = order.end_date ? new Date(order.end_date).toLocaleDateString() : 'N/A';
+                        } else if (normName === 'order qty') {
+                          displayVal = order.order_qty !== null && order.order_qty !== undefined ? `${order.order_qty} ${order.order_qty_unit || ''}`.trim() : '—';
+                        } else if (normName === 'order units') {
+                          return null; // combined with order qty
+                        } else if (normName === 'production qty') {
+                          displayVal = order.production_qty !== null && order.production_qty !== undefined ? `${order.production_qty} ${order.production_qty_unit || ''}`.trim() : '—';
+                        } else if (normName === 'production units') {
+                          return null; // combined with production qty
+                        } else if (field.type === 'boolean') {
+                          displayVal = val === true ? 'Yes' : val === false ? 'No' : '—';
+                        } else {
+                          displayVal = val !== null && val !== undefined ? String(val) : '—';
+                        }
+
+                        return (
+                          <div key={idx} className="bg-surface/40 p-2 rounded border border-border/40">
+                            <span className="block text-[10px] text-text-secondary uppercase font-semibold">
+                              {field.name}{field.unit ? ` (${field.unit})` : ''}
+                            </span>
+                            <span className="font-medium text-text-primary font-mono tabular-nums">{String(displayVal)}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    {/* Actions Row */}
+                    {(isAdmin || isOperations) && (
+                      <div className="flex justify-end pt-2 border-t border-border/50" onClick={(e) => e.stopPropagation()}>
+                        <div className="relative inline-block text-left">
+                          <button
+                            onClick={(e) => toggleDropdown(order.id, e)}
+                            className="text-text-secondary hover:text-text-primary bg-surface hover:bg-gray-150 p-1.5 rounded transition-colors border border-border flex items-center gap-1 text-xs"
+                            title="Actions"
+                          >
+                            <MoreVertical className="h-3.5 w-3.5" />
+                            <span>Actions</span>
+                          </button>
+
+                          {openDropdownId === order.id && (
+                            <>
+                              <div className="fixed inset-0 z-40" onClick={() => setOpenDropdownId(null)} />
+                              <div 
+                                className="absolute right-0 bottom-full mb-2 w-48 bg-white border border-border rounded-md shadow-lg z-50 py-1 text-left"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                {isOperations && (order.status === 'COMPLETED' || order.status === 'CANCELLED' || order.status === 'CLOSED') ? (
+                                  <div className="flex items-center gap-2 px-4 py-2 text-xs text-gray-400 cursor-not-allowed bg-gray-50">
+                                    <Lock className="h-3.5 w-3.5" />
+                                    <span>Edit (Locked)</span>
+                                  </div>
+                                ) : (
+                                  <button
+                                    onClick={() => {
+                                      setOpenDropdownId(null);
+                                      handleStartEdit(order);
+                                    }}
+                                    className="w-full flex items-center gap-2 px-4 py-2 text-xs text-text-primary hover:bg-surface transition-colors"
+                                  >
+                                    <Edit className="h-3.5 w-3.5 text-primary" />
+                                    <span>Edit Details</span>
+                                  </button>
+                                )}
+
+                                {(order.status === 'OPEN' || order.status === 'IN_PROGRESS') && (
+                                  <>
+                                    <button
+                                      onClick={() => {
+                                        setOpenDropdownId(null);
+                                        handleUpdateStatus(order.id, 'COMPLETED');
+                                      }}
+                                      className="w-full flex items-center gap-2 px-4 py-2 text-xs text-text-primary hover:bg-surface transition-colors"
+                                    >
+                                      <CheckCircle className="h-3.5 w-3.5 text-secondary" />
+                                      <span>Mark as Completed</span>
+                                    </button>
+                                    <button
+                                      onClick={() => {
+                                        setOpenDropdownId(null);
+                                        handleUpdateStatus(order.id, 'CANCELLED');
+                                      }}
+                                      className="w-full flex items-center gap-2 px-4 py-2 text-xs text-text-primary hover:bg-surface transition-colors"
+                                    >
+                                      <XCircle className="h-3.5 w-3.5 text-danger" />
+                                      <span>Mark as Cancelled</span>
+                                    </button>
+                                  </>
+                                )}
+
+                                {isAdmin && (
+                                  <>
+                                    <div className="border-t border-border/60 my-1"></div>
+                                    <button
+                                      onClick={() => {
+                                        setOpenDropdownId(null);
+                                        handleDelete(order.id, order.order_number);
+                                      }}
+                                      className="w-full flex items-center gap-2 px-4 py-2 text-xs text-danger hover:bg-red-50 transition-colors"
+                                    >
+                                      <Trash2 className="h-3.5 w-3.5 text-danger" />
+                                      <span>Delete Order</span>
+                                    </button>
+                                  </>
+                                )}
+                              </div>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       </div>
 
