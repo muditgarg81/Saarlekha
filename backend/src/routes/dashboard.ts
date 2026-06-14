@@ -71,8 +71,7 @@ dashboardRouter.get('/summary', async (req, res) => {
       };
     }
 
-    // ALL reads inside ONE transaction: tenant RLS context set ONCE (1 round trip)
-    // instead of once per query. Use `tx` only in here — never prismaTenant.*.
+    // ALL reads inside ONE transaction: tenant RLS context set ONCE
     const raw = await prismaTenant.$transaction(async (tx) => {
       let deptFilter: string[] | undefined;
       if (user.role === 'OPERATIONS') {
@@ -106,16 +105,21 @@ dashboardRouter.get('/summary', async (req, res) => {
 
       const manpowerCount = await (tx as any).manpower.count();
       const openJobOrders = await (tx as any).jobOrder.count({ where: { status: 'OPEN' } });
+      const reportFormatsCount = await (tx as any).reportFormat.count();
+
+      const allDepts = await (tx as any).department.findMany({
+        where: deptFilter ? { id: { in: deptFilter } } : {},
+        orderBy: { name: 'asc' }
+      });
 
       const productionRecords = await (tx as any).productionRecord.findMany({
         where: productionWhere,
         include: {
           operator: { select: { id: true, name: true } },
-          machine: { select: { id: true, name: true } },
+          machine: { select: { id: true, name: true, department_id: true } },
         },
       });
 
-      // Unpaginated by design (used for unsynced fold-in). See follow-up note below.
       const reportEntries = await (tx as any).reportEntry.findMany({
         where: reportEntryWhere,
         include: { format_version: true },
@@ -128,8 +132,6 @@ dashboardRouter.get('/summary', async (req, res) => {
         orderBy: { name: 'asc' },
       });
 
-      // Latest maintenance per machine in ONE bounded query (was: load-all + JS reduce).
-      // Assumes default Prisma table names (no @@map).
       const deptCond = deptFilter
         ? Prisma.sql`AND re.department_id = ANY(${deptFilter}::text[])`
         : Prisma.empty;
@@ -172,6 +174,8 @@ dashboardRouter.get('/summary', async (req, res) => {
       return {
         manpowerCount,
         openJobOrders,
+        reportFormatsCount,
+        allDepts,
         productionRecords,
         reportEntries,
         machines,
@@ -180,10 +184,11 @@ dashboardRouter.get('/summary', async (req, res) => {
       };
     }, { maxWait: 5000, timeout: 20000 });
 
-    // CPU/aggregation OUTSIDE the transaction (no DB connection held).
     const {
       manpowerCount,
       openJobOrders,
+      reportFormatsCount,
+      allDepts,
       productionRecords,
       reportEntries,
       machines,
@@ -279,6 +284,119 @@ dashboardRouter.get('/summary', async (req, res) => {
       };
     });
 
+    // In-memory grouping and summaries per department
+    const departmentsSummary = allDepts.map((dept: any) => {
+      const deptProductionRecords = productionRecords.filter((r: any) => r.department_id === dept.id || r.machine?.department_id === dept.id);
+      const deptReportEntries = reportEntries.filter((e: any) => e.department_id === dept.id);
+      const deptMachines = machines.filter((m: any) => m.department_id === dept.id);
+      const deptMachineIds = new Set(deptMachines.map((m: any) => m.id));
+      const deptMaintenanceRows = maintenanceRows.filter((row: any) => deptMachineIds.has(row.machine_id));
+
+      const deptMachineProdEntries = deptReportEntries.filter((e: any) => {
+        const schema = e.format_version?.fields_schema || [];
+        return hasMachineAndOperator(schema);
+      });
+
+      const deptSyncedEntryIds = new Set(
+        deptProductionRecords.map((r: any) => r.report_entry_id).filter(Boolean)
+      );
+      const deptUnsyncedParsedEntries = deptMachineProdEntries
+        .filter((e: any) => !deptSyncedEntryIds.has(e.id))
+        .map((e: any) => parsePayload(e.payload))
+        .filter(Boolean) as { operatorName: string; machineName: string; production: number; target: number }[];
+
+      const deptExtraProduction = deptUnsyncedParsedEntries.reduce((sum: number, entry) => sum + entry.production, 0);
+      const deptExtraTarget = deptUnsyncedParsedEntries.reduce((sum: number, entry) => sum + entry.target, 0);
+
+      const deptTotalProduction = deptProductionRecords.reduce((sum: number, r: any) => sum + r.production_amount, 0) + deptExtraProduction;
+      const deptTotalTarget = deptProductionRecords.reduce((sum: number, r: any) => sum + r.target_amount, 0) + deptExtraTarget;
+      const deptOverallEfficiency = calculateEfficiency(deptTotalProduction, deptTotalTarget);
+
+      // Dept-level Operator Efficiency
+      const deptOperatorMap: Record<string, { name: string; production: number; target: number }> = {};
+      for (const r of deptProductionRecords as any[]) {
+        const name = r.operator.name.trim();
+        const key = name.toLowerCase();
+        if (!deptOperatorMap[key]) deptOperatorMap[key] = { name, production: 0, target: 0 };
+        deptOperatorMap[key].production += r.production_amount;
+        deptOperatorMap[key].target += r.target_amount;
+      }
+      for (const entry of deptUnsyncedParsedEntries) {
+        const name = entry.operatorName;
+        const key = name.toLowerCase();
+        if (!deptOperatorMap[key]) deptOperatorMap[key] = { name, production: 0, target: 0 };
+        deptOperatorMap[key].production += entry.production;
+        deptOperatorMap[key].target += entry.target;
+      }
+      const deptOperatorEfficiency = Object.entries(deptOperatorMap).map(([id, data]) => ({
+        id, name: data.name,
+        production: data.production,
+        target: data.target,
+        efficiency: calculateEfficiency(data.production, data.target)
+      }));
+
+      // Dept-level Machine Efficiency
+      const deptMachineMap: Record<string, { name: string; production: number; target: number }> = {};
+      for (const r of deptProductionRecords as any[]) {
+        const name = r.machine.name.trim();
+        const key = name.toLowerCase();
+        if (!deptMachineMap[key]) deptMachineMap[key] = { name, production: 0, target: 0 };
+        deptMachineMap[key].production += r.production_amount;
+        deptMachineMap[key].target += r.target_amount;
+      }
+      for (const entry of deptUnsyncedParsedEntries) {
+        const name = entry.machineName;
+        const key = name.toLowerCase();
+        if (!deptMachineMap[key]) deptMachineMap[key] = { name, production: 0, target: 0 };
+        deptMachineMap[key].production += entry.production;
+        deptMachineMap[key].target += entry.target;
+      }
+      const deptMachineEfficiency = Object.entries(deptMachineMap).map(([id, data]) => ({
+        id, name: data.name,
+        production: data.production,
+        target: data.target,
+        efficiency: calculateEfficiency(data.production, data.target)
+      }));
+
+      // Dept-level Machine Maintenance
+      const deptLatestMaintenanceByMachine: Record<string, any> = {};
+      for (const row of deptMaintenanceRows) {
+        if (row.machine_id && !deptLatestMaintenanceByMachine[row.machine_id]) {
+          deptLatestMaintenanceByMachine[row.machine_id] = {
+            lastMaintenanceDate: row.entry_date,
+            maintenanceType: row.maintenance_type || 'N/A',
+            status: row.status || 'completed',
+            departmentName: row.department_name || 'N/A',
+          };
+        }
+      }
+
+      const deptMachineMaintenanceSummary = deptMachines.map((machine: any) => {
+        const latest = deptLatestMaintenanceByMachine[machine.id];
+        return {
+          machineId: machine.id,
+          machineName: machine.name,
+          lastMaintenanceDate: latest ? latest.lastMaintenanceDate : null,
+          maintenanceType: latest ? latest.maintenanceType : 'N/A',
+          status: latest ? latest.status : 'N/A',
+          departmentName: latest ? latest.departmentName : 'N/A'
+        };
+      });
+
+      return {
+        departmentId: dept.id,
+        departmentName: dept.name,
+        kpis: {
+          totalProduction: deptTotalProduction,
+          totalTarget: deptTotalTarget,
+          overallEfficiency: deptOverallEfficiency
+        },
+        operatorEfficiency: deptOperatorEfficiency,
+        machineEfficiency: deptMachineEfficiency,
+        machineMaintenanceSummary: deptMachineMaintenanceSummary
+      };
+    });
+
     res.json({
       kpis: {
         totalProduction,
@@ -287,12 +405,14 @@ dashboardRouter.get('/summary', async (req, res) => {
         manpowerCount,
         openJobOrders,
         recordCount: productionRecords.length,
+        reportFormatsCount,
       },
       operatorEfficiency,
       machineEfficiency,
       machineMaintenanceSummary,
       recentEntries,
       productionRecords,
+      departmentsSummary,
     });
   } catch (error: any) {
     res.status(500).json({ error: 'Failed to fetch dashboard summary', details: error.message });
