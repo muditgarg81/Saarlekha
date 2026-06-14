@@ -1,14 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import api from '../../utils/api';
 import { useAuth } from '../../context/AuthContext';
-import { Link, Mail, Trash2 } from 'lucide-react';
+import { Edit, Mail, Trash2 } from 'lucide-react';
 
 interface UserData {
   id: string;
   email: string;
   role: string;
   created_at: string;
-  departments: { department: { name: string } }[];
+  departments: { department: { id: string; name: string } }[];
 }
 
 export function UsersTab() {
@@ -23,6 +23,13 @@ export function UsersTab() {
   const [inviteRole, setInviteRole] = useState<'OPERATIONS' | 'COMPANY_ADMIN'>('OPERATIONS');
   const [selectedDepts, setSelectedDepts] = useState<string[]>([]);
   const [inviteLink, setInviteLink] = useState('');
+
+  // Edit form state
+  const [editingUser, setEditingUser] = useState<UserData | null>(null);
+  const [editDepts, setEditDepts] = useState<string[]>([]);
+  const [editPassword, setEditPassword] = useState('');
+  const [editConfirmPassword, setEditConfirmPassword] = useState('');
+  const [savingEdit, setSavingEdit] = useState(false);
 
   useEffect(() => {
     fetchData();
@@ -78,6 +85,52 @@ export function UsersTab() {
       console.error(err);
     }
   }
+
+  const handleStartEdit = (userData: UserData) => {
+    setEditingUser(userData);
+    setEditDepts(userData.departments.map(d => d.department.id).filter(Boolean));
+    setEditPassword('');
+    setEditConfirmPassword('');
+  };
+
+  const toggleEditDept = (deptId: string) => {
+    setEditDepts(prev =>
+      prev.includes(deptId) ? prev.filter(id => id !== deptId) : [...prev, deptId]
+    );
+  };
+
+  const handleSaveChanges = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingUser) return;
+
+    if (editPassword && editPassword !== editConfirmPassword) {
+      alert('Passwords do not match');
+      return;
+    }
+
+    setSavingEdit(true);
+    try {
+      if (editingUser.role === 'OPERATIONS') {
+        await api.put(`/users/${editingUser.id}/departments`, {
+          departmentIds: editDepts
+        });
+      }
+
+      if (editPassword) {
+        await api.put(`/users/${editingUser.id}/password`, {
+          password: editPassword
+        });
+      }
+
+      alert('User updated successfully!');
+      setEditingUser(null);
+      fetchData();
+    } catch (err: any) {
+      alert(err.response?.data?.error || 'Failed to update user');
+    } finally {
+      setSavingEdit(false);
+    }
+  };
 
   if (loading) return <div className="p-4 text-text-secondary">Loading users...</div>;
 
@@ -204,11 +257,16 @@ export function UsersTab() {
                 <td className="px-6 py-4 text-sm text-text-secondary max-w-xs truncate">
                   {u.departments.map(d => d.department.name).join(', ') || '-'}
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2">
                   {u.role !== 'SUPER_ADMIN' && (
-                    <button onClick={() => handleDelete(u.id)} className="text-danger hover:text-red-900">
-                      <Trash2 className="h-4 w-4 inline" />
-                    </button>
+                    <>
+                      <button onClick={() => handleStartEdit(u)} className="text-primary hover:text-blue-900" title="Edit User">
+                        <Edit className="h-4 w-4 inline" />
+                      </button>
+                      <button onClick={() => handleDelete(u.id)} className="text-danger hover:text-red-900" title="Delete User">
+                        <Trash2 className="h-4 w-4 inline" />
+                      </button>
+                    </>
                   )}
                 </td>
               </tr>
@@ -256,14 +314,22 @@ export function UsersTab() {
 
                   {/* Actions Row */}
                   {u.role !== 'SUPER_ADMIN' && (
-                    <div className="flex justify-end pt-2 border-t border-border/50">
+                    <div className="flex justify-end gap-2 pt-2 border-t border-border/50">
+                      <button 
+                        onClick={() => handleStartEdit(u)} 
+                        className="text-primary hover:bg-blue-50 p-1.5 rounded border border-border flex items-center gap-1 text-xs font-semibold"
+                        title="Edit user"
+                      >
+                        <Edit className="h-3.5 w-3.5" />
+                        <span>Edit</span>
+                      </button>
                       <button 
                         onClick={() => handleDelete(u.id)} 
                         className="text-danger hover:bg-red-50 p-1.5 rounded border border-border flex items-center gap-1 text-xs font-semibold"
                         title="Delete user"
                       >
                         <Trash2 className="h-3.5 w-3.5" />
-                        <span>Delete User</span>
+                        <span>Delete</span>
                       </button>
                     </div>
                   )}
@@ -273,6 +339,81 @@ export function UsersTab() {
           )}
         </div>
       </div>
+
+      {/* Edit User Modal */}
+      {editingUser && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-card max-w-lg w-full p-6 space-y-4 shadow-xl border border-border">
+            <div className="flex justify-between items-center pb-2 border-b border-border">
+              <h3 className="text-lg font-bold text-text-primary">Edit User: {editingUser.email}</h3>
+              <button onClick={() => setEditingUser(null)} className="text-text-secondary hover:text-text-primary text-xl font-bold">&times;</button>
+            </div>
+            <form onSubmit={handleSaveChanges} className="space-y-4">
+              {editingUser.role === 'OPERATIONS' && (
+                <div>
+                  <label className="block text-sm font-semibold text-text-secondary uppercase mb-2">Assign Departments</label>
+                  <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto p-2 border border-border rounded-md">
+                    {departments.map(dept => (
+                      <label key={dept.id} className="flex items-center space-x-2 text-sm cursor-pointer">
+                        <input 
+                          type="checkbox" 
+                          checked={editDepts.includes(dept.id)}
+                          onChange={() => toggleEditDept(dept.id)}
+                          className="rounded text-primary focus:ring-primary"
+                        />
+                        <span>{dept.name}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <div className="space-y-3">
+                <h4 className="text-sm font-semibold text-text-secondary uppercase">Change Password</h4>
+                <div>
+                  <label className="block text-xs text-text-secondary mb-1">New Password (leave blank to keep current)</label>
+                  <input
+                    type="password"
+                    className="block w-full border border-border rounded-md px-3 py-2 text-sm focus:ring-primary focus:border-primary"
+                    value={editPassword}
+                    onChange={e => setEditPassword(e.target.value)}
+                    placeholder="Min 8 chars, 1 letter, 1 number"
+                  />
+                </div>
+                {editPassword && (
+                  <div>
+                    <label className="block text-xs text-text-secondary mb-1">Confirm New Password</label>
+                    <input
+                      type="password"
+                      required
+                      className="block w-full border border-border rounded-md px-3 py-2 text-sm focus:ring-primary focus:border-primary"
+                      value={editConfirmPassword}
+                      onChange={e => setEditConfirmPassword(e.target.value)}
+                    />
+                  </div>
+                )}
+              </div>
+
+              <div className="flex justify-end gap-3 pt-4 border-t border-border">
+                <button
+                  type="button"
+                  onClick={() => setEditingUser(null)}
+                  className="border border-border px-4 py-2 rounded-lg text-sm hover:bg-gray-50 transition-all font-medium bg-white"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingEdit}
+                  className="bg-primary text-white px-5 py-2 rounded-lg text-sm font-semibold hover:bg-primary-light transition-all shadow-sm disabled:opacity-50"
+                >
+                  {savingEdit ? 'Saving...' : 'Save Changes'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

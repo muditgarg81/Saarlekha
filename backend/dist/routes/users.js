@@ -1,9 +1,14 @@
 "use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.usersRouter = void 0;
 const express_1 = require("express");
 const auth_1 = require("../middleware/auth");
 const prisma_1 = require("../db/prisma");
+const bcrypt_1 = __importDefault(require("bcrypt"));
+const passwordRegex = /^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d@$!%*#?&]{8,}$/;
 exports.usersRouter = (0, express_1.Router)();
 // Only SUPER_ADMIN and COMPANY_ADMIN can access user management
 exports.usersRouter.use(auth_1.authenticate, (0, auth_1.requireRole)(['SUPER_ADMIN', 'COMPANY_ADMIN']));
@@ -86,6 +91,44 @@ exports.usersRouter.put('/:id/departments', async (req, res) => {
     }
     catch (error) {
         res.status(500).json({ error: 'Failed to update user departments', details: error.message });
+    }
+});
+exports.usersRouter.put('/:id/password', async (req, res) => {
+    const tenantId = req.tenantId;
+    const { id } = req.params;
+    const { password } = req.body;
+    if (!tenantId)
+        return res.status(403).json({ error: 'Tenant ID missing' });
+    if (!password)
+        return res.status(400).json({ error: 'Password is required' });
+    if (!passwordRegex.test(password)) {
+        return res.status(400).json({ error: 'Password must be at least 8 characters long and contain at least one letter and one number.' });
+    }
+    const prismaTenant = (0, prisma_1.getTenantPrisma)(tenantId);
+    try {
+        const targetUser = await prismaTenant.user.findUnique({ where: { id } });
+        if (!targetUser)
+            return res.status(404).json({ error: 'User not found' });
+        const hashedPassword = await bcrypt_1.default.hash(password, 12);
+        await prismaTenant.user.update({
+            where: { id },
+            data: { password_hash: hashedPassword }
+        });
+        // Audit Log
+        await prismaTenant.auditLogEntry.create({
+            data: {
+                user_id: req.user.id,
+                action: 'EDIT',
+                entity_type: 'UserPassword',
+                entity_id: id,
+                company_id: tenantId,
+                details: { action: 'admin_password_change' }
+            }
+        });
+        res.json({ message: 'User password updated successfully' });
+    }
+    catch (error) {
+        res.status(500).json({ error: 'Failed to update user password', details: error.message });
     }
 });
 // Create operations user (similar to invite, but just API skeleton if needed beyond the invite link)

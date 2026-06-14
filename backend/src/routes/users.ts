@@ -1,6 +1,9 @@
 import { Router } from 'express';
 import { authenticate, requireRole } from '../middleware/auth';
 import { getTenantPrisma } from '../db/prisma';
+import bcrypt from 'bcrypt';
+
+const passwordRegex = /^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d@$!%*#?&]{8,}$/;
 
 export const usersRouter = Router();
 
@@ -91,6 +94,48 @@ usersRouter.put('/:id/departments', async (req, res) => {
     res.json({ message: 'User departments updated successfully' });
   } catch (error: any) {
     res.status(500).json({ error: 'Failed to update user departments', details: error.message });
+  }
+});
+
+usersRouter.put('/:id/password', async (req, res) => {
+  const tenantId = req.tenantId;
+  const { id } = req.params;
+  const { password } = req.body;
+
+  if (!tenantId) return res.status(403).json({ error: 'Tenant ID missing' });
+  if (!password) return res.status(400).json({ error: 'Password is required' });
+  if (!passwordRegex.test(password)) {
+    return res.status(400).json({ error: 'Password must be at least 8 characters long and contain at least one letter and one number.' });
+  }
+
+  const prismaTenant = getTenantPrisma(tenantId);
+
+  try {
+    const targetUser = await prismaTenant.user.findUnique({ where: { id } });
+    if (!targetUser) return res.status(404).json({ error: 'User not found' });
+
+    const hashedPassword = await bcrypt.hash(password, 12);
+
+    await prismaTenant.user.update({
+      where: { id },
+      data: { password_hash: hashedPassword }
+    });
+
+    // Audit Log
+    await prismaTenant.auditLogEntry.create({
+      data: {
+        user_id: req.user!.id,
+        action: 'EDIT',
+        entity_type: 'UserPassword',
+        entity_id: id,
+        company_id: tenantId,
+        details: { action: 'admin_password_change' }
+      }
+    });
+
+    res.json({ message: 'User password updated successfully' });
+  } catch (error: any) {
+    res.status(500).json({ error: 'Failed to update user password', details: error.message });
   }
 });
 
