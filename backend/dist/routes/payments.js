@@ -304,6 +304,17 @@ exports.paymentsRouter.get('/verify-link', async (req, res) => {
         res.status(500).json({ error: 'Failed to verify payment link status', details: error.message });
     }
 });
+// 3.5. Diagnostics endpoint to safely verify environment configuration
+exports.paymentsRouter.get('/diagnostics', async (req, res) => {
+    const keyId = process.env.RAZORPAY_KEY_ID || 'not set';
+    const hasSecret = !!process.env.RAZORPAY_KEY_SECRET;
+    res.json({
+        env_key_id: keyId === 'rzp_test_mockkeyid123' ? 'MOCK_KEY_DEFAULT' : (keyId === 'not set' ? 'NOT_SET' : `${keyId.substring(0, 8)}... (Length: ${keyId.length})`),
+        has_secret: hasSecret,
+        node_env: process.env.NODE_ENV || 'not set',
+        app_url: process.env.APP_URL || 'not set'
+    });
+});
 // 4. Get payment history for a company
 exports.paymentsRouter.get('/history/:companyId', async (req, res) => {
     const companyId = req.params.companyId;
