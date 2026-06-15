@@ -151,7 +151,9 @@ export function SubscriptionMaster() {
         rzp.open();
       }
     } catch (err: any) {
-      alert(err.response?.data?.error || 'Failed to setup payment');
+      const msg = err.response?.data?.error || 'Failed to setup payment';
+      const details = err.response?.data?.details;
+      alert(details ? `${msg}: ${details}` : msg);
       setProcessing(false);
     }
   };

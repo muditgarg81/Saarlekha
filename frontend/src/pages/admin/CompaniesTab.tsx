@@ -232,7 +232,9 @@ export function CompaniesTab() {
       });
       setGeneratedLink(res.data.paymentLinkUrl);
     } catch (err: any) {
-      alert(err.response?.data?.error || 'Failed to generate payment link');
+      const msg = err.response?.data?.error || 'Failed to generate payment link';
+      const details = err.response?.data?.details;
+      alert(details ? `${msg}: ${details}` : msg);
     } finally {
       setGeneratingLink(false);
     }
