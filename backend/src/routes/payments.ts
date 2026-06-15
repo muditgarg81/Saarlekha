@@ -141,7 +141,7 @@ paymentsRouter.post('/create-order', async (req, res) => {
           order = await razorpay.orders.create({
             amount: amountInPaise,
             currency: 'INR',
-            receipt: `receipt_${companyId}_${tier.toLowerCase()}`,
+            receipt: `rcpt_${companyId.substring(0, 8)}_${Math.random().toString(36).substring(2, 10)}`,
           });
         }
 
