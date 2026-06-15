@@ -67,8 +67,7 @@ exports.dashboardRouter.get('/summary', async (req, res) => {
                 lte: end,
             };
         }
-        // ALL reads inside ONE transaction: tenant RLS context set ONCE (1 round trip)
-        // instead of once per query. Use `tx` only in here — never prismaTenant.*.
+        // ALL reads inside ONE transaction: tenant RLS context set ONCE
         const raw = await prismaTenant.$transaction(async (tx) => {
             let deptFilter;
             if (user.role === 'OPERATIONS') {
@@ -104,14 +103,18 @@ exports.dashboardRouter.get('/summary', async (req, res) => {
                 reportEntryWhere.department_id = { in: deptFilter };
             const manpowerCount = await tx.manpower.count();
             const openJobOrders = await tx.jobOrder.count({ where: { status: 'OPEN' } });
+            const reportFormatsCount = await tx.reportFormat.count();
+            const allDepts = await tx.department.findMany({
+                where: deptFilter ? { id: { in: deptFilter } } : {},
+                orderBy: { name: 'asc' }
+            });
             const productionRecords = await tx.productionRecord.findMany({
                 where: productionWhere,
                 include: {
                     operator: { select: { id: true, name: true } },
-                    machine: { select: { id: true, name: true } },
+                    machine: { select: { id: true, name: true, department_id: true } },
                 },
             });
-            // Unpaginated by design (used for unsynced fold-in). See follow-up note below.
             const reportEntries = await tx.reportEntry.findMany({
                 where: reportEntryWhere,
                 include: { format_version: true },
@@ -122,8 +125,6 @@ exports.dashboardRouter.get('/summary', async (req, res) => {
                     : {},
                 orderBy: { name: 'asc' },
             });
-            // Latest maintenance per machine in ONE bounded query (was: load-all + JS reduce).
-            // Assumes default Prisma table names (no @@map).
             const deptCond = deptFilter
                 ? client_1.Prisma.sql `AND re.department_id = ANY(${deptFilter}::text[])`
                 : client_1.Prisma.empty;
@@ -157,6 +158,8 @@ exports.dashboardRouter.get('/summary', async (req, res) => {
             return {
                 manpowerCount,
                 openJobOrders,
+                reportFormatsCount,
+                allDepts,
                 productionRecords,
                 reportEntries,
                 machines,
@@ -164,8 +167,7 @@ exports.dashboardRouter.get('/summary', async (req, res) => {
                 recentEntries,
             };
         }, { maxWait: 5000, timeout: 20000 });
-        // CPU/aggregation OUTSIDE the transaction (no DB connection held).
-        const { manpowerCount, openJobOrders, productionRecords, reportEntries, machines, maintenanceRows, recentEntries, } = raw;
+        const { manpowerCount, openJobOrders, reportFormatsCount, allDepts, productionRecords, reportEntries, machines, maintenanceRows, recentEntries, } = raw;
         const machineProdEntries = reportEntries.filter((e) => {
             const schema = e.format_version?.fields_schema || [];
             return hasMachineAndOperator(schema);
@@ -248,6 +250,111 @@ exports.dashboardRouter.get('/summary', async (req, res) => {
                 departmentName: latest ? latest.departmentName : 'N/A'
             };
         });
+        // In-memory grouping and summaries per department
+        const departmentsSummary = allDepts.map((dept) => {
+            const deptProductionRecords = productionRecords.filter((r) => r.department_id === dept.id || r.machine?.department_id === dept.id);
+            const deptReportEntries = reportEntries.filter((e) => e.department_id === dept.id);
+            const deptMachines = machines.filter((m) => m.department_id === dept.id);
+            const deptMachineIds = new Set(deptMachines.map((m) => m.id));
+            const deptMaintenanceRows = maintenanceRows.filter((row) => deptMachineIds.has(row.machine_id));
+            const deptMachineProdEntries = deptReportEntries.filter((e) => {
+                const schema = e.format_version?.fields_schema || [];
+                return hasMachineAndOperator(schema);
+            });
+            const deptSyncedEntryIds = new Set(deptProductionRecords.map((r) => r.report_entry_id).filter(Boolean));
+            const deptUnsyncedParsedEntries = deptMachineProdEntries
+                .filter((e) => !deptSyncedEntryIds.has(e.id))
+                .map((e) => parsePayload(e.payload))
+                .filter(Boolean);
+            const deptExtraProduction = deptUnsyncedParsedEntries.reduce((sum, entry) => sum + entry.production, 0);
+            const deptExtraTarget = deptUnsyncedParsedEntries.reduce((sum, entry) => sum + entry.target, 0);
+            const deptTotalProduction = deptProductionRecords.reduce((sum, r) => sum + r.production_amount, 0) + deptExtraProduction;
+            const deptTotalTarget = deptProductionRecords.reduce((sum, r) => sum + r.target_amount, 0) + deptExtraTarget;
+            const deptOverallEfficiency = (0, efficiency_1.calculateEfficiency)(deptTotalProduction, deptTotalTarget);
+            // Dept-level Operator Efficiency
+            const deptOperatorMap = {};
+            for (const r of deptProductionRecords) {
+                const name = r.operator.name.trim();
+                const key = name.toLowerCase();
+                if (!deptOperatorMap[key])
+                    deptOperatorMap[key] = { name, production: 0, target: 0 };
+                deptOperatorMap[key].production += r.production_amount;
+                deptOperatorMap[key].target += r.target_amount;
+            }
+            for (const entry of deptUnsyncedParsedEntries) {
+                const name = entry.operatorName;
+                const key = name.toLowerCase();
+                if (!deptOperatorMap[key])
+                    deptOperatorMap[key] = { name, production: 0, target: 0 };
+                deptOperatorMap[key].production += entry.production;
+                deptOperatorMap[key].target += entry.target;
+            }
+            const deptOperatorEfficiency = Object.entries(deptOperatorMap).map(([id, data]) => ({
+                id, name: data.name,
+                production: data.production,
+                target: data.target,
+                efficiency: (0, efficiency_1.calculateEfficiency)(data.production, data.target)
+            }));
+            // Dept-level Machine Efficiency
+            const deptMachineMap = {};
+            for (const r of deptProductionRecords) {
+                const name = r.machine.name.trim();
+                const key = name.toLowerCase();
+                if (!deptMachineMap[key])
+                    deptMachineMap[key] = { name, production: 0, target: 0 };
+                deptMachineMap[key].production += r.production_amount;
+                deptMachineMap[key].target += r.target_amount;
+            }
+            for (const entry of deptUnsyncedParsedEntries) {
+                const name = entry.machineName;
+                const key = name.toLowerCase();
+                if (!deptMachineMap[key])
+                    deptMachineMap[key] = { name, production: 0, target: 0 };
+                deptMachineMap[key].production += entry.production;
+                deptMachineMap[key].target += entry.target;
+            }
+            const deptMachineEfficiency = Object.entries(deptMachineMap).map(([id, data]) => ({
+                id, name: data.name,
+                production: data.production,
+                target: data.target,
+                efficiency: (0, efficiency_1.calculateEfficiency)(data.production, data.target)
+            }));
+            // Dept-level Machine Maintenance
+            const deptLatestMaintenanceByMachine = {};
+            for (const row of deptMaintenanceRows) {
+                if (row.machine_id && !deptLatestMaintenanceByMachine[row.machine_id]) {
+                    deptLatestMaintenanceByMachine[row.machine_id] = {
+                        lastMaintenanceDate: row.entry_date,
+                        maintenanceType: row.maintenance_type || 'N/A',
+                        status: row.status || 'completed',
+                        departmentName: row.department_name || 'N/A',
+                    };
+                }
+            }
+            const deptMachineMaintenanceSummary = deptMachines.map((machine) => {
+                const latest = deptLatestMaintenanceByMachine[machine.id];
+                return {
+                    machineId: machine.id,
+                    machineName: machine.name,
+                    lastMaintenanceDate: latest ? latest.lastMaintenanceDate : null,
+                    maintenanceType: latest ? latest.maintenanceType : 'N/A',
+                    status: latest ? latest.status : 'N/A',
+                    departmentName: latest ? latest.departmentName : 'N/A'
+                };
+            });
+            return {
+                departmentId: dept.id,
+                departmentName: dept.name,
+                kpis: {
+                    totalProduction: deptTotalProduction,
+                    totalTarget: deptTotalTarget,
+                    overallEfficiency: deptOverallEfficiency
+                },
+                operatorEfficiency: deptOperatorEfficiency,
+                machineEfficiency: deptMachineEfficiency,
+                machineMaintenanceSummary: deptMachineMaintenanceSummary
+            };
+        });
         res.json({
             kpis: {
                 totalProduction,
@@ -256,12 +363,14 @@ exports.dashboardRouter.get('/summary', async (req, res) => {
                 manpowerCount,
                 openJobOrders,
                 recordCount: productionRecords.length,
+                reportFormatsCount,
             },
             operatorEfficiency,
             machineEfficiency,
             machineMaintenanceSummary,
             recentEntries,
             productionRecords,
+            departmentsSummary,
         });
     }
     catch (error) {

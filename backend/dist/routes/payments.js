@@ -114,7 +114,8 @@ exports.paymentsRouter.post('/create-order', async (req, res) => {
             }
             catch (err) {
                 console.error('Failed to create Razorpay payment link:', err);
-                return res.status(500).json({ error: 'Failed to create payment link', details: err.message });
+                const errMsg = err.error?.description || err.description || err.message || JSON.stringify(err);
+                return res.status(500).json({ error: 'Failed to create payment link', details: errMsg });
             }
         }
         else {
@@ -157,7 +158,8 @@ exports.paymentsRouter.post('/create-order', async (req, res) => {
             }
             catch (err) {
                 console.error('Failed to create Razorpay order:', err);
-                return res.status(500).json({ error: 'Failed to initialize payment checkout', details: err.message });
+                const errMsg = err.error?.description || err.description || err.message || JSON.stringify(err);
+                return res.status(500).json({ error: 'Failed to initialize payment checkout', details: errMsg });
             }
         }
     }
