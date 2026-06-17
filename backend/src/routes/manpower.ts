@@ -16,17 +16,27 @@ manpowerRouter.get('/', async (req, res) => {
   if (!tenantId) return res.status(403).json({ error: 'Tenant ID missing' });
 
   const prismaTenant = getTenantPrisma(tenantId);
-  
+  const search = (req.query.search as string | undefined)?.trim();
+
   try {
-    // If user is operations, ideally they only see their department's manpower.
-    // For simplicity, we just return the manpower, but only include public fields (no encrypted Aadhaar)
     const manpower = await prismaTenant.manpower.findMany({
+      where: search ? {
+        OR: [
+          { name: { contains: search, mode: 'insensitive' } },
+          { role: { contains: search, mode: 'insensitive' } },
+          { phone: { contains: search, mode: 'insensitive' } },
+          { aadhaar_masked: { contains: search, mode: 'insensitive' } },
+          { department: { name: { contains: search, mode: 'insensitive' } } },
+        ]
+      } : undefined,
+      take: 1000,
+      orderBy: { name: 'asc' },
       select: {
         id: true,
         name: true,
         photo_url: true,
         phone: true,
-        aadhaar_masked: true, // Only return masked
+        aadhaar_masked: true,
         blood_group: true,
         emergency_contact: true,
         role: true,

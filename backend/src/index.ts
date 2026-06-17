@@ -28,6 +28,26 @@ const port = process.env.PORT || 5000;
 app.use(cors());
 app.use(express.json());
 
+// Cache-control: sensitive/user-specific endpoints must not be cached
+app.use('/api/auth', (req, res, next) => { res.set('Cache-Control', 'no-store'); next(); });
+app.use('/api/dashboard', (req, res, next) => { res.set('Cache-Control', 'no-store'); next(); });
+app.use('/api/audit', (req, res, next) => { res.set('Cache-Control', 'no-store'); next(); });
+app.use('/api/payments', (req, res, next) => { res.set('Cache-Control', 'no-store'); next(); });
+
+// Cache-control: reference data changes infrequently — 60s private cache
+app.use('/api/departments', (req, res, next) => {
+  if (req.method === 'GET') res.set('Cache-Control', 'private, max-age=60');
+  next();
+});
+app.use('/api/machines', (req, res, next) => {
+  if (req.method === 'GET') res.set('Cache-Control', 'private, max-age=60');
+  next();
+});
+app.use('/api/maintenance-types', (req, res, next) => {
+  if (req.method === 'GET') res.set('Cache-Control', 'private, max-age=60');
+  next();
+});
+
 app.use('/api/auth', authRouter);
 app.use('/api/users', usersRouter);
 app.use('/api/departments', departmentsRouter);
@@ -65,3 +85,16 @@ app.get('/health', async (req, res) => {
 app.listen(port, () => {
   console.log(`Server running on port ${port}`);
 });
+
+// Purge expired tokens every hour
+const TOKEN_CLEANUP_INTERVAL = 60 * 60 * 1000;
+async function purgeExpiredTokens() {
+  try {
+    const result = await prisma.token.deleteMany({ where: { expires_at: { lt: new Date() } } });
+    if (result.count > 0) console.log(`Token cleanup: removed ${result.count} expired tokens`);
+  } catch (err: any) {
+    console.error('Token cleanup failed:', err.message);
+  }
+}
+purgeExpiredTokens();
+setInterval(purgeExpiredTokens, TOKEN_CLEANUP_INTERVAL);

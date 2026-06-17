@@ -72,19 +72,9 @@ export function PrivateLayout() {
 
   useEffect(() => {
     if (user?.role === 'SUPER_ADMIN') {
-      const fetchCos = () => {
-        api.get('/companies')
-          .then(res => {
-            setCompanies(res.data);
-          })
-          .catch(err => {
-            console.error('Failed to fetch companies in layout', err);
-          });
-      };
-      
-      fetchCos();
-      const interval = setInterval(fetchCos, 4000);
-      return () => clearInterval(interval);
+      api.get('/companies')
+        .then(res => setCompanies(res.data))
+        .catch(err => console.error('Failed to fetch companies in layout', err));
     }
   }, [user]);
   const [mastersOpen, setMastersOpen] = useState(

@@ -155,6 +155,11 @@ model ReportFormatVersion {
   @@index([format_id])
 }
 
+// Note: a raw-SQL expression index `ReportEntry_payload_machine_id_idx` on
+// (payload->>'_machine_id') exists in the DB (migration 20260616000000) to
+// speed up the dashboard maintenance query. Prisma's schema syntax can't
+// express JSON expression indexes, so it isn't declared here — don't let
+// `prisma migrate dev` drift-detection drop it.
 model ReportEntry {
   id                String              @id @default(uuid())
   company_id        String
@@ -170,6 +175,7 @@ model ReportEntry {
   submitter         User                @relation(fields: [submitted_by], references: [id])
 
   @@index([company_id, entry_date])
+  @@index([company_id, format_version_id])
   @@index([department_id])
   @@index([format_version_id])
 }
@@ -233,6 +239,8 @@ model ProductionRecord {
   operator          Manpower   @relation(fields: [operator_id], references: [id])
 
   @@index([company_id, date])
+  @@index([company_id, operator_id, date])
+  @@index([company_id, machine_id, date])
   @@index([operator_id])
   @@index([machine_id])
 }
@@ -269,6 +277,9 @@ model Token {
   used_at    DateTime?
   created_at DateTime  @default(now())
   user       User?     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@index([expires_at])
+  @@index([user_id, type])
 }
 
 enum Role {

@@ -9,16 +9,25 @@ itemsRouter.use(authenticate);
 // List items (filter by status optionally)
 itemsRouter.get('/', async (req, res) => {
   const tenantId = req.tenantId;
-  const { status } = req.query; // e.g., PENDING, ACTIVE
+  const { status, search } = req.query;
   if (!tenantId) return res.status(403).json({ error: 'Tenant ID missing' });
 
   const prismaTenant = getTenantPrisma(tenantId);
   try {
+    const searchTerm = (search as string | undefined)?.trim();
     const whereClause: any = {};
     if (status) whereClause.status = status;
-    
+    if (searchTerm) {
+      whereClause.OR = [
+        { name: { contains: searchTerm, mode: 'insensitive' } },
+        { status: { contains: searchTerm, mode: 'insensitive' } },
+      ];
+    }
+
     const items = await prismaTenant.item.findMany({
       where: whereClause,
+      take: 1000,
+      orderBy: { created_at: 'desc' },
       include: {
         submitter: { select: { email: true } },
         approver: { select: { email: true } }
