@@ -48,6 +48,7 @@ interface JobOrderSummaryData {
 export function JobOrderSummary() {
   const { orderNumber } = useParams<{ orderNumber: string }>();
   const navigate = useNavigate();
+  const returnUrl = encodeURIComponent(window.location.pathname + window.location.search);
   const [data, setData] = useState<JobOrderSummaryData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -302,7 +303,7 @@ export function JobOrderSummary() {
                 {data.productionLogs.map(log => (
                   <tr 
                     key={log.id} 
-                    onClick={() => navigate(`/data-entry?entryId=${log.id}`)}
+                    onClick={() => navigate(`/data-entry?entryId=${log.id}&returnUrl=${returnUrl}`)}
                     className="hover:bg-surface cursor-pointer transition-colors"
                   >
                     <td className="px-6 py-3 text-sm text-text-primary tabular-nums">
@@ -331,7 +332,7 @@ export function JobOrderSummary() {
             {data.productionLogs.map(log => (
               <div 
                 key={log.id} 
-                onClick={() => navigate(`/data-entry?entryId=${log.id}`)}
+                onClick={() => navigate(`/data-entry?entryId=${log.id}&returnUrl=${returnUrl}`)}
                 className="border border-border rounded-card p-4 shadow-sm space-y-3 bg-white hover:border-primary transition-all relative cursor-pointer"
               >
                 {/* Header: Date, Format */}
@@ -448,7 +449,7 @@ export function JobOrderSummary() {
                           {group.entries.map(log => (
                             <tr 
                               key={log.id} 
-                              onClick={() => navigate(`/data-entry?entryId=${log.id}`)}
+                              onClick={() => navigate(`/data-entry?entryId=${log.id}&returnUrl=${returnUrl}`)}
                               className="hover:bg-surface cursor-pointer transition-colors"
                             >
                               <td className="px-6 py-3 text-sm text-text-primary tabular-nums">
@@ -476,7 +477,7 @@ export function JobOrderSummary() {
                       {group.entries.map(log => (
                         <div 
                           key={log.id} 
-                          onClick={() => navigate(`/data-entry?entryId=${log.id}`)}
+                          onClick={() => navigate(`/data-entry?entryId=${log.id}&returnUrl=${returnUrl}`)}
                           className="border border-border rounded-card p-4 shadow-sm space-y-3 bg-white hover:border-primary transition-all relative cursor-pointer"
                         >
                           {/* Header: Date, Submitter */}

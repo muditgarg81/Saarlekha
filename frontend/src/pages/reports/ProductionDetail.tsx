@@ -92,6 +92,7 @@ export function calculateRowEfficiency(payload: Record<string, any>): string | n
 export function ProductionDetail() {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const returnUrl = encodeURIComponent(window.location.pathname + window.location.search);
 
   const [entries, setEntries] = useState<ReportEntry[]>([]);
   const [formats, setFormats] = useState<ReportFormat[]>([]);
@@ -430,7 +431,7 @@ export function ProductionDetail() {
           } as ExportOptions} />
 
           <button 
-            onClick={() => navigate('/data-entry?type=PRODUCTION')} 
+            onClick={() => navigate(`/data-entry?type=PRODUCTION&returnUrl=${returnUrl}`)} 
             className="inline-flex items-center px-4 py-2 bg-primary text-white text-sm font-medium rounded-md hover:bg-primary-light gap-1.5 shadow-sm font-semibold"
           >
             <Plus className="h-4 w-4" /> Operations Data Entry
@@ -503,7 +504,7 @@ export function ProductionDetail() {
                   return (
                     <tr 
                       key={entry.id} 
-                      onClick={() => navigate(`/data-entry?entryId=${entry.id}`)}
+                      onClick={() => navigate(`/data-entry?entryId=${entry.id}&returnUrl=${returnUrl}`)}
                       className="hover:bg-surface cursor-pointer transition-colors"
                     >
                       <td className="w-12 px-6 py-3" onClick={(e) => e.stopPropagation()}>
@@ -612,7 +613,7 @@ export function ProductionDetail() {
                                 <button
                                   onClick={() => {
                                     setActiveDropdown(null);
-                                    navigate(`/data-entry?entryId=${entry.id}`);
+                                    navigate(`/data-entry?entryId=${entry.id}&returnUrl=${returnUrl}`);
                                   }}
                                   className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-text-primary hover:bg-surface transition-colors"
                                 >
@@ -667,8 +668,8 @@ export function ProductionDetail() {
                 return (
                   <div 
                     key={entry.id} 
-                    onClick={() => navigate(`/data-entry?entryId=${entry.id}`)}
-                    className="border border-border rounded-card p-4 shadow-sm space-y-3 bg-white hover:border-primary transition-all relative"
+                    onClick={() => navigate(`/data-entry?entryId=${entry.id}&returnUrl=${returnUrl}`)}
+                    className="border border-border rounded-card p-4 shadow-sm space-y-3 bg-white hover:border-primary transition-all relative cursor-pointer"
                   >
                     {/* Header: Date, Select checkbox, Dropdown actions */}
                     <div className="flex items-center justify-between border-b border-border pb-2">
@@ -726,7 +727,7 @@ export function ProductionDetail() {
                                 <button
                                   onClick={() => {
                                     setActiveDropdown(null);
-                                    navigate(`/data-entry?entryId=${entry.id}`);
+                                    navigate(`/data-entry?entryId=${entry.id}&returnUrl=${returnUrl}`);
                                   }}
                                   className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-text-primary hover:bg-surface transition-colors"
                                 >

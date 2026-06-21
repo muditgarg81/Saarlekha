@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import api from '../../utils/api';
 import { useAuth } from '../../context/AuthContext';
 import { Send, FileText, Trash2, Edit, Plus, X } from 'lucide-react';
@@ -20,6 +20,7 @@ interface ReportFormat {
 }
 
 export function DataEntry() {
+  const navigate = useNavigate();
   const [formats, setFormats] = useState<ReportFormat[]>([]);
   const [departments, setDepartments] = useState<{id: string, name: string}[]>([]);
   const [manpower, setManpower] = useState<{id: string, name: string, department_id: string}[]>([]);
@@ -34,6 +35,7 @@ export function DataEntry() {
   const initialDeptId = searchParams.get('departmentId') || '';
   const filterType = searchParams.get('type') || '';
   const entryId = searchParams.get('entryId') || '';
+  const returnUrl = searchParams.get('returnUrl') || '';
 
   // Selection state
   const [selectedFormatId, setSelectedFormatId] = useState(initialFormatId);
@@ -390,7 +392,11 @@ export function DataEntry() {
         department_id: selectedDepartment
       });
       alert('Report entry updated successfully!');
-      window.history.back();
+      if (returnUrl) {
+        navigate(returnUrl);
+      } else {
+        window.history.back();
+      }
     } catch (err: any) {
       const msg = err.response?.data?.error || 'Failed to update report entry';
       alert(msg);
@@ -404,7 +410,11 @@ export function DataEntry() {
     try {
       await api.delete(`/reports/entries/${entryId}`);
       alert('Report entry deleted successfully!');
-      window.history.back();
+      if (returnUrl) {
+        navigate(returnUrl);
+      } else {
+        window.history.back();
+      }
     } catch (err: any) {
       const msg = err.response?.data?.error || 'Failed to delete report entry';
       alert(msg);
@@ -554,11 +564,15 @@ export function DataEntry() {
 
       await api.post('/reports/entries', payloadBatch);
       alert('All report entries submitted successfully!');
-      setBatchEntries([]);
-      setPayload({});
-      setEditingIndex(null);
-      setSelectedFormatId('');
-      setSelectedDepartment('');
+      if (returnUrl) {
+        navigate(returnUrl);
+      } else {
+        setBatchEntries([]);
+        setPayload({});
+        setEditingIndex(null);
+        setSelectedFormatId('');
+        setSelectedDepartment('');
+      }
     } catch (err: any) {
       const msg = err.response?.data?.error || 'Failed to submit reports';
       const details = err.response?.data?.details;
@@ -588,7 +602,13 @@ export function DataEntry() {
             <span>You are editing a saved report entry. Format and department cannot be modified.</span>
             <button 
               type="button" 
-              onClick={() => window.history.back()}
+              onClick={() => {
+                if (returnUrl) {
+                  navigate(returnUrl);
+                } else {
+                  window.history.back();
+                }
+              }}
               className="text-primary hover:underline"
             >
               Cancel & Go Back

@@ -48,6 +48,7 @@ export function JobOrderMaster() {
   const [joSchema, setJoSchema] = useState<FormatField[]>([]);
   const [selectedDeptFilter, setSelectedDeptFilter] = useState('');
   const [selectedCustFilter, setSelectedCustFilter] = useState('');
+  const [activeTab, setActiveTab] = useState<'active' | 'completed'>('active');
   const [loading, setLoading] = useState(true);
 
   const evaluateCalculatedField = (field: FormatField, record: any) => {
@@ -146,6 +147,14 @@ export function JobOrderMaster() {
   const isOperations = user?.role === 'OPERATIONS';
 
   const filteredOrders = orders.filter(order => {
+    // 0. Active/Completed Tab Filter
+    if (activeTab === 'active' && order.status === 'COMPLETED') {
+      return false;
+    }
+    if (activeTab === 'completed' && order.status !== 'COMPLETED') {
+      return false;
+    }
+
     // 1. Date Range Filter
     if (startDate && endDate) {
       const orderDate = order.start_date ? new Date(order.start_date) : new Date((order as any).created_at || Date.now());
@@ -974,6 +983,50 @@ export function JobOrderMaster() {
           </form>
         </div>
       )}
+
+      {/* Tabs */}
+      <div className="flex border-b border-border mb-6">
+        <button
+          onClick={() => {
+            setActiveTab('active');
+            setSelectedOrders([]);
+          }}
+          className={clsx(
+            "px-6 py-3 text-sm font-semibold border-b-2 transition-all relative flex items-center gap-2 focus:outline-none",
+            activeTab === 'active'
+              ? "border-primary text-primary"
+              : "border-transparent text-text-secondary hover:text-text-primary hover:border-gray-300"
+          )}
+        >
+          Active Orders
+          <span className={clsx(
+            "px-2 py-0.5 text-xs rounded-full font-bold",
+            activeTab === 'active' ? "bg-primary/10 text-primary" : "bg-gray-100 text-text-secondary"
+          )}>
+            {orders.filter(o => o.status !== 'COMPLETED').length}
+          </span>
+        </button>
+        <button
+          onClick={() => {
+            setActiveTab('completed');
+            setSelectedOrders([]);
+          }}
+          className={clsx(
+            "px-6 py-3 text-sm font-semibold border-b-2 transition-all relative flex items-center gap-2 focus:outline-none",
+            activeTab === 'completed'
+              ? "border-primary text-primary"
+              : "border-transparent text-text-secondary hover:text-text-primary hover:border-gray-300"
+          )}
+        >
+          Completed Orders
+          <span className={clsx(
+            "px-2 py-0.5 text-xs rounded-full font-bold",
+            activeTab === 'completed' ? "bg-emerald-50 text-emerald-700 border border-emerald-100" : "bg-gray-100 text-text-secondary"
+          )}>
+            {orders.filter(o => o.status === 'COMPLETED').length}
+          </span>
+        </button>
+      </div>
 
       {/* Search Bar Panel */}
       <div className="bg-white p-4 rounded-card border border-border shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">

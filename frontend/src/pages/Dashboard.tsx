@@ -156,6 +156,7 @@ function ExportDropdown({
 export function Dashboard() {
   const { user, selectedCompanyId } = useAuth();
   const navigate = useNavigate();
+  const returnUrl = encodeURIComponent(window.location.pathname + window.location.search);
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -1075,7 +1076,7 @@ export function Dashboard() {
                 return (
                   <tr 
                     key={entry.id} 
-                    onClick={() => navigate(`/data-entry?entryId=${entry.id}`)}
+                    onClick={() => navigate(`/data-entry?entryId=${entry.id}&returnUrl=${returnUrl}`)}
                     className="hover:bg-surface cursor-pointer transition-colors"
                   >
                     <td className="px-6 py-3 text-sm font-medium text-text-primary">

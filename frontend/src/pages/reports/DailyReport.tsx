@@ -50,6 +50,7 @@ interface ReportEntry {
 export function DailyReport() {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const returnUrl = encodeURIComponent(window.location.pathname + window.location.search);
   const [searchParams] = useSearchParams();
   const dateParam = searchParams.get('date');
   const typeParam = searchParams.get('type') || '';
@@ -579,7 +580,7 @@ export function DailyReport() {
                       return (
                         <div 
                           key={r.id} 
-                          onClick={() => navigate(`/data-entry?entryId=${r.id}`)}
+                          onClick={() => navigate(`/data-entry?entryId=${r.id}&returnUrl=${returnUrl}`)}
                           className="p-5 hover:bg-gray-100 cursor-pointer transition-colors space-y-3"
                         >
                           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">

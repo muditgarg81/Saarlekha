@@ -25,6 +25,7 @@ interface ReportEntry {
 
 export function QualityDetail() {
   const navigate = useNavigate();
+  const returnUrl = encodeURIComponent(window.location.pathname + window.location.search);
   const { user } = useAuth();
   const [entries, setEntries] = useState<ReportEntry[]>([]);
   const [loading, setLoading] = useState(true);
@@ -301,7 +302,7 @@ export function QualityDetail() {
         </h1>
         <div className="flex flex-wrap items-center gap-2">
           <button 
-            onClick={() => navigate('/data-entry?type=QUALITY')}
+            onClick={() => navigate(`/data-entry?type=QUALITY&returnUrl=${returnUrl}`)}
             className="inline-flex items-center px-4 py-2 bg-primary text-white text-sm font-medium rounded-md hover:bg-primary-light gap-1.5 shadow-sm font-semibold"
           >
             <Plus className="h-4 w-4" /> Log Entry
@@ -448,7 +449,7 @@ export function QualityDetail() {
                               return (
                                 <tr 
                                   key={entry.id} 
-                                  onClick={() => navigate(`/data-entry?entryId=${entry.id}`)}
+                                  onClick={() => navigate(`/data-entry?entryId=${entry.id}&returnUrl=${returnUrl}`)}
                                   className="hover:bg-surface cursor-pointer transition-colors"
                                 >
                                   <td className="w-12 px-6 py-3" onClick={(e) => e.stopPropagation()}>
@@ -525,7 +526,7 @@ export function QualityDetail() {
                                             <button
                                               onClick={() => {
                                                 setActiveDropdown(null);
-                                                navigate(`/data-entry?entryId=${entry.id}`);
+                                                navigate(`/data-entry?entryId=${entry.id}&returnUrl=${returnUrl}`);
                                               }}
                                               className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-text-primary hover:bg-surface transition-colors"
                                             >
@@ -568,8 +569,8 @@ export function QualityDetail() {
                           return (
                             <div 
                               key={entry.id} 
-                              onClick={() => navigate(`/data-entry?entryId=${entry.id}`)}
-                              className="border border-border rounded-card p-4 shadow-sm space-y-3 bg-white hover:border-primary transition-all relative"
+                              onClick={() => navigate(`/data-entry?entryId=${entry.id}&returnUrl=${returnUrl}`)}
+                              className="border border-border rounded-card p-4 shadow-sm space-y-3 bg-white hover:border-primary transition-all relative cursor-pointer"
                             >
                               <div className="flex items-center justify-between border-b border-border pb-2">
                                 <div className="flex items-center gap-2">
@@ -626,7 +627,7 @@ export function QualityDetail() {
                                           <button
                                             onClick={() => {
                                               setActiveDropdown(null);
-                                              navigate(`/data-entry?entryId=${entry.id}`);
+                                              navigate(`/data-entry?entryId=${entry.id}&returnUrl=${returnUrl}`);
                                             }}
                                             className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-text-primary hover:bg-surface transition-colors"
                                           >
