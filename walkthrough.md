@@ -647,4 +647,15 @@ ALL RLS TENANT ISOLATION TESTS PASSED! 🎉
 - **Verification**:
   - Built the React production application successfully using `cmd /c npm run build` with zero compiler/TypeScript errors.
 
-
+### 51. Report Edit Redirects & Job Orders Tabbed Layout
+- **Report Edit Redirects**:
+  - Configured all links navigating to `/data-entry` for editing/creating entries to pass a `returnUrl` query parameter representing the exact active reports detail page (e.g. `/reports/other-production`, `/production`, `/quality`, `/reports/daily`, `/job-orders/summary/:orderNumber`, or `/` dashboard) with its active filters, dates, and search inputs intact.
+  - Intercepted the saving, deleting, canceling, and batch submitting redirects in [DataEntry.tsx](file:///c:/claude/Saarlekha/frontend/src/pages/reports/DataEntry.tsx) to navigate to the provided `returnUrl` on success/exit, preserving the user's active report view state.
+- **Job Orders Tabbed Layout**:
+  - Added an `activeTab` state to [JobOrderMaster.tsx](file:///c:/claude/Saarlekha/frontend/src/pages/masters/JobOrderMaster.tsx) to support **Active Orders** (excluding completed orders) and **Completed Orders** (only showing completed orders) views.
+  - Integrated tab selection filtering directly into `filteredOrders` computation, making searching, sorting, date ranges, and CSV/PDF/Excel exports operate cleanly on the active tab context.
+  - Rendered a premium tabbed layout above the Search Bar Panel with dynamic order status count badges.
+  - Guaranteed checkboxed items reset when switching tabs to prevent accidental bulk deletions.
+- **Verification**:
+  - Verified local build compiles successfully (`npm run build`) with zero TypeScript errors.
+  - Pushed all updates to remote main branch, triggering automated server deployments.
