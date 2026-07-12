@@ -173,61 +173,50 @@ exports.dashboardRouter.get('/summary', async (req, res) => {
             return hasMachineAndOperator(schema);
         });
         const syncedEntryIds = new Set(productionRecords.map((r) => r.report_entry_id).filter(Boolean));
+        // Keep each parsed entry's source department_id so per-department buckets
+        // can be built in a single pass instead of re-filtering/re-parsing per department.
         const unsyncedParsedEntries = machineProdEntries
             .filter((e) => !syncedEntryIds.has(e.id))
-            .map((e) => parsePayload(e.payload))
+            .map((e) => {
+            const parsed = parsePayload(e.payload);
+            return parsed ? { ...parsed, departmentId: e.department_id } : null;
+        })
             .filter(Boolean);
         const extraProduction = unsyncedParsedEntries.reduce((sum, entry) => sum + entry.production, 0);
         const extraTarget = unsyncedParsedEntries.reduce((sum, entry) => sum + entry.target, 0);
         const totalProduction = productionRecords.reduce((sum, r) => sum + r.production_amount, 0) + extraProduction;
         const totalTarget = productionRecords.reduce((sum, r) => sum + r.target_amount, 0) + extraTarget;
         const overallEfficiency = (0, efficiency_1.calculateEfficiency)(totalProduction, totalTarget);
-        const operatorMap = {};
-        for (const r of productionRecords) {
-            const name = r.operator.name.trim();
-            const key = name.toLowerCase();
-            if (!operatorMap[key])
-                operatorMap[key] = { name, production: 0, target: 0 };
-            operatorMap[key].production += r.production_amount;
-            operatorMap[key].target += r.target_amount;
+        // Shared aggregator: groups structured production records + parsed unsynced
+        // entries by trimmed, case-insensitive name. Used for both the global totals
+        // and every per-department bucket below (same logic, no behavior change).
+        function buildEfficiencyList(records, getRecordName, parsedEntries) {
+            const map = {};
+            for (const r of records) {
+                const name = getRecordName(r).trim();
+                const key = name.toLowerCase();
+                if (!map[key])
+                    map[key] = { name, production: 0, target: 0 };
+                map[key].production += r.production_amount;
+                map[key].target += r.target_amount;
+            }
+            for (const entry of parsedEntries) {
+                const name = entry.name;
+                const key = name.toLowerCase();
+                if (!map[key])
+                    map[key] = { name, production: 0, target: 0 };
+                map[key].production += entry.production;
+                map[key].target += entry.target;
+            }
+            return Object.entries(map).map(([id, data]) => ({
+                id, name: data.name,
+                production: data.production,
+                target: data.target,
+                efficiency: (0, efficiency_1.calculateEfficiency)(data.production, data.target)
+            }));
         }
-        for (const entry of unsyncedParsedEntries) {
-            const name = entry.operatorName;
-            const key = name.toLowerCase();
-            if (!operatorMap[key])
-                operatorMap[key] = { name, production: 0, target: 0 };
-            operatorMap[key].production += entry.production;
-            operatorMap[key].target += entry.target;
-        }
-        const operatorEfficiency = Object.entries(operatorMap).map(([id, data]) => ({
-            id, name: data.name,
-            production: data.production,
-            target: data.target,
-            efficiency: (0, efficiency_1.calculateEfficiency)(data.production, data.target)
-        }));
-        const machineMap = {};
-        for (const r of productionRecords) {
-            const name = r.machine.name.trim();
-            const key = name.toLowerCase();
-            if (!machineMap[key])
-                machineMap[key] = { name, production: 0, target: 0 };
-            machineMap[key].production += r.production_amount;
-            machineMap[key].target += r.target_amount;
-        }
-        for (const entry of unsyncedParsedEntries) {
-            const name = entry.machineName;
-            const key = name.toLowerCase();
-            if (!machineMap[key])
-                machineMap[key] = { name, production: 0, target: 0 };
-            machineMap[key].production += entry.production;
-            machineMap[key].target += entry.target;
-        }
-        const machineEfficiency = Object.entries(machineMap).map(([id, data]) => ({
-            id, name: data.name,
-            production: data.production,
-            target: data.target,
-            efficiency: (0, efficiency_1.calculateEfficiency)(data.production, data.target)
-        }));
+        const operatorEfficiency = buildEfficiencyList(productionRecords, (r) => r.operator.name, unsyncedParsedEntries.map(e => ({ name: e.operatorName, production: e.production, target: e.target })));
+        const machineEfficiency = buildEfficiencyList(productionRecords, (r) => r.machine.name, unsyncedParsedEntries.map(e => ({ name: e.machineName, production: e.production, target: e.target })));
         const latestMaintenanceByMachine = {};
         for (const row of maintenanceRows) {
             if (row.machine_id && !latestMaintenanceByMachine[row.machine_id]) {
@@ -250,89 +239,55 @@ exports.dashboardRouter.get('/summary', async (req, res) => {
                 departmentName: latest ? latest.departmentName : 'N/A'
             };
         });
-        // In-memory grouping and summaries per department
+        // Single-pass bucketing replaces the old O(n*m) approach of re-filtering
+        // the full productionRecords/reportEntries/maintenanceRows arrays once per
+        // department. Each record/entry/machine is now placed into its department
+        // bucket(s) exactly once, then departmentsSummary below does O(records-in-dept)
+        // work per department instead of O(total-records) — matching the original
+        // filter semantics (a production record counts for a department if either
+        // its own department_id or its machine's department_id matches).
+        const productionRecordsByDept = new Map();
+        for (const r of productionRecords) {
+            const deptIds = new Set();
+            if (r.department_id)
+                deptIds.add(r.department_id);
+            if (r.machine?.department_id)
+                deptIds.add(r.machine.department_id);
+            for (const id of deptIds) {
+                if (!productionRecordsByDept.has(id))
+                    productionRecordsByDept.set(id, []);
+                productionRecordsByDept.get(id).push(r);
+            }
+        }
+        const unsyncedEntriesByDept = new Map();
+        for (const entry of unsyncedParsedEntries) {
+            if (!entry.departmentId)
+                continue;
+            if (!unsyncedEntriesByDept.has(entry.departmentId))
+                unsyncedEntriesByDept.set(entry.departmentId, []);
+            unsyncedEntriesByDept.get(entry.departmentId).push(entry);
+        }
+        const machinesByDept = new Map();
+        for (const m of machines) {
+            if (!m.department_id)
+                continue;
+            if (!machinesByDept.has(m.department_id))
+                machinesByDept.set(m.department_id, []);
+            machinesByDept.get(m.department_id).push(m);
+        }
         const departmentsSummary = allDepts.map((dept) => {
-            const deptProductionRecords = productionRecords.filter((r) => r.department_id === dept.id || r.machine?.department_id === dept.id);
-            const deptReportEntries = reportEntries.filter((e) => e.department_id === dept.id);
-            const deptMachines = machines.filter((m) => m.department_id === dept.id);
-            const deptMachineIds = new Set(deptMachines.map((m) => m.id));
-            const deptMaintenanceRows = maintenanceRows.filter((row) => deptMachineIds.has(row.machine_id));
-            const deptMachineProdEntries = deptReportEntries.filter((e) => {
-                const schema = e.format_version?.fields_schema || [];
-                return hasMachineAndOperator(schema);
-            });
-            const deptSyncedEntryIds = new Set(deptProductionRecords.map((r) => r.report_entry_id).filter(Boolean));
-            const deptUnsyncedParsedEntries = deptMachineProdEntries
-                .filter((e) => !deptSyncedEntryIds.has(e.id))
-                .map((e) => parsePayload(e.payload))
-                .filter(Boolean);
+            const deptProductionRecords = productionRecordsByDept.get(dept.id) || [];
+            const deptUnsyncedParsedEntries = unsyncedEntriesByDept.get(dept.id) || [];
+            const deptMachines = machinesByDept.get(dept.id) || [];
             const deptExtraProduction = deptUnsyncedParsedEntries.reduce((sum, entry) => sum + entry.production, 0);
             const deptExtraTarget = deptUnsyncedParsedEntries.reduce((sum, entry) => sum + entry.target, 0);
             const deptTotalProduction = deptProductionRecords.reduce((sum, r) => sum + r.production_amount, 0) + deptExtraProduction;
             const deptTotalTarget = deptProductionRecords.reduce((sum, r) => sum + r.target_amount, 0) + deptExtraTarget;
             const deptOverallEfficiency = (0, efficiency_1.calculateEfficiency)(deptTotalProduction, deptTotalTarget);
-            // Dept-level Operator Efficiency
-            const deptOperatorMap = {};
-            for (const r of deptProductionRecords) {
-                const name = r.operator.name.trim();
-                const key = name.toLowerCase();
-                if (!deptOperatorMap[key])
-                    deptOperatorMap[key] = { name, production: 0, target: 0 };
-                deptOperatorMap[key].production += r.production_amount;
-                deptOperatorMap[key].target += r.target_amount;
-            }
-            for (const entry of deptUnsyncedParsedEntries) {
-                const name = entry.operatorName;
-                const key = name.toLowerCase();
-                if (!deptOperatorMap[key])
-                    deptOperatorMap[key] = { name, production: 0, target: 0 };
-                deptOperatorMap[key].production += entry.production;
-                deptOperatorMap[key].target += entry.target;
-            }
-            const deptOperatorEfficiency = Object.entries(deptOperatorMap).map(([id, data]) => ({
-                id, name: data.name,
-                production: data.production,
-                target: data.target,
-                efficiency: (0, efficiency_1.calculateEfficiency)(data.production, data.target)
-            }));
-            // Dept-level Machine Efficiency
-            const deptMachineMap = {};
-            for (const r of deptProductionRecords) {
-                const name = r.machine.name.trim();
-                const key = name.toLowerCase();
-                if (!deptMachineMap[key])
-                    deptMachineMap[key] = { name, production: 0, target: 0 };
-                deptMachineMap[key].production += r.production_amount;
-                deptMachineMap[key].target += r.target_amount;
-            }
-            for (const entry of deptUnsyncedParsedEntries) {
-                const name = entry.machineName;
-                const key = name.toLowerCase();
-                if (!deptMachineMap[key])
-                    deptMachineMap[key] = { name, production: 0, target: 0 };
-                deptMachineMap[key].production += entry.production;
-                deptMachineMap[key].target += entry.target;
-            }
-            const deptMachineEfficiency = Object.entries(deptMachineMap).map(([id, data]) => ({
-                id, name: data.name,
-                production: data.production,
-                target: data.target,
-                efficiency: (0, efficiency_1.calculateEfficiency)(data.production, data.target)
-            }));
-            // Dept-level Machine Maintenance
-            const deptLatestMaintenanceByMachine = {};
-            for (const row of deptMaintenanceRows) {
-                if (row.machine_id && !deptLatestMaintenanceByMachine[row.machine_id]) {
-                    deptLatestMaintenanceByMachine[row.machine_id] = {
-                        lastMaintenanceDate: row.entry_date,
-                        maintenanceType: row.maintenance_type || 'N/A',
-                        status: row.status || 'completed',
-                        departmentName: row.department_name || 'N/A',
-                    };
-                }
-            }
+            const deptOperatorEfficiency = buildEfficiencyList(deptProductionRecords, (r) => r.operator.name, deptUnsyncedParsedEntries.map(e => ({ name: e.operatorName, production: e.production, target: e.target })));
+            const deptMachineEfficiency = buildEfficiencyList(deptProductionRecords, (r) => r.machine.name, deptUnsyncedParsedEntries.map(e => ({ name: e.machineName, production: e.production, target: e.target })));
             const deptMachineMaintenanceSummary = deptMachines.map((machine) => {
-                const latest = deptLatestMaintenanceByMachine[machine.id];
+                const latest = latestMaintenanceByMachine[machine.id];
                 return {
                     machineId: machine.id,
                     machineName: machine.name,

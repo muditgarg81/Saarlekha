@@ -168,8 +168,14 @@ exports.companiesRouter.delete('/:id', (0, auth_1.requireRole)(['SUPER_ADMIN']),
             await tx.manpower.deleteMany({ where: { company_id: id } });
             const users = await tx.user.findMany({ where: { company_id: id } });
             const userIds = users.map(u => u.id);
-            await tx.userDepartment.deleteMany({ where: { user_id: { in: userIds } } });
+            if (userIds.length > 0) {
+                await tx.userDepartment.deleteMany({ where: { user_id: { in: userIds } } });
+                await tx.auditLogEntry.deleteMany({ where: { user_id: { in: userIds } } });
+                await tx.token.deleteMany({ where: { user_id: { in: userIds } } });
+            }
             await tx.user.deleteMany({ where: { company_id: id } });
+            await tx.maintenanceTypeOption.deleteMany({ where: { company_id: id } });
+            await tx.payment.deleteMany({ where: { company_id: id } });
             await tx.department.deleteMany({ where: { company_id: id } });
             // Finally, delete the company itself
             await tx.company.delete({ where: { id } });
