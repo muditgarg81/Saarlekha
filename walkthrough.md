@@ -659,3 +659,15 @@ ALL RLS TENANT ISOLATION TESTS PASSED! 🎉
 - **Verification**:
   - Verified local build compiles successfully (`npm run build`) with zero TypeScript errors.
   - Pushed all updates to remote main branch, triggering automated server deployments.
+
+### 52. Company Deletion Constraint Fix & Diagnostics Panel Removal
+- **Company Deletion Constraint Fix**:
+  - Updated the Super Admin `DELETE /companies/:id` transaction in [companies.ts](file:///c:/claude/Saarlekha/backend/src/routes/companies.ts) to explicitly delete child records from `MaintenanceTypeOption` and `Payment` tables to prevent RESTRICT foreign key constraint violations.
+  - Added user-linked table deletions for `Token` and `AuditLogEntry` records where user IDs are associated with the deleted company (resolving failures when company users possess audit logs or auth tokens).
+- **Diagnostics Panel Removal**:
+  - Removed the `Super Admin Debug Diagnostics` panel rendering and its associated state `showDebug` from [JobOrderMaster.tsx](file:///c:/claude/Saarlekha/frontend/src/pages/masters/JobOrderMaster.tsx) to clean up the frontend UI as requested.
+- **Verification**:
+  - Simulated database deletion transaction locally with pg script and verified no RESTRICT constraint failures remain.
+  - Verified that both backend and frontend builds compile successfully (`npm run build`) with zero TypeScript/linting errors.
+  - Pushed all changes to the remote repository, triggering auto-deployments on Render and Vercel.
+
