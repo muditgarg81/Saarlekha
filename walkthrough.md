@@ -695,4 +695,20 @@ ALL RLS TENANT ISOLATION TESTS PASSED! 🎉
   - Compiled backend successfully (`npm run build`).
   - Pushed the changes to git, triggering auto-deployments.
 
+### 54. Dashboard Performance Optimization & CORS Preflight Removal via Same-Origin Proxy
+- **Backend: Pre-aggregated Dashboard Summary Daily Chart Data**:
+  - Updated the `/summary` route in [dashboard.ts](file:///c:/claude/Saarlekha/backend/src/routes/dashboard.ts) to pre-aggregate production records by date on the server side instead of returning raw `productionRecords`.
+  - Added department-specific pre-aggregated `dailyData` to elements of the `departmentsSummary` array returned by `/summary`.
+  - Removed shipping of raw `productionRecords` array to the frontend, dropping the dashboard payload size and computation time drastically.
+- **Frontend: Same-Origin API Proxy via Vercel**:
+  - Updated [vercel.json](file:///c:/claude/Saarlekha/frontend/vercel.json) to proxy `/api/*` requests on the server-side to `https://api.saarlekha.com/api/*`.
+  - Updated [api.ts](file:///c:/claude/Saarlekha/frontend/src/utils/api.ts) to support relative paths and return `/api` for production environments, forcing the browser to issue same-origin requests to bypass CORS preflights completely.
+- **Frontend: Request Cancellation**:
+  - Integrated `AbortController` cancellation logic into `fetchDashboard` in [Dashboard.tsx](file:///c:/claude/Saarlekha/frontend/src/pages/Dashboard.tsx) using a `useRef` hook.
+  - Aborts any stale, outstanding dashboard requests when date ranges or filters change, preventing race conditions where older data could overwrite fresh dashboard loads.
+- **Verification**:
+  - Verified local build compiles successfully (`npm run build`) with zero TypeScript errors.
+  - Committed and pushed all changes to git, triggering automatic cloud deployments.
+
+
 
