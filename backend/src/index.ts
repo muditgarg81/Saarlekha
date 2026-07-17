@@ -1,7 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
-import { PrismaClient } from '@prisma/client';
+import crypto from 'crypto';
 import { prisma } from './db/prisma';
 
 dotenv.config();
@@ -25,7 +25,10 @@ import { paymentsRouter } from './routes/payments';
 const app = express();
 const port = process.env.PORT || 5000;
 
-app.use(cors());
+app.use(cors({
+  origin: process.env.CORS_ORIGIN?.split(',') ?? true,
+  maxAge: 86400,
+}));
 app.use(express.json());
 
 // Cache-control: sensitive/user-specific endpoints must not be cached
@@ -82,19 +85,34 @@ app.get('/health', async (req, res) => {
   }
 });
 
+app.get('/api/liveness', (_req, res) => res.json({ status: 'ok' }));
+
+// Invoked by an external scheduler (daily). Never called by the browser app.
+app.post('/api/internal/purge-tokens', async (req, res) => {
+  const secret = process.env.CRON_SECRET;
+  if (!secret) return res.status(500).json({ error: 'CRON_SECRET not configured.' });
+
+  const header = req.headers.authorization ?? '';
+  const provided = header.startsWith('Bearer ') ? header.slice(7) : '';
+
+  // Timing-safe compare; lengths must match before timingSafeEqual.
+  const a = Buffer.from(provided);
+  const b = Buffer.from(secret);
+  if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) {
+    return res.status(401).json({ error: 'Unauthorized.' });
+  }
+
+  try {
+    const result = await prisma.token.deleteMany({
+      where: { expires_at: { lt: new Date() } },
+    });
+    return res.json({ purged: result.count });
+  } catch (err: any) {
+    console.error('Token purge failed:', err.message);
+    return res.status(500).json({ error: 'Purge failed.' });
+  }
+});
+
 app.listen(port, () => {
   console.log(`Server running on port ${port}`);
 });
-
-// Purge expired tokens every hour
-const TOKEN_CLEANUP_INTERVAL = 60 * 60 * 1000;
-async function purgeExpiredTokens() {
-  try {
-    const result = await prisma.token.deleteMany({ where: { expires_at: { lt: new Date() } } });
-    if (result.count > 0) console.log(`Token cleanup: removed ${result.count} expired tokens`);
-  } catch (err: any) {
-    console.error('Token cleanup failed:', err.message);
-  }
-}
-purgeExpiredTokens();
-setInterval(purgeExpiredTokens, TOKEN_CLEANUP_INTERVAL);
