@@ -671,3 +671,28 @@ ALL RLS TENANT ISOLATION TESTS PASSED! 🎉
   - Verified that both backend and frontend builds compile successfully (`npm run build`) with zero TypeScript/linting errors.
   - Pushed all changes to the remote repository, triggering auto-deployments on Render and Vercel.
 
+### 53. Stop 24/7 Database Wake & CORS Preflight Caching
+- **Removed Hourly In-Process Token Purge Timer**:
+  - Deleted the `setInterval` hourly expired token cleanup loop and immediate startup invocation from [index.ts](file:///c:/claude/Saarlekha/backend/src/index.ts). This prevents write queries from continuously waking the Neon database or keeping compute active.
+- **Created a Daily Cron Purge Endpoint**:
+  - Registered a POST route `/api/internal/purge-tokens` in [index.ts](file:///c:/claude/Saarlekha/backend/src/index.ts).
+  - Protected the endpoint using timing-safe secret comparisons against a new `CRON_SECRET` environment variable to ensure only secure, authorized triggers can clear old tokens.
+- **CORS Preflight Optimization**:
+  - Replaced the wide-open `app.use(cors())` in [index.ts](file:///c:/claude/Saarlekha/backend/src/index.ts) with custom configuration:
+    ```typescript
+    app.use(cors({
+      origin: process.env.CORS_ORIGIN?.split(',') ?? true,
+      maxAge: 86400,
+    }));
+    ```
+  - Added caching of CORS OPTIONS preflight queries (using `maxAge: 86400`) to eliminate paired preflight requests from the browser during active sessions.
+- **Database-Free Liveness Endpoint**:
+  - Added a GET route `/api/liveness` in [index.ts](file:///c:/claude/Saarlekha/backend/src/index.ts) returning `{ status: 'ok' }` without any database interaction. This route can be used by uptime monitors to verify backend status without triggering Neon wakeups.
+- **Housekeeping & Env Templates**:
+  - Removed unused `PrismaClient` import from [index.ts](file:///c:/claude/Saarlekha/backend/src/index.ts).
+  - Updated [.env.example](file:///c:/claude/Saarlekha/backend/.env.example) to include placeholder entries for `CRON_SECRET` and `CORS_ORIGIN`.
+- **Verification**:
+  - Compiled backend successfully (`npm run build`).
+  - Pushed the changes to git, triggering auto-deployments.
+
+
