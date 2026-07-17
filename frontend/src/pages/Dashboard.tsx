@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import api from '../utils/api';
 import { useAuth } from '../context/AuthContext';
@@ -33,7 +33,7 @@ interface DashboardData {
     departmentName: string;
   }[];
   recentEntries: any[];
-  productionRecords: any[];
+  dailyData?: { dateStr: string; production: number; target: number }[];
   departmentsSummary?: {
     departmentId: string;
     departmentName: string;
@@ -52,6 +52,7 @@ interface DashboardData {
       status: string;
       departmentName: string;
     }[];
+    dailyData?: { dateStr: string; production: number; target: number }[];
   }[];
 }
 
@@ -164,6 +165,15 @@ export function Dashboard() {
   const [selectedDepartmentId, setSelectedDepartmentId] = useState('');
   const [activeTab, setActiveTab] = useState<'summary' | 'charts'>('summary');
   const [openedExportDropdownId, setOpenedExportDropdownId] = useState<string | null>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+    };
+  }, []);
 
   // Date range — default to last 30 days
   const today = new Date().toISOString().split('T')[0];
@@ -273,17 +283,30 @@ export function Dashboard() {
 
   const fetchDashboard = useCallback(async () => {
     if (user?.role === 'SUPER_ADMIN' && !selectedCompanyId) return;
+
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+
     setLoading(true);
     setError(null);
     try {
       const res = await api.get('/dashboard/summary', {
-        params: { startDate, endDate, departmentId: selectedDepartmentId || undefined }
+        params: { startDate, endDate, departmentId: selectedDepartmentId || undefined },
+        signal: controller.signal
       });
       setData(res.data);
     } catch (err: any) {
+      if (err.name === 'CanceledError' || err.message === 'canceled') {
+        return;
+      }
       setError(err.response?.data?.error || 'Failed to load dashboard');
     } finally {
-      setLoading(false);
+      if (abortControllerRef.current === controller) {
+        setLoading(false);
+      }
     }
   }, [startDate, endDate, user, selectedCompanyId, selectedDepartmentId]);
 
@@ -314,24 +337,12 @@ export function Dashboard() {
 
   // Aggregation of daily production vs target records
   const getDailyData = useCallback(() => {
-    if (!data || !data.productionRecords) return [];
-    
-    const map: Record<string, { dateStr: string; production: number; target: number }> = {};
-    const records = data.productionRecords.filter(r => {
-      if (!selectedDepartmentId) return true;
-      return r.department_id === selectedDepartmentId || r.machine?.department_id === selectedDepartmentId;
-    });
-
-    records.forEach((r: any) => {
-      const dStr = new Date(r.date).toISOString().split('T')[0];
-      if (!map[dStr]) {
-        map[dStr] = { dateStr: dStr, production: 0, target: 0 };
-      }
-      map[dStr].production += r.production_amount;
-      map[dStr].target += r.target_amount;
-    });
-
-    return Object.values(map).sort((a, b) => a.dateStr.localeCompare(b.dateStr));
+    if (!data) return [];
+    if (!selectedDepartmentId) {
+      return data.dailyData || [];
+    }
+    const dept = data.departmentsSummary?.find(d => d.departmentId === selectedDepartmentId);
+    return dept?.dailyData || [];
   }, [data, selectedDepartmentId]);
 
   const getFilteredOperatorEfficiency = () => {

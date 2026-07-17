@@ -275,6 +275,15 @@ exports.dashboardRouter.get('/summary', async (req, res) => {
                 machinesByDept.set(m.department_id, []);
             machinesByDept.get(m.department_id).push(m);
         }
+        const dailyDataMap = {};
+        for (const r of productionRecords) {
+            const dStr = new Date(r.date).toISOString().split('T')[0];
+            if (!dailyDataMap[dStr])
+                dailyDataMap[dStr] = { dateStr: dStr, production: 0, target: 0 };
+            dailyDataMap[dStr].production += r.production_amount;
+            dailyDataMap[dStr].target += r.target_amount;
+        }
+        const dailyData = Object.values(dailyDataMap).sort((a, b) => a.dateStr.localeCompare(b.dateStr));
         const departmentsSummary = allDepts.map((dept) => {
             const deptProductionRecords = productionRecordsByDept.get(dept.id) || [];
             const deptUnsyncedParsedEntries = unsyncedEntriesByDept.get(dept.id) || [];
@@ -297,6 +306,15 @@ exports.dashboardRouter.get('/summary', async (req, res) => {
                     departmentName: latest ? latest.departmentName : 'N/A'
                 };
             });
+            const deptDailyDataMap = {};
+            for (const r of deptProductionRecords) {
+                const dStr = new Date(r.date).toISOString().split('T')[0];
+                if (!deptDailyDataMap[dStr])
+                    deptDailyDataMap[dStr] = { dateStr: dStr, production: 0, target: 0 };
+                deptDailyDataMap[dStr].production += r.production_amount;
+                deptDailyDataMap[dStr].target += r.target_amount;
+            }
+            const deptDailyData = Object.values(deptDailyDataMap).sort((a, b) => a.dateStr.localeCompare(b.dateStr));
             return {
                 departmentId: dept.id,
                 departmentName: dept.name,
@@ -307,7 +325,8 @@ exports.dashboardRouter.get('/summary', async (req, res) => {
                 },
                 operatorEfficiency: deptOperatorEfficiency,
                 machineEfficiency: deptMachineEfficiency,
-                machineMaintenanceSummary: deptMachineMaintenanceSummary
+                machineMaintenanceSummary: deptMachineMaintenanceSummary,
+                dailyData: deptDailyData
             };
         });
         res.json({
@@ -324,7 +343,7 @@ exports.dashboardRouter.get('/summary', async (req, res) => {
             machineEfficiency,
             machineMaintenanceSummary,
             recentEntries,
-            productionRecords,
+            dailyData,
             departmentsSummary,
         });
     }
