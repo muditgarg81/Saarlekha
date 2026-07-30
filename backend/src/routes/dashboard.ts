@@ -230,7 +230,7 @@ dashboardRouter.get('/summary', async (req, res) => {
       // Synced report entry IDs (those already represented in ProductionRecord).
       const syncedIdsRows = await tx.$queryRaw<Array<{ id: string }>>`
         SELECT report_entry_id AS id
-        FROM "ProductionRecord"
+        FROM "ProductionRecord" pr
         WHERE report_entry_id IS NOT NULL
           ${prDateCond} ${prDeptCond}
       `;
