@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react';
 
 export interface User {
   id: string;
@@ -22,12 +22,47 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+const INACTIVITY_TIMEOUT = 60 * 60 * 1000; // 1 hour
+const ACTIVITY_EVENTS = ['mousedown', 'mousemove', 'keydown', 'scroll', 'touchstart', 'click'] as const;
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(null);
   const [selectedCompanyId, setSelectedCompanyIdState] = useState<string | null>(null);
   const [selectedCompanyName, setSelectedCompanyNameState] = useState<string | null>(null);
-  
+  const inactivityTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const clearAuth = useCallback(() => {
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    localStorage.removeItem('selected_tenant_id');
+    localStorage.removeItem('selected_tenant_name');
+    setToken(null);
+    setUser(null);
+    setSelectedCompanyIdState(null);
+    setSelectedCompanyNameState(null);
+  }, []);
+
+  const resetInactivityTimer = useCallback(() => {
+    if (inactivityTimer.current) clearTimeout(inactivityTimer.current);
+    inactivityTimer.current = setTimeout(clearAuth, INACTIVITY_TIMEOUT);
+  }, [clearAuth]);
+
+  // Start/stop inactivity tracking based on auth state
+  useEffect(() => {
+    if (!token) {
+      if (inactivityTimer.current) clearTimeout(inactivityTimer.current);
+      ACTIVITY_EVENTS.forEach(e => window.removeEventListener(e, resetInactivityTimer));
+      return;
+    }
+    ACTIVITY_EVENTS.forEach(e => window.addEventListener(e, resetInactivityTimer, { passive: true }));
+    resetInactivityTimer();
+    return () => {
+      if (inactivityTimer.current) clearTimeout(inactivityTimer.current);
+      ACTIVITY_EVENTS.forEach(e => window.removeEventListener(e, resetInactivityTimer));
+    };
+  }, [token, resetInactivityTimer]);
+
   useEffect(() => {
     const storedToken = localStorage.getItem('token');
     const storedUser = localStorage.getItem('user');
@@ -66,16 +101,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const logout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-    localStorage.removeItem('selected_tenant_id');
-    localStorage.removeItem('selected_tenant_name');
-    setToken(null);
-    setUser(null);
-    setSelectedCompanyIdState(null);
-    setSelectedCompanyNameState(null);
-  };
+  const logout = clearAuth;
 
   const selectCompany = (id: string, name: string) => {
     localStorage.setItem('selected_tenant_id', id);
