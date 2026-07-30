@@ -61,18 +61,16 @@ dashboardRouter.get('/summary', async (req, res) => {
   const user = req.user!;
 
   try {
-    let dateFilter: any;
+    let startDt: Date | undefined;
+    let endDt: Date | undefined;
     if (startDate && endDate) {
-      const end = new Date(endDate as string);
-      end.setUTCHours(23, 59, 59, 999);
-      dateFilter = {
-        gte: new Date(startDate as string),
-        lte: end,
-      };
+      startDt = new Date(startDate as string);
+      endDt = new Date(endDate as string);
+      endDt.setUTCHours(23, 59, 59, 999);
     }
 
-    // ALL reads inside ONE transaction: tenant RLS context set ONCE
     const raw = await prismaTenant.$transaction(async (tx) => {
+      // Resolve department filter
       let deptFilter: string[] | undefined;
       if (user.role === 'OPERATIONS') {
         const userDepts = await (tx as any).userDepartment.findMany({
@@ -89,52 +87,187 @@ dashboardRouter.get('/summary', async (req, res) => {
         deptFilter = departmentId ? [departmentId as string] : undefined;
       }
 
-      const productionWhere: any = {};
-      if (dateFilter) productionWhere.date = dateFilter;
-      if (deptFilter) {
-        const manpowerInDepts = await (tx as any).manpower.findMany({
-          where: { department_id: { in: deptFilter } },
-          select: { id: true },
+      // SQL condition fragments — used in $queryRaw calls below.
+      // prDeptCond: filter production records by operator's department membership.
+      const prDateCond = startDt && endDt
+        ? Prisma.sql`AND pr.date >= ${startDt} AND pr.date <= ${endDt}`
+        : Prisma.empty;
+      const prDeptCond = deptFilter
+        ? Prisma.sql`AND pr.operator_id IN (
+            SELECT id FROM "Manpower" WHERE department_id = ANY(${deptFilter}::text[])
+          )`
+        : Prisma.empty;
+      const reDeptCond = deptFilter
+        ? Prisma.sql`AND re.department_id = ANY(${deptFilter}::text[])`
+        : Prisma.empty;
+      const maintenanceDeptCond = deptFilter
+        ? Prisma.sql`AND re.department_id = ANY(${deptFilter}::text[])`
+        : Prisma.empty;
+
+      // Scalar counts
+      const manpowerCount: number = await (tx as any).manpower.count();
+      const openJobOrders: number = await (tx as any).jobOrder.count({ where: { status: 'OPEN' } });
+      const reportFormatsCount: number = await (tx as any).reportFormat.count();
+
+      const allDepts: any[] = await (tx as any).department.findMany({
+        where: deptFilter ? { id: { in: deptFilter } } : {},
+        orderBy: { name: 'asc' },
+      });
+
+      // --- SQL aggregations replace the raw productionRecord.findMany() ---
+      // These return only summary rows (O(operators/machines/days)) instead of
+      // fetching every individual record across the wire from Neon to Render.
+
+      const globalTotalsRows = await tx.$queryRaw<Array<{
+        total_production: number;
+        total_target: number;
+        record_count: bigint;
+      }>>`
+        SELECT
+          COALESCE(SUM(pr.production_amount), 0)::float AS total_production,
+          COALESCE(SUM(pr.target_amount), 0)::float     AS total_target,
+          COUNT(*)::bigint                              AS record_count
+        FROM "ProductionRecord" pr
+        WHERE 1=1 ${prDateCond} ${prDeptCond}
+      `;
+
+      const dailyAggs = await tx.$queryRaw<Array<{
+        day: string;
+        production: number;
+        target: number;
+      }>>`
+        SELECT
+          TO_CHAR(DATE(pr.date), 'YYYY-MM-DD') AS day,
+          SUM(pr.production_amount)::float      AS production,
+          SUM(pr.target_amount)::float          AS target
+        FROM "ProductionRecord" pr
+        WHERE 1=1 ${prDateCond} ${prDeptCond}
+        GROUP BY DATE(pr.date)
+        ORDER BY DATE(pr.date)
+      `;
+
+      const operatorAggs = await tx.$queryRaw<Array<{
+        id: string;
+        name: string;
+        production: number;
+        target: number;
+      }>>`
+        SELECT m.id, m.name,
+          SUM(pr.production_amount)::float AS production,
+          SUM(pr.target_amount)::float     AS target
+        FROM "ProductionRecord" pr
+        JOIN "Manpower" m ON m.id = pr.operator_id
+        WHERE 1=1 ${prDateCond} ${prDeptCond}
+        GROUP BY m.id, m.name
+      `;
+
+      const machineAggs = await tx.$queryRaw<Array<{
+        id: string;
+        name: string;
+        production: number;
+        target: number;
+      }>>`
+        SELECT mc.id, mc.name,
+          SUM(pr.production_amount)::float AS production,
+          SUM(pr.target_amount)::float     AS target
+        FROM "ProductionRecord" pr
+        JOIN "Machine" mc ON mc.id = pr.machine_id
+        WHERE 1=1 ${prDateCond} ${prDeptCond}
+        GROUP BY mc.id, mc.name
+      `;
+
+      // Per-department operator aggregates (via pr.department_id).
+      const deptOperatorAggs = await tx.$queryRaw<Array<{
+        dept_id: string;
+        id: string;
+        name: string;
+        production: number;
+        target: number;
+      }>>`
+        SELECT pr.department_id AS dept_id, m.id, m.name,
+          SUM(pr.production_amount)::float AS production,
+          SUM(pr.target_amount)::float     AS target
+        FROM "ProductionRecord" pr
+        JOIN "Manpower" m ON m.id = pr.operator_id
+        WHERE 1=1 ${prDateCond} ${prDeptCond}
+          AND pr.department_id IS NOT NULL
+        GROUP BY pr.department_id, m.id, m.name
+      `;
+
+      // Per-department machine aggregates. A production record can count toward
+      // both pr.department_id and the machine's department_id when they differ
+      // (matching the original bucketing logic). UNION ALL then re-aggregate.
+      const deptMachineAggs = await tx.$queryRaw<Array<{
+        dept_id: string;
+        id: string;
+        name: string;
+        production: number;
+        target: number;
+      }>>`
+        WITH raw AS (
+          SELECT pr.department_id AS dept_id, mc.id, mc.name,
+            pr.production_amount AS prod, pr.target_amount AS tgt
+          FROM "ProductionRecord" pr
+          JOIN "Machine" mc ON mc.id = pr.machine_id
+          WHERE 1=1 ${prDateCond} ${prDeptCond}
+            AND pr.department_id IS NOT NULL
+          UNION ALL
+          SELECT mc.department_id AS dept_id, mc.id, mc.name,
+            pr.production_amount, pr.target_amount
+          FROM "ProductionRecord" pr
+          JOIN "Machine" mc ON mc.id = pr.machine_id
+          WHERE 1=1 ${prDateCond} ${prDeptCond}
+            AND mc.department_id IS NOT NULL
+            AND mc.department_id IS DISTINCT FROM pr.department_id
+        )
+        SELECT dept_id, id, name,
+          SUM(prod)::float AS production,
+          SUM(tgt)::float  AS target
+        FROM raw
+        GROUP BY dept_id, id, name
+      `;
+
+      // Synced report entry IDs (those already represented in ProductionRecord).
+      const syncedIdsRows = await tx.$queryRaw<Array<{ id: string }>>`
+        SELECT report_entry_id AS id
+        FROM "ProductionRecord"
+        WHERE report_entry_id IS NOT NULL
+          ${prDateCond} ${prDeptCond}
+      `;
+      const syncedEntryIds = new Set(syncedIdsRows.map((r: any) => r.id as string));
+
+      // Fetch format version schemas (small set — O(formats), not O(entries)).
+      // Used to determine which entry formats carry machine+operator fields.
+      const allFormatVersions: any[] = await (tx as any).reportFormatVersion.findMany({
+        select: { id: true, fields_schema: true },
+      });
+      const qualifyingVersionIds = allFormatVersions
+        .filter((v: any) => hasMachineAndOperator(v.fields_schema))
+        .map((v: any) => v.id as string);
+
+      // Fetch only unsynced entries for qualifying formats, with minimal columns
+      // (no format_version JOIN — schema already known from allFormatVersions above).
+      let unsyncedEntries: any[] = [];
+      if (qualifyingVersionIds.length > 0) {
+        const unsyncedWhere: any = {
+          format_version_id: { in: qualifyingVersionIds },
+          id: { notIn: Array.from(syncedEntryIds) },
+        };
+        if (startDt && endDt) unsyncedWhere.entry_date = { gte: startDt, lte: endDt };
+        if (deptFilter) unsyncedWhere.department_id = { in: deptFilter };
+
+        unsyncedEntries = await (tx as any).reportEntry.findMany({
+          where: unsyncedWhere,
+          select: { id: true, payload: true, department_id: true },
         });
-        productionWhere.operator_id = { in: manpowerInDepts.map((m: any) => m.id) };
       }
 
-      const reportEntryWhere: any = {};
-      if (dateFilter) reportEntryWhere.entry_date = dateFilter;
-      if (deptFilter) reportEntryWhere.department_id = { in: deptFilter };
-
-      const manpowerCount = await (tx as any).manpower.count();
-      const openJobOrders = await (tx as any).jobOrder.count({ where: { status: 'OPEN' } });
-      const reportFormatsCount = await (tx as any).reportFormat.count();
-
-      const allDepts = await (tx as any).department.findMany({
-        where: deptFilter ? { id: { in: deptFilter } } : {},
-        orderBy: { name: 'asc' }
-      });
-
-      const productionRecords = await (tx as any).productionRecord.findMany({
-        where: productionWhere,
-        include: {
-          operator: { select: { id: true, name: true } },
-          machine: { select: { id: true, name: true, department_id: true } },
-        },
-      });
-
-      const reportEntries = await (tx as any).reportEntry.findMany({
-        where: reportEntryWhere,
-        include: { format_version: true },
-      });
-
-      const machines = await (tx as any).machine.findMany({
+      const machines: any[] = await (tx as any).machine.findMany({
         where: deptFilter
           ? { OR: [{ department_id: { in: deptFilter } }, { department_id: null }] }
           : {},
         orderBy: { name: 'asc' },
       });
-
-      const deptCond = deptFilter
-        ? Prisma.sql`AND re.department_id = ANY(${deptFilter}::text[])`
-        : Prisma.empty;
 
       const maintenanceRows = await tx.$queryRaw<Array<{
         machine_id: string;
@@ -156,12 +289,16 @@ dashboardRouter.get('/summary', async (req, res) => {
         WHERE re.company_id = ${tenantId}
           AND rf."type" = 'MAINTENANCE'
           AND re.payload->>'_machine_id' IS NOT NULL
-          ${deptCond}
+          ${maintenanceDeptCond}
         ORDER BY re.payload->>'_machine_id', re.entry_date DESC, re.created_at DESC
       `);
 
-      const recentEntries = await (tx as any).reportEntry.findMany({
-        where: reportEntryWhere,
+      const recentEntriesWhere: any = {};
+      if (startDt && endDt) recentEntriesWhere.entry_date = { gte: startDt, lte: endDt };
+      if (deptFilter) recentEntriesWhere.department_id = { in: deptFilter };
+
+      const recentEntries: any[] = await (tx as any).reportEntry.findMany({
+        where: recentEntriesWhere,
         take: 10,
         orderBy: { created_at: 'desc' },
         include: {
@@ -176,96 +313,92 @@ dashboardRouter.get('/summary', async (req, res) => {
         openJobOrders,
         reportFormatsCount,
         allDepts,
-        productionRecords,
-        reportEntries,
+        globalTotals: (globalTotalsRows as any[])[0],
+        dailyAggs,
+        operatorAggs,
+        machineAggs,
+        deptOperatorAggs,
+        deptMachineAggs,
+        unsyncedEntries,
         machines,
         maintenanceRows,
         recentEntries,
       };
-    }, { maxWait: 5000, timeout: 20000 });
+    }, { maxWait: 5000, timeout: 30000 });
 
     const {
       manpowerCount,
       openJobOrders,
       reportFormatsCount,
       allDepts,
-      productionRecords,
-      reportEntries,
+      globalTotals,
+      dailyAggs,
+      operatorAggs,
+      machineAggs,
+      deptOperatorAggs,
+      deptMachineAggs,
+      unsyncedEntries,
       machines,
       maintenanceRows,
       recentEntries,
     } = raw;
 
-    const machineProdEntries = reportEntries.filter((e: any) => {
-      const schema = e.format_version?.fields_schema || [];
-      return hasMachineAndOperator(schema);
-    });
-
-    const syncedEntryIds = new Set(
-      productionRecords.map((r: any) => r.report_entry_id).filter(Boolean)
-    );
-    // Keep each parsed entry's source department_id so per-department buckets
-    // can be built in a single pass instead of re-filtering/re-parsing per department.
-    const unsyncedParsedEntries = machineProdEntries
-      .filter((e: any) => !syncedEntryIds.has(e.id))
+    // Parse unsynced report entries
+    const unsyncedParsedEntries = (unsyncedEntries as any[])
       .map((e: any) => {
         const parsed = parsePayload(e.payload);
         return parsed ? { ...parsed, departmentId: e.department_id as string | null } : null;
       })
       .filter(Boolean) as { operatorName: string; machineName: string; production: number; target: number; departmentId: string | null }[];
 
-    const extraProduction = unsyncedParsedEntries.reduce((sum: number, entry) => sum + entry.production, 0);
-    const extraTarget = unsyncedParsedEntries.reduce((sum: number, entry) => sum + entry.target, 0);
-
-    const totalProduction = productionRecords.reduce((sum: number, r: any) => sum + r.production_amount, 0) + extraProduction;
-    const totalTarget = productionRecords.reduce((sum: number, r: any) => sum + r.target_amount, 0) + extraTarget;
+    // Global totals (structured records + unsynced parsed entries)
+    const extraProduction = unsyncedParsedEntries.reduce((s, e) => s + e.production, 0);
+    const extraTarget = unsyncedParsedEntries.reduce((s, e) => s + e.target, 0);
+    const totalProduction = Number((globalTotals as any)?.total_production ?? 0) + extraProduction;
+    const totalTarget = Number((globalTotals as any)?.total_target ?? 0) + extraTarget;
     const overallEfficiency = calculateEfficiency(totalProduction, totalTarget);
+    const recordCount = Number((globalTotals as any)?.record_count ?? 0);
 
-    // Shared aggregator: groups structured production records + parsed unsynced
-    // entries by trimmed, case-insensitive name. Used for both the global totals
-    // and every per-department bucket below (same logic, no behavior change).
-    function buildEfficiencyList(
-      records: any[],
-      getRecordName: (r: any) => string,
-      parsedEntries: { name: string; production: number; target: number }[]
+    // Shared aggregator: merges SQL aggregate rows + parsed unsynced entries.
+    function buildEfficiencyFromAggs(
+      aggs: Array<{ id: string; name: string; production: number; target: number }>,
+      parsedEntries: Array<{ name: string; production: number; target: number }>
     ) {
       const map: Record<string, { name: string; production: number; target: number }> = {};
-      for (const r of records) {
-        const name = getRecordName(r).trim();
-        const key = name.toLowerCase();
-        if (!map[key]) map[key] = { name, production: 0, target: 0 };
-        map[key].production += r.production_amount;
-        map[key].target += r.target_amount;
+      for (const row of aggs) {
+        const key = row.name.trim().toLowerCase();
+        if (!map[key]) map[key] = { name: row.name.trim(), production: 0, target: 0 };
+        map[key].production += Number(row.production);
+        map[key].target += Number(row.target);
       }
       for (const entry of parsedEntries) {
-        const name = entry.name;
-        const key = name.toLowerCase();
-        if (!map[key]) map[key] = { name, production: 0, target: 0 };
+        const key = entry.name.toLowerCase();
+        if (!map[key]) map[key] = { name: entry.name, production: 0, target: 0 };
         map[key].production += entry.production;
         map[key].target += entry.target;
       }
       return Object.entries(map).map(([id, data]) => ({
-        id, name: data.name,
+        id,
+        name: data.name,
         production: data.production,
         target: data.target,
-        efficiency: calculateEfficiency(data.production, data.target)
+        efficiency: calculateEfficiency(data.production, data.target),
       }));
     }
 
-    const operatorEfficiency = buildEfficiencyList(
-      productionRecords,
-      (r: any) => r.operator.name,
+    const operatorEfficiency = buildEfficiencyFromAggs(
+      operatorAggs as any[],
       unsyncedParsedEntries.map(e => ({ name: e.operatorName, production: e.production, target: e.target }))
     );
 
-    const machineEfficiency = buildEfficiencyList(
-      productionRecords,
-      (r: any) => r.machine.name,
+    const machineEfficiency = buildEfficiencyFromAggs(
+      machineAggs as any[],
       unsyncedParsedEntries.map(e => ({ name: e.machineName, production: e.production, target: e.target }))
     );
 
+    // Build maintenance lookup
     const latestMaintenanceByMachine: Record<string, any> = {};
-    for (const row of maintenanceRows) {
+    for (const row of maintenanceRows as any[]) {
       if (row.machine_id && !latestMaintenanceByMachine[row.machine_id]) {
         latestMaintenanceByMachine[row.machine_id] = {
           lastMaintenanceDate: row.entry_date,
@@ -276,41 +409,29 @@ dashboardRouter.get('/summary', async (req, res) => {
       }
     }
 
-    const machineMaintenanceSummary = (machines as any[]).map((machine) => {
+    const machineMaintenanceSummary = (machines as any[]).map((machine: any) => {
       const latest = latestMaintenanceByMachine[machine.id];
       return {
         machineId: machine.id,
         machineName: machine.name,
-        lastMaintenanceDate: latest ? latest.lastMaintenanceDate : null,
-        maintenanceType: latest ? latest.maintenanceType : 'N/A',
-        status: latest ? latest.status : 'N/A',
-        departmentName: latest ? latest.departmentName : 'N/A'
+        lastMaintenanceDate: latest?.lastMaintenanceDate ?? null,
+        maintenanceType: latest?.maintenanceType ?? 'N/A',
+        status: latest?.status ?? 'N/A',
+        departmentName: latest?.departmentName ?? 'N/A',
       };
     });
 
-    // Single-pass bucketing replaces the old O(n*m) approach of re-filtering
-    // the full productionRecords/reportEntries/maintenanceRows arrays once per
-    // department. Each record/entry/machine is now placed into its department
-    // bucket(s) exactly once, then departmentsSummary below does O(records-in-dept)
-    // work per department instead of O(total-records) — matching the original
-    // filter semantics (a production record counts for a department if either
-    // its own department_id or its machine's department_id matches).
-    const productionRecordsByDept = new Map<string, any[]>();
-    for (const r of productionRecords as any[]) {
-      const deptIds = new Set<string>();
-      if (r.department_id) deptIds.add(r.department_id);
-      if (r.machine?.department_id) deptIds.add(r.machine.department_id);
-      for (const id of deptIds) {
-        if (!productionRecordsByDept.has(id)) productionRecordsByDept.set(id, []);
-        productionRecordsByDept.get(id)!.push(r);
-      }
+    // Index per-dept SQL agg rows by dept_id for O(1) lookup per department
+    const deptOperatorMap = new Map<string, Array<{ id: string; name: string; production: number; target: number }>>();
+    for (const row of deptOperatorAggs as any[]) {
+      if (!deptOperatorMap.has(row.dept_id)) deptOperatorMap.set(row.dept_id, []);
+      deptOperatorMap.get(row.dept_id)!.push({ id: row.id, name: row.name, production: Number(row.production), target: Number(row.target) });
     }
 
-    const unsyncedEntriesByDept = new Map<string, typeof unsyncedParsedEntries>();
-    for (const entry of unsyncedParsedEntries) {
-      if (!entry.departmentId) continue;
-      if (!unsyncedEntriesByDept.has(entry.departmentId)) unsyncedEntriesByDept.set(entry.departmentId, []);
-      unsyncedEntriesByDept.get(entry.departmentId)!.push(entry);
+    const deptMachineMap = new Map<string, Array<{ id: string; name: string; production: number; target: number }>>();
+    for (const row of deptMachineAggs as any[]) {
+      if (!deptMachineMap.has(row.dept_id)) deptMachineMap.set(row.dept_id, []);
+      deptMachineMap.get(row.dept_id)!.push({ id: row.id, name: row.name, production: Number(row.production), target: Number(row.target) });
     }
 
     const machinesByDept = new Map<string, any[]>();
@@ -320,37 +441,39 @@ dashboardRouter.get('/summary', async (req, res) => {
       machinesByDept.get(m.department_id)!.push(m);
     }
 
-    const dailyDataMap: Record<string, { dateStr: string; production: number; target: number }> = {};
-    for (const r of productionRecords as any[]) {
-      const dStr = new Date(r.date).toISOString().split('T')[0];
-      if (!dailyDataMap[dStr]) dailyDataMap[dStr] = { dateStr: dStr, production: 0, target: 0 };
-      dailyDataMap[dStr].production += r.production_amount;
-      dailyDataMap[dStr].target += r.target_amount;
+    const unsyncedEntriesByDept = new Map<string, typeof unsyncedParsedEntries>();
+    for (const entry of unsyncedParsedEntries) {
+      if (!entry.departmentId) continue;
+      if (!unsyncedEntriesByDept.has(entry.departmentId)) unsyncedEntriesByDept.set(entry.departmentId, []);
+      unsyncedEntriesByDept.get(entry.departmentId)!.push(entry);
     }
-    const dailyData = Object.values(dailyDataMap).sort((a, b) => a.dateStr.localeCompare(b.dateStr));
 
-    const departmentsSummary = allDepts.map((dept: any) => {
-      const deptProductionRecords = productionRecordsByDept.get(dept.id) || [];
-      const deptUnsyncedParsedEntries = unsyncedEntriesByDept.get(dept.id) || [];
-      const deptMachines = machinesByDept.get(dept.id) || [];
+    // Daily trend (pre-aggregated from SQL — no raw record scan on the frontend)
+    const dailyData = (dailyAggs as any[]).map((r: any) => ({
+      dateStr: r.day as string,
+      production: Number(r.production),
+      target: Number(r.target),
+    }));
 
-      const deptExtraProduction = deptUnsyncedParsedEntries.reduce((sum: number, entry) => sum + entry.production, 0);
-      const deptExtraTarget = deptUnsyncedParsedEntries.reduce((sum: number, entry) => sum + entry.target, 0);
+    const departmentsSummary = (allDepts as any[]).map((dept: any) => {
+      const deptOpRows = deptOperatorMap.get(dept.id) ?? [];
+      const deptMcRows = deptMachineMap.get(dept.id) ?? [];
+      const deptUnsyncedEntries = unsyncedEntriesByDept.get(dept.id) ?? [];
+      const deptMachines = machinesByDept.get(dept.id) ?? [];
 
-      const deptTotalProduction = deptProductionRecords.reduce((sum: number, r: any) => sum + r.production_amount, 0) + deptExtraProduction;
-      const deptTotalTarget = deptProductionRecords.reduce((sum: number, r: any) => sum + r.target_amount, 0) + deptExtraTarget;
-      const deptOverallEfficiency = calculateEfficiency(deptTotalProduction, deptTotalTarget);
+      const deptExtraProduction = deptUnsyncedEntries.reduce((s, e) => s + e.production, 0);
+      const deptExtraTarget = deptUnsyncedEntries.reduce((s, e) => s + e.target, 0);
 
-      const deptOperatorEfficiency = buildEfficiencyList(
-        deptProductionRecords,
-        (r: any) => r.operator.name,
-        deptUnsyncedParsedEntries.map(e => ({ name: e.operatorName, production: e.production, target: e.target }))
+      const deptTotalProduction = deptOpRows.reduce((s, r) => s + r.production, 0) + deptExtraProduction;
+      const deptTotalTarget = deptOpRows.reduce((s, r) => s + r.target, 0) + deptExtraTarget;
+
+      const deptOperatorEfficiency = buildEfficiencyFromAggs(
+        deptOpRows,
+        deptUnsyncedEntries.map(e => ({ name: e.operatorName, production: e.production, target: e.target }))
       );
-
-      const deptMachineEfficiency = buildEfficiencyList(
-        deptProductionRecords,
-        (r: any) => r.machine.name,
-        deptUnsyncedParsedEntries.map(e => ({ name: e.machineName, production: e.production, target: e.target }))
+      const deptMachineEfficiency = buildEfficiencyFromAggs(
+        deptMcRows,
+        deptUnsyncedEntries.map(e => ({ name: e.machineName, production: e.production, target: e.target }))
       );
 
       const deptMachineMaintenanceSummary = deptMachines.map((machine: any) => {
@@ -358,21 +481,12 @@ dashboardRouter.get('/summary', async (req, res) => {
         return {
           machineId: machine.id,
           machineName: machine.name,
-          lastMaintenanceDate: latest ? latest.lastMaintenanceDate : null,
-          maintenanceType: latest ? latest.maintenanceType : 'N/A',
-          status: latest ? latest.status : 'N/A',
-          departmentName: latest ? latest.departmentName : 'N/A'
+          lastMaintenanceDate: latest?.lastMaintenanceDate ?? null,
+          maintenanceType: latest?.maintenanceType ?? 'N/A',
+          status: latest?.status ?? 'N/A',
+          departmentName: latest?.departmentName ?? 'N/A',
         };
       });
-
-      const deptDailyDataMap: Record<string, { dateStr: string; production: number; target: number }> = {};
-      for (const r of deptProductionRecords) {
-        const dStr = new Date(r.date).toISOString().split('T')[0];
-        if (!deptDailyDataMap[dStr]) deptDailyDataMap[dStr] = { dateStr: dStr, production: 0, target: 0 };
-        deptDailyDataMap[dStr].production += r.production_amount;
-        deptDailyDataMap[dStr].target += r.target_amount;
-      }
-      const deptDailyData = Object.values(deptDailyDataMap).sort((a, b) => a.dateStr.localeCompare(b.dateStr));
 
       return {
         departmentId: dept.id,
@@ -380,12 +494,12 @@ dashboardRouter.get('/summary', async (req, res) => {
         kpis: {
           totalProduction: deptTotalProduction,
           totalTarget: deptTotalTarget,
-          overallEfficiency: deptOverallEfficiency
+          overallEfficiency: calculateEfficiency(deptTotalProduction, deptTotalTarget),
         },
         operatorEfficiency: deptOperatorEfficiency,
         machineEfficiency: deptMachineEfficiency,
         machineMaintenanceSummary: deptMachineMaintenanceSummary,
-        dailyData: deptDailyData
+        dailyData: [],
       };
     });
 
@@ -396,7 +510,7 @@ dashboardRouter.get('/summary', async (req, res) => {
         overallEfficiency,
         manpowerCount,
         openJobOrders,
-        recordCount: productionRecords.length,
+        recordCount,
         reportFormatsCount,
       },
       operatorEfficiency,
