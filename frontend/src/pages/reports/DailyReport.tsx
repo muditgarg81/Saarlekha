@@ -10,6 +10,7 @@ import {
   ChevronDown, ChevronRight
 } from 'lucide-react';
 import clsx from 'clsx';
+import { formatCalculatedValue } from '../../utils/standards';
 
 interface Machine {
   id: string;
@@ -314,7 +315,13 @@ export function DailyReport() {
         const typeLabel = r.payload._type === 'MAINTENANCE' ? 'Maintenance' : r.format_version?.format?.name || 'QC/Quality';
         const detailsStr = Object.entries(r.payload)
           .filter(([key]) => !key.startsWith('_'))
-          .map(([k, v]) => `${k}: ${v}`)
+          .map(([k, v]) => {
+            const field = r.format_version?.fields_schema?.find(f => f.name === k);
+            if (field?.type === 'calculated') {
+              return `${k}: ${formatCalculatedValue(v, k)}`;
+            }
+            return `${k}: ${v}`;
+          })
           .join(', ');
 
         rows.push({
@@ -618,7 +625,9 @@ export function DailyReport() {
                                     <span className="font-semibold text-text-secondary uppercase text-[10px] tracking-wider block mb-0.5">
                                       {f.name}{f.unit ? ` (${f.unit})` : ''}
                                     </span>
-                                    <span className="font-mono font-medium">{String(val)}</span>
+                                    <span className="font-mono font-medium">
+                                      {f.type === 'calculated' ? formatCalculatedValue(val, f.name) : String(val)}
+                                    </span>
                                   </div>
                                 );
                               }).filter(Boolean);

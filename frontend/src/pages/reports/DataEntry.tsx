@@ -868,7 +868,11 @@ export function DataEntry() {
                               className="block w-full border border-border bg-gray-50 rounded-lg px-3 py-2 text-sm text-text-secondary font-semibold cursor-not-allowed"
                               value={(() => {
                                 const val = evaluateReportCalculatedField(field, payload);
-                                return isNaN(val) || !isFinite(val) ? '0' : String(Number(val.toFixed(4)));
+                                if (isNaN(val) || !isFinite(val)) return '0';
+                                if (field.name.toLowerCase().includes('efficiency')) {
+                                  return val.toFixed(1);
+                                }
+                                return String(Number(val.toFixed(4)));
                               })()}
                             />
                             {field.formula && (

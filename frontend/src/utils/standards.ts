@@ -72,3 +72,14 @@ export const injectStandardFields = (schema: FormatField[] = [], formatType: str
   // Prepend missing standard fields at the beginning in their default order
   return [...missingStandards, ...currentFields];
 };
+
+export function formatCalculatedValue(val: any, fieldName: string): string {
+  if (val === undefined || val === null || val === '') return '—';
+  const num = Number(val);
+  if (isNaN(num)) return String(val);
+  if (fieldName.toLowerCase().includes('efficiency')) {
+    return num.toFixed(1);
+  }
+  return String(Number(num.toFixed(4)));
+}
+

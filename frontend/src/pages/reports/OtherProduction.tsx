@@ -4,7 +4,7 @@ import api from '../../utils/api';
 import { useAuth } from '../../context/AuthContext';
 import { ExportBar } from '../../utils/export';
 import type { ExportOptions } from '../../utils/export';
-import { injectStandardFields } from '../../utils/standards';
+import { injectStandardFields, formatCalculatedValue } from '../../utils/standards';
 import { FileSpreadsheet, Plus, Trash2, MoreVertical, Edit, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
 import clsx from 'clsx';
 
@@ -291,7 +291,12 @@ export function OtherProduction() {
     if (norm === 'logged by' || norm === 'submitted by') {
       return entry.submitter?.email ?? '';
     }
-    return entry.payload?.[fieldName] !== undefined ? String(entry.payload[fieldName]) : '—';
+    const val = entry.payload?.[fieldName];
+    const field = entry.format_version?.fields_schema?.find(f => f.name === fieldName);
+    if (field?.type === 'calculated') {
+      return formatCalculatedValue(val, fieldName);
+    }
+    return val !== undefined && val !== null && val !== '' ? String(val) : '—';
   };
 
   const displayFields = React.useMemo(() => {
