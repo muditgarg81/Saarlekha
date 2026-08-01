@@ -710,5 +710,19 @@ ALL RLS TENANT ISOLATION TESTS PASSED! 🎉
   - Verified local build compiles successfully (`npm run build`) with zero TypeScript errors.
   - Committed and pushed all changes to git, triggering automatic cloud deployments.
 
+### 55. Limit Efficiency Calculated Decimal Values to 1 Decimal Place
+- **Added formatCalculatedValue Helper**:
+  - Created a centralized utility function `formatCalculatedValue` in [standards.ts](file:///c:/claude/Saarlekha/frontend/src/utils/standards.ts) to handle decimal formatting. If the field's name contains "efficiency" (case-insensitive), it rounds and limits the number to **1 decimal place** (`toFixed(1)`). Other calculated fields are rounded to at most 4 decimal places with trailing zero truncation.
+- **Applied to Dynamic Report Detail Tables & Exports**:
+  - Updated `getFieldValue` in [OtherProduction.tsx](file:///c:/claude/Saarlekha/frontend/src/pages/reports/OtherProduction.tsx), [GeneralDetail.tsx](file:///c:/claude/Saarlekha/frontend/src/pages/reports/GeneralDetail.tsx), [QualityDetail.tsx](file:///c:/claude/Saarlekha/frontend/src/pages/reports/QualityDetail.tsx), and [ProductionDetail.tsx](file:///c:/claude/Saarlekha/frontend/src/pages/reports/ProductionDetail.tsx) to resolve dynamic calculated field values through `formatCalculatedValue`. This fixes the display in both the UI grids and Excel/PDF/CSV/TXT exports.
+- **Applied to Daily Operations Summaries**:
+  - Updated [DailyReport.tsx](file:///c:/claude/Saarlekha/frontend/src/pages/reports/DailyReport.tsx) to format dynamic calculated fields in both the text details display and the individual details tags.
+- **Applied to Report Data Entry Form**:
+  - Updated [DataEntry.tsx](file:///c:/claude/Saarlekha/frontend/src/pages/reports/DataEntry.tsx) to display calculated values with `toFixed(1)` if the field name contains "efficiency".
+- **Verification**:
+  - Confirmed the frontend builds successfully without TypeScript or build issues.
+  - Committed and pushed changes, initiating cloud redeployment.
+
+
 
 
