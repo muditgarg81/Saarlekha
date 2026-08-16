@@ -87,15 +87,21 @@ dashboardRouter.get('/summary', async (req, res) => {
         deptFilter = departmentId ? [departmentId as string] : undefined;
       }
 
+      // Backfill missing department_id on ProductionRecord if null
+      await tx.$executeRaw`
+        UPDATE "ProductionRecord" pr
+        SET department_id = COALESCE(m.department_id, mc.department_id)
+        FROM "Manpower" m, "Machine" mc
+        WHERE pr.operator_id = m.id AND pr.machine_id = mc.id AND pr.department_id IS NULL
+      `;
+
       // SQL condition fragments — used in $queryRaw calls below.
-      // prDeptCond: filter production records by operator's department membership.
+      // prDeptCond: filter production records by operator's or machine's or record's department membership.
       const prDateCond = startDt && endDt
         ? Prisma.sql`AND pr.date >= ${startDt} AND pr.date <= ${endDt}`
         : Prisma.empty;
       const prDeptCond = deptFilter
-        ? Prisma.sql`AND pr.operator_id IN (
-            SELECT id FROM "Manpower" WHERE department_id = ANY(${deptFilter}::text[])
-          )`
+        ? Prisma.sql`AND COALESCE(pr.department_id, m.department_id, mc.department_id) = ANY(${deptFilter}::text[])`
         : Prisma.empty;
       const reDeptCond = deptFilter
         ? Prisma.sql`AND re.department_id = ANY(${deptFilter}::text[])`
@@ -128,6 +134,8 @@ dashboardRouter.get('/summary', async (req, res) => {
           COALESCE(SUM(pr.target_amount), 0)::float     AS total_target,
           COUNT(*)::bigint                              AS record_count
         FROM "ProductionRecord" pr
+        JOIN "Manpower" m ON m.id = pr.operator_id
+        LEFT JOIN "Machine" mc ON mc.id = pr.machine_id
         WHERE 1=1 ${prDateCond} ${prDeptCond}
       `;
 
@@ -141,6 +149,8 @@ dashboardRouter.get('/summary', async (req, res) => {
           SUM(pr.production_amount)::float      AS production,
           SUM(pr.target_amount)::float          AS target
         FROM "ProductionRecord" pr
+        JOIN "Manpower" m ON m.id = pr.operator_id
+        LEFT JOIN "Machine" mc ON mc.id = pr.machine_id
         WHERE 1=1 ${prDateCond} ${prDeptCond}
         GROUP BY DATE(pr.date)
         ORDER BY DATE(pr.date)
@@ -157,6 +167,7 @@ dashboardRouter.get('/summary', async (req, res) => {
           SUM(pr.target_amount)::float     AS target
         FROM "ProductionRecord" pr
         JOIN "Manpower" m ON m.id = pr.operator_id
+        LEFT JOIN "Machine" mc ON mc.id = pr.machine_id
         WHERE 1=1 ${prDateCond} ${prDeptCond}
         GROUP BY m.id, m.name
       `;
@@ -172,11 +183,12 @@ dashboardRouter.get('/summary', async (req, res) => {
           SUM(pr.target_amount)::float     AS target
         FROM "ProductionRecord" pr
         JOIN "Machine" mc ON mc.id = pr.machine_id
+        LEFT JOIN "Manpower" m ON m.id = pr.operator_id
         WHERE 1=1 ${prDateCond} ${prDeptCond}
         GROUP BY mc.id, mc.name
       `;
 
-      // Per-department operator aggregates (via pr.department_id).
+      // Per-department operator aggregates.
       const deptOperatorAggs = await tx.$queryRaw<Array<{
         dept_id: string;
         id: string;
@@ -184,19 +196,18 @@ dashboardRouter.get('/summary', async (req, res) => {
         production: number;
         target: number;
       }>>`
-        SELECT pr.department_id AS dept_id, m.id, m.name,
+        SELECT COALESCE(pr.department_id, m.department_id, mc.department_id) AS dept_id, m.id, m.name,
           SUM(pr.production_amount)::float AS production,
           SUM(pr.target_amount)::float     AS target
         FROM "ProductionRecord" pr
         JOIN "Manpower" m ON m.id = pr.operator_id
+        LEFT JOIN "Machine" mc ON mc.id = pr.machine_id
         WHERE 1=1 ${prDateCond} ${prDeptCond}
-          AND pr.department_id IS NOT NULL
-        GROUP BY pr.department_id, m.id, m.name
+          AND COALESCE(pr.department_id, m.department_id, mc.department_id) IS NOT NULL
+        GROUP BY COALESCE(pr.department_id, m.department_id, mc.department_id), m.id, m.name
       `;
 
-      // Per-department machine aggregates. A production record can count toward
-      // both pr.department_id and the machine's department_id when they differ
-      // (matching the original bucketing logic). UNION ALL then re-aggregate.
+      // Per-department machine aggregates.
       const deptMachineAggs = await tx.$queryRaw<Array<{
         dept_id: string;
         id: string;
@@ -205,20 +216,13 @@ dashboardRouter.get('/summary', async (req, res) => {
         target: number;
       }>>`
         WITH raw AS (
-          SELECT pr.department_id AS dept_id, mc.id, mc.name,
+          SELECT COALESCE(pr.department_id, mc.department_id, m.department_id) AS dept_id, mc.id, mc.name,
             pr.production_amount AS prod, pr.target_amount AS tgt
           FROM "ProductionRecord" pr
           JOIN "Machine" mc ON mc.id = pr.machine_id
+          LEFT JOIN "Manpower" m ON m.id = pr.operator_id
           WHERE 1=1 ${prDateCond} ${prDeptCond}
-            AND pr.department_id IS NOT NULL
-          UNION ALL
-          SELECT mc.department_id AS dept_id, mc.id, mc.name,
-            pr.production_amount, pr.target_amount
-          FROM "ProductionRecord" pr
-          JOIN "Machine" mc ON mc.id = pr.machine_id
-          WHERE 1=1 ${prDateCond} ${prDeptCond}
-            AND mc.department_id IS NOT NULL
-            AND mc.department_id IS DISTINCT FROM pr.department_id
+            AND COALESCE(pr.department_id, mc.department_id, m.department_id) IS NOT NULL
         )
         SELECT dept_id, id, name,
           SUM(prod)::float AS production,
@@ -231,6 +235,8 @@ dashboardRouter.get('/summary', async (req, res) => {
       const syncedIdsRows = await tx.$queryRaw<Array<{ id: string }>>`
         SELECT report_entry_id AS id
         FROM "ProductionRecord" pr
+        JOIN "Manpower" m ON m.id = pr.operator_id
+        LEFT JOIN "Machine" mc ON mc.id = pr.machine_id
         WHERE report_entry_id IS NOT NULL
           ${prDateCond} ${prDeptCond}
       `;
