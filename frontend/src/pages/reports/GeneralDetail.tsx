@@ -51,8 +51,7 @@ export function GeneralDetail() {
   const [sortAsc, setSortAsc] = useState<boolean>(false);
 
   const today = new Date().toISOString().split('T')[0];
-  const thirtyAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-  const [startDate, setStartDate] = useState(thirtyAgo);
+  const [startDate, setStartDate] = useState(today);
   const [endDate, setEndDate] = useState(today);
 
   useEffect(() => {
