@@ -24,7 +24,7 @@ export async function syncReportEntryToProduction(
   // Look for production amount key
   const prodKey = keys.find(k => {
     const l = k.toLowerCase().replace(/[^a-z0-9]/g, '');
-    return l.startsWith('production') || l.startsWith('output') || l.startsWith('produced');
+    return l.startsWith('production') || l.startsWith('output') || l.startsWith('produced') || l.startsWith('bags') || l.includes('qty');
   });
 
   // Look for target amount key
@@ -44,13 +44,13 @@ export async function syncReportEntryToProduction(
   // Look for operator key
   const opKey = keys.find(k => {
     const l = k.toLowerCase().replace(/[^a-z0-9]/g, '');
-    return l.startsWith('operator') || l === 'person' || l === 'staff';
+    return l.startsWith('operator') || l === 'person' || l === 'staff' || l.startsWith('line') || l.includes('ref') || l.startsWith('helper');
   });
 
   // Look for machine key
   const machineKey = keys.find(k => {
     const l = k.toLowerCase().replace(/[^a-z0-9]/g, '');
-    return l.startsWith('machine') || l.startsWith('loom');
+    return l.startsWith('machine') || l.startsWith('loom') || l.startsWith('mc') || l.startsWith('line') || l.includes('ref');
   });
 
   // Resolve values

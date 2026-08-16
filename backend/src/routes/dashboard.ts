@@ -6,15 +6,11 @@ import { calculateEfficiency } from '../utils/efficiency';
 
 function hasMachineAndOperator(fields: any[]) {
   if (!fields || !Array.isArray(fields)) return false;
-  const hasMachine = fields.some((f: any) => {
+  const hasProdOrTarget = fields.some((f: any) => {
     const l = f.name.toLowerCase().replace(/[^a-z0-9]/g, '');
-    return l.startsWith('machine') || l.startsWith('loom');
+    return l.startsWith('production') || l.startsWith('output') || l.startsWith('produced') || l.startsWith('bags') || l.includes('qty') || l.startsWith('target');
   });
-  const hasOperator = fields.some((f: any) => {
-    const l = f.name.toLowerCase().replace(/[^a-z0-9]/g, '');
-    return l.startsWith('operator') || l === 'person' || l === 'staff';
-  });
-  return hasMachine && hasOperator;
+  return hasProdOrTarget;
 }
 
 function parsePayload(payload: any) {
@@ -23,7 +19,7 @@ function parsePayload(payload: any) {
 
   const prodKey = keys.find(k => {
     const l = k.toLowerCase().replace(/[^a-z0-9]/g, '');
-    return l.startsWith('production') || l.startsWith('output') || l.startsWith('produced');
+    return l.startsWith('production') || l.startsWith('output') || l.startsWith('produced') || l.startsWith('bags') || l.includes('qty');
   });
   const targetKey = keys.find(k => {
     const l = k.toLowerCase().replace(/[^a-z0-9]/g, '');
@@ -31,21 +27,24 @@ function parsePayload(payload: any) {
   });
   const opKey = keys.find(k => {
     const l = k.toLowerCase().replace(/[^a-z0-9]/g, '');
-    return l.startsWith('operator') || l === 'person' || l === 'staff';
+    return l.startsWith('operator') || l === 'person' || l === 'staff' || l.startsWith('line') || l.includes('ref') || l.startsWith('helper');
   });
   const machineKey = keys.find(k => {
     const l = k.toLowerCase().replace(/[^a-z0-9]/g, '');
-    return l.startsWith('machine') || l.startsWith('loom');
+    return l.startsWith('machine') || l.startsWith('loom') || l.startsWith('mc') || l.startsWith('line') || l.includes('ref');
   });
 
-  if (!prodKey || !targetKey || !opKey || !machineKey) return null;
+  if (!prodKey && !targetKey) return null;
 
-  const production = parseFloat(payload[prodKey]);
-  const target = parseFloat(payload[targetKey]);
+  const production = prodKey ? parseFloat(payload[prodKey]) : 0;
+  const target = targetKey ? parseFloat(payload[targetKey]) : 0;
+
+  const opVal = opKey && payload[opKey] ? String(payload[opKey]).trim() : '';
+  const mcVal = machineKey && payload[machineKey] ? String(payload[machineKey]).trim() : '';
 
   return {
-    operatorName: String(payload[opKey]).trim(),
-    machineName: String(payload[machineKey]).trim(),
+    operatorName: opVal || mcVal || 'N/A',
+    machineName: mcVal || opVal || 'N/A',
     production: isNaN(production) ? 0 : production,
     target: isNaN(target) ? 0 : target
   };
