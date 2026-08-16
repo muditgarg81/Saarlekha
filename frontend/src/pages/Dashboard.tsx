@@ -380,18 +380,39 @@ export function Dashboard() {
     );
   }
 
+  const selectedDeptObj = selectedDepartmentId && data?.departmentsSummary
+    ? data.departmentsSummary.find((d: any) => d.departmentId === selectedDepartmentId)
+    : null;
+
   const kpiCards = data ? [
     {
-      name: 'Production / Target',
-      value: (
+      name: selectedDepartmentId ? `${selectedDeptObj?.departmentName || 'Department'} Production / Target` : 'Department Production Gist',
+      value: selectedDepartmentId ? (
         <div className="flex flex-col">
-          <span>{data.kpis.totalProduction.toLocaleString()}</span>
+          <span>{(selectedDeptObj?.kpis?.totalProduction ?? 0).toLocaleString()}</span>
           <span className="text-sm font-normal text-text-secondary mt-0.5">
-            Target: {data.kpis.totalTarget.toLocaleString()}
+            Target: {(selectedDeptObj?.kpis?.totalTarget ?? 0).toLocaleString()}
           </span>
         </div>
+      ) : (
+        <div className="flex flex-col gap-1 mt-1 max-h-[70px] overflow-y-auto pr-1">
+          {data.departmentsSummary && data.departmentsSummary.length > 0 ? (
+            data.departmentsSummary.map((d: any) => (
+              <div key={d.departmentId} className="flex items-center justify-between text-xs gap-2">
+                <span className="font-semibold text-text-primary truncate max-w-[120px]" title={d.departmentName}>{d.departmentName}:</span>
+                <span className="font-mono text-text-secondary font-medium">
+                  {d.kpis.totalProduction.toLocaleString()} / {d.kpis.totalTarget.toLocaleString()}
+                </span>
+              </div>
+            ))
+          ) : (
+            <span className="text-sm font-normal text-text-secondary">No records</span>
+          )}
+        </div>
       ),
-      sub: `Avg Efficiency: ${data.kpis.overallEfficiency ? `${data.kpis.overallEfficiency}%` : 'N/A'}`,
+      sub: selectedDepartmentId
+        ? `Department Efficiency: ${selectedDeptObj?.kpis?.overallEfficiency ? `${selectedDeptObj.kpis.overallEfficiency}%` : 'N/A'}`
+        : 'Department-wise breakdown',
       icon: Factory,
       color: 'bg-blue-50 text-primary',
       href: '/production'
@@ -661,9 +682,36 @@ export function Dashboard() {
               No department summaries available.
             </div>
           ) : (
-            data.departmentsSummary
-              .filter(dept => !selectedDepartmentId || dept.departmentId === selectedDepartmentId)
-              .map(dept => (
+            <>
+              {!selectedDepartmentId && data.departmentsSummary && data.departmentsSummary.length > 0 && (
+                <div className="bg-white border border-border rounded-card p-5 shadow-sm space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-sm font-bold text-text-primary flex items-center gap-2">
+                      <Factory className="h-4 w-4 text-primary" /> Department Production Gist
+                    </h3>
+                    <span className="text-xs text-text-secondary">Summary breakdown by department</span>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {data.departmentsSummary.map(dept => (
+                      <div key={dept.departmentId} className="bg-gray-50/70 border border-border rounded-lg p-3 space-y-1.5">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-bold text-text-primary">{dept.departmentName} Department</span>
+                          <EfficiencyBadge value={dept.kpis.overallEfficiency} />
+                        </div>
+                        <div className="flex items-baseline justify-between text-xs pt-1 border-t border-gray-200/60">
+                          <span className="text-text-secondary">Production / Target:</span>
+                          <span className="font-mono font-bold text-text-primary">
+                            {dept.kpis.totalProduction.toLocaleString()} / {dept.kpis.totalTarget.toLocaleString()}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {data.departmentsSummary
+                .filter(dept => !selectedDepartmentId || dept.departmentId === selectedDepartmentId)
+                .map(dept => (
                 <div key={dept.departmentId} className="space-y-4">
                   {/* Department Header Card */}
                   <div className="bg-white border border-border rounded-card p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm">
@@ -834,7 +882,8 @@ export function Dashboard() {
                     </div>
                   </div>
                 </div>
-              ))
+              ))}
+            </>
           )}
         </div>
       )}
