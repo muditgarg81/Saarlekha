@@ -15,6 +15,12 @@ exports.jobOrdersRouter.get('/', async (req, res) => {
         // Run a fast, 3-query in-memory check to keep all job order production quantities synchronized
         await (0, sync_1.syncAllJobOrdersProduction)(prismaTenant, tenantId);
         const where = { company_id: tenantId };
+        if (req.query.status) {
+            where.status = String(req.query.status);
+        }
+        else if (req.query.openOnly === 'true') {
+            where.status = { notIn: ['COMPLETED', 'CANCELLED', 'CLOSED'] };
+        }
         if (user.role === 'OPERATIONS') {
             const userDepts = await prismaTenant.userDepartment.findMany({
                 where: { user_id: user.id },

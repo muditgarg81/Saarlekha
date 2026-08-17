@@ -194,10 +194,18 @@ export function DataEntry() {
         api.get('/manpower'),
         api.get('/machines'),
         api.get('/customers'),
-        api.get('/job-orders'),
+        api.get('/job-orders?openOnly=true'),
         api.get('/items?status=ACTIVE')
       ]);
-      const sortedJobOrders = (jobOrdersRes.data || []).sort((a: any, b: any) =>
+      const openJobOrders = (jobOrdersRes.data || []).filter((o: any) => {
+        const isClosed = ['COMPLETED', 'CANCELLED', 'CLOSED'].includes(o.status);
+        if (isClosed && editingSavedEntry?.payload) {
+          const isCurrentlySelected = Object.values(editingSavedEntry.payload).some(val => String(val) === o.order_number);
+          if (isCurrentlySelected) return true;
+        }
+        return !isClosed;
+      });
+      const sortedJobOrders = openJobOrders.sort((a: any, b: any) =>
         (a.order_number || '').localeCompare(b.order_number || '', undefined, { numeric: true, sensitivity: 'base' })
       );
       setFormats(formatsRes.data);

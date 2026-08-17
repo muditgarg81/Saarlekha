@@ -17,6 +17,12 @@ jobOrdersRouter.get('/', async (req, res) => {
 
     const where: any = { company_id: tenantId! };
 
+    if (req.query.status) {
+      where.status = String(req.query.status);
+    } else if (req.query.openOnly === 'true') {
+      where.status = { notIn: ['COMPLETED', 'CANCELLED', 'CLOSED'] };
+    }
+
     if (user.role === 'OPERATIONS') {
       const userDepts = await prismaTenant.userDepartment.findMany({
         where: { user_id: user.id },
