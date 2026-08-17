@@ -386,33 +386,18 @@ export function Dashboard() {
 
   const kpiCards = data ? [
     {
-      name: selectedDepartmentId ? `${selectedDeptObj?.departmentName || 'Department'} Production / Target` : 'Department Production Gist',
-      value: selectedDepartmentId ? (
+      name: selectedDepartmentId ? `${selectedDeptObj?.departmentName || 'Department'} Production / Target` : 'Production / Target',
+      value: (
         <div className="flex flex-col">
-          <span>{(selectedDeptObj?.kpis?.totalProduction ?? 0).toLocaleString()}</span>
+          <span>{(selectedDepartmentId ? selectedDeptObj?.kpis?.totalProduction : data.kpis.totalProduction)?.toLocaleString() ?? 0}</span>
           <span className="text-sm font-normal text-text-secondary mt-0.5">
-            Target: {(selectedDeptObj?.kpis?.totalTarget ?? 0).toLocaleString()}
+            Target: {(selectedDepartmentId ? selectedDeptObj?.kpis?.totalTarget : data.kpis.totalTarget)?.toLocaleString() ?? 0}
           </span>
-        </div>
-      ) : (
-        <div className="flex flex-col gap-1 mt-1 max-h-[70px] overflow-y-auto pr-1">
-          {data.departmentsSummary && data.departmentsSummary.length > 0 ? (
-            data.departmentsSummary.map((d: any) => (
-              <div key={d.departmentId} className="flex items-center justify-between text-xs gap-2">
-                <span className="font-semibold text-text-primary truncate max-w-[120px]" title={d.departmentName}>{d.departmentName}:</span>
-                <span className="font-mono text-text-secondary font-medium">
-                  {d.kpis.totalProduction.toLocaleString()} / {d.kpis.totalTarget.toLocaleString()}
-                </span>
-              </div>
-            ))
-          ) : (
-            <span className="text-sm font-normal text-text-secondary">No records</span>
-          )}
         </div>
       ),
       sub: selectedDepartmentId
         ? `Department Efficiency: ${selectedDeptObj?.kpis?.overallEfficiency ? `${selectedDeptObj.kpis.overallEfficiency}%` : 'N/A'}`
-        : 'Department-wise breakdown',
+        : `Avg Efficiency: ${data.kpis.overallEfficiency ? `${data.kpis.overallEfficiency}%` : 'N/A'}`,
       icon: Factory,
       color: 'bg-blue-50 text-primary',
       href: '/production'
@@ -687,25 +672,52 @@ export function Dashboard() {
                 <div className="bg-white border border-border rounded-card p-5 shadow-sm space-y-3">
                   <div className="flex items-center justify-between">
                     <h3 className="text-sm font-bold text-text-primary flex items-center gap-2">
-                      <Factory className="h-4 w-4 text-primary" /> Department Production Gist
+                      <Wrench className="h-4 w-4 text-primary" /> Machine Maintenance Gist
                     </h3>
-                    <span className="text-xs text-text-secondary">Summary breakdown by department</span>
+                    <span className="text-xs text-text-secondary">Department maintenance overview</span>
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {data.departmentsSummary.map(dept => (
-                      <div key={dept.departmentId} className="bg-gray-50/70 border border-border rounded-lg p-3 space-y-1.5">
-                        <div className="flex items-center justify-between">
-                          <span className="text-xs font-bold text-text-primary">{dept.departmentName} Department</span>
-                          <EfficiencyBadge value={dept.kpis.overallEfficiency} />
+                    {data.departmentsSummary.map(dept => {
+                      const maintList = dept.machineMaintenanceSummary || [];
+                      const totalMachines = maintList.length;
+                      const activeMaintCount = maintList.filter((m: any) => m.lastMaintenanceDate).length;
+                      const pendingCount = maintList.filter((m: any) => ['Pending', 'In Progress', 'Breakdown'].includes(m.status)).length;
+                      const latestEntry = maintList
+                        .filter((m: any) => m.lastMaintenanceDate)
+                        .sort((a: any, b: any) => new Date(b.lastMaintenanceDate).getTime() - new Date(a.lastMaintenanceDate).getTime())[0];
+
+                      return (
+                        <div key={dept.departmentId} className="bg-gray-50/70 border border-border rounded-lg p-3 space-y-2">
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-bold text-text-primary">{dept.departmentName} Department</span>
+                            <span className={clsx(
+                              "px-2 py-0.5 text-[10px] font-semibold rounded-full",
+                              pendingCount > 0 ? "bg-amber-100 text-amber-800" : "bg-teal-100 text-teal-800"
+                            )}>
+                              {pendingCount > 0 ? `${pendingCount} Pending` : 'All Clear'}
+                            </span>
+                          </div>
+                          <div className="space-y-1 text-xs text-text-secondary pt-1 border-t border-gray-200/60">
+                            <div className="flex justify-between">
+                              <span>Total Machines:</span>
+                              <span className="font-mono font-semibold text-text-primary">{totalMachines}</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span>Maintained:</span>
+                              <span className="font-mono font-semibold text-text-primary">{activeMaintCount} / {totalMachines}</span>
+                            </div>
+                            {latestEntry && latestEntry.lastMaintenanceDate && (
+                              <div className="flex justify-between text-[11px] pt-0.5">
+                                <span className="truncate max-w-[120px]" title={latestEntry.machineName}>Latest ({latestEntry.machineName}):</span>
+                                <span className="font-mono font-medium text-text-primary">
+                                  {new Date(latestEntry.lastMaintenanceDate).toLocaleDateString()}
+                                </span>
+                              </div>
+                            )}
+                          </div>
                         </div>
-                        <div className="flex items-baseline justify-between text-xs pt-1 border-t border-gray-200/60">
-                          <span className="text-text-secondary">Production / Target:</span>
-                          <span className="font-mono font-bold text-text-primary">
-                            {dept.kpis.totalProduction.toLocaleString()} / {dept.kpis.totalTarget.toLocaleString()}
-                          </span>
-                        </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
               )}
