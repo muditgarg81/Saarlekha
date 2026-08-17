@@ -41,16 +41,46 @@ export async function syncReportEntryToProduction(
     return;
   }
 
+  const isExcludedKey = (l: string) =>
+    l.includes('order') ||
+    l.includes('customer') ||
+    l.includes('item') ||
+    l.includes('product') ||
+    l.includes('downtime') ||
+    l.includes('reason') ||
+    l.includes('reading') ||
+    l.includes('closing') ||
+    l.includes('opening') ||
+    l.includes('gsm') ||
+    l.includes('bag');
+
   // Look for operator key
   const opKey = keys.find(k => {
     const l = k.toLowerCase().replace(/[^a-z0-9]/g, '');
-    return l.startsWith('operator') || l === 'person' || l === 'staff' || l.startsWith('line') || l.includes('ref') || l.startsWith('helper');
+    if (isExcludedKey(l)) return false;
+    return (
+      l.startsWith('operator') ||
+      l === 'person' ||
+      l === 'staff' ||
+      l.startsWith('lineref') ||
+      l === 'linereference' ||
+      l.startsWith('helper') ||
+      l.startsWith('worker')
+    );
   });
 
   // Look for machine key
   const machineKey = keys.find(k => {
     const l = k.toLowerCase().replace(/[^a-z0-9]/g, '');
-    return l.startsWith('machine') || l.startsWith('loom') || l.startsWith('mc') || l.startsWith('line') || l.includes('ref');
+    if (isExcludedKey(l)) return false;
+    return (
+      l.startsWith('machine') ||
+      l.startsWith('loom') ||
+      l === 'mc' ||
+      l.startsWith('mcno') ||
+      l.startsWith('machineno') ||
+      l.startsWith('loomno')
+    );
   });
 
   // Resolve values

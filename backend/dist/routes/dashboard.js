@@ -15,6 +15,19 @@ function hasMachineAndOperator(fields) {
     });
     return hasProdOrTarget;
 }
+function isExcludedKey(l) {
+    return (l.includes('order') ||
+        l.includes('customer') ||
+        l.includes('item') ||
+        l.includes('product') ||
+        l.includes('downtime') ||
+        l.includes('reason') ||
+        l.includes('reading') ||
+        l.includes('closing') ||
+        l.includes('opening') ||
+        l.includes('gsm') ||
+        l.includes('bag'));
+}
 function parsePayload(payload) {
     if (!payload || typeof payload !== 'object')
         return null;
@@ -29,11 +42,26 @@ function parsePayload(payload) {
     });
     const opKey = keys.find(k => {
         const l = k.toLowerCase().replace(/[^a-z0-9]/g, '');
-        return l.startsWith('operator') || l === 'person' || l === 'staff' || l.startsWith('line') || l.includes('ref') || l.startsWith('helper');
+        if (isExcludedKey(l))
+            return false;
+        return (l.startsWith('operator') ||
+            l === 'person' ||
+            l === 'staff' ||
+            l.startsWith('lineref') ||
+            l === 'linereference' ||
+            l.startsWith('helper') ||
+            l.startsWith('worker'));
     });
     const machineKey = keys.find(k => {
         const l = k.toLowerCase().replace(/[^a-z0-9]/g, '');
-        return l.startsWith('machine') || l.startsWith('loom') || l.startsWith('mc') || l.startsWith('line') || l.includes('ref');
+        if (isExcludedKey(l))
+            return false;
+        return (l.startsWith('machine') ||
+            l.startsWith('loom') ||
+            l === 'mc' ||
+            l.startsWith('mcno') ||
+            l.startsWith('machineno') ||
+            l.startsWith('loomno'));
     });
     if (!prodKey && !targetKey)
         return null;
@@ -42,8 +70,8 @@ function parsePayload(payload) {
     const opVal = opKey && payload[opKey] ? String(payload[opKey]).trim() : '';
     const mcVal = machineKey && payload[machineKey] ? String(payload[machineKey]).trim() : '';
     return {
-        operatorName: opVal || mcVal || 'N/A',
-        machineName: mcVal || opVal || 'N/A',
+        operatorName: opVal,
+        machineName: mcVal,
         production: isNaN(production) ? 0 : production,
         target: isNaN(target) ? 0 : target
     };
@@ -294,6 +322,8 @@ exports.dashboardRouter.get('/summary', async (req, res) => {
         function buildEfficiencyFromAggs(aggs, parsedEntries) {
             const map = {};
             for (const row of aggs) {
+                if (!row.name || !row.name.trim() || row.name.trim().toUpperCase() === 'N/A')
+                    continue;
                 const key = row.name.trim().toLowerCase();
                 if (!map[key])
                     map[key] = { name: row.name.trim(), production: 0, target: 0 };
@@ -301,9 +331,11 @@ exports.dashboardRouter.get('/summary', async (req, res) => {
                 map[key].target += Number(row.target);
             }
             for (const entry of parsedEntries) {
-                const key = entry.name.toLowerCase();
+                if (!entry.name || !entry.name.trim() || entry.name.trim().toUpperCase() === 'N/A')
+                    continue;
+                const key = entry.name.trim().toLowerCase();
                 if (!map[key])
-                    map[key] = { name: entry.name, production: 0, target: 0 };
+                    map[key] = { name: entry.name.trim(), production: 0, target: 0 };
                 map[key].production += entry.production;
                 map[key].target += entry.target;
             }
