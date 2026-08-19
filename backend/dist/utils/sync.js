@@ -1,12 +1,29 @@
 "use strict";
-/**
- * Saarlekha — Report Entry Synchronization
- * Checks if a ReportEntry contains production data and synchronizes it with the ProductionRecord table.
- */
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.findJobOrderKey = findJobOrderKey;
 exports.syncReportEntryToProduction = syncReportEntryToProduction;
 exports.syncJobOrderProduction = syncJobOrderProduction;
 exports.syncAllJobOrdersProduction = syncAllJobOrdersProduction;
+function findJobOrderKey(keys) {
+    const primaryKey = keys.find(k => {
+        const l = k.toLowerCase().replace(/[^a-z0-9]/g, '');
+        return (l.startsWith('joborder') ||
+            l === 'joborderno' ||
+            l === 'jobordernumber' ||
+            l === 'joborderid' ||
+            l === 'joborderref' ||
+            l === 'jono' ||
+            l === 'jobno');
+    });
+    if (primaryKey)
+        return primaryKey;
+    return keys.find(k => {
+        const l = k.toLowerCase().replace(/[^a-z0-9]/g, '');
+        if (l.includes('ref') || l.includes('customer') || l.includes('item'))
+            return false;
+        return l === 'order' || l === 'orderno' || l === 'ordernumber' || l.startsWith('order') || l.startsWith('ordernum');
+    });
+}
 /**
  * Synchronizes a ReportEntry with the ProductionRecord table if it contains production data.
  */
@@ -141,10 +158,7 @@ entry) {
         });
     }
     // Recalculate and sync job order production quantity if applicable
-    const jobOrderKey = keys.find(k => {
-        const l = k.toLowerCase().replace(/[^a-z0-9]/g, '');
-        return l.startsWith('joborder') || l === 'joborderno' || l === 'jobordernumber' || l === 'joborderid' || l === 'order';
-    });
+    const jobOrderKey = findJobOrderKey(keys);
     if (jobOrderKey && payload[jobOrderKey]) {
         const jobOrderNumber = String(payload[jobOrderKey]).trim();
         await syncJobOrderProduction(tx, entry.company_id, jobOrderNumber);
@@ -170,22 +184,26 @@ async function syncJobOrderProduction(tx, companyId, jobOrderNumber) {
         }
     });
     let totalProduced = 0;
+    const targetOrderNum = jobOrder.order_number.toLowerCase().trim();
     for (const ent of allEntries) {
         const p = ent.payload;
         if (!p || typeof p !== 'object')
             continue;
         if (ent.format_version?.format?.type === 'QUALITY')
             continue;
-        const joKey = Object.keys(p).find(k => {
-            const l = k.toLowerCase().replace(/[^a-z0-9]/g, '');
-            return l.startsWith('joborder') || l === 'joborderno' || l === 'jobordernumber' || l === 'joborderid' || l === 'order';
-        });
+        const joKey = findJobOrderKey(Object.keys(p));
         if (joKey && p[joKey]) {
             const entryVal = String(p[joKey]).toLowerCase().trim();
-            if (entryVal === jobOrder.order_number.toLowerCase().trim()) {
+            const isMatch = entryVal === targetOrderNum || entryVal.includes(targetOrderNum) || targetOrderNum.includes(entryVal);
+            if (isMatch) {
                 const pKey = Object.keys(p).find(k => {
                     const l = k.toLowerCase().replace(/[^a-z0-9]/g, '');
-                    return l.startsWith('production') || l.startsWith('output') || l.startsWith('produced');
+                    return (l.startsWith('production') ||
+                        l.startsWith('output') ||
+                        l.startsWith('produced') ||
+                        l.startsWith('bags') ||
+                        l.includes('qty') ||
+                        l.includes('amount'));
                 });
                 const qty = pKey ? parseFloat(p[pKey]) : 0;
                 if (!isNaN(qty)) {
@@ -225,20 +243,26 @@ async function syncAllJobOrdersProduction(tx, companyId) {
             continue;
         if (ent.format_version?.format?.type === 'QUALITY')
             continue;
-        const joKey = Object.keys(p).find(k => {
-            const l = k.toLowerCase().replace(/[^a-z0-9]/g, '');
-            return l.startsWith('joborder') || l === 'joborderno' || l === 'jobordernumber' || l === 'joborderid' || l === 'order';
-        });
+        const joKey = findJobOrderKey(Object.keys(p));
         if (joKey && p[joKey]) {
             const entryVal = String(p[joKey]).toLowerCase().trim();
-            if (productionSums[entryVal] !== undefined) {
-                const pKey = Object.keys(p).find(k => {
-                    const l = k.toLowerCase().replace(/[^a-z0-9]/g, '');
-                    return l.startsWith('production') || l.startsWith('output') || l.startsWith('produced');
-                });
-                const qty = pKey ? parseFloat(p[pKey]) : 0;
-                if (!isNaN(qty)) {
-                    productionSums[entryVal] += qty;
+            for (const jo of jobOrders) {
+                const orderNumLower = jo.order_number.toLowerCase().trim();
+                const isMatch = entryVal === orderNumLower || entryVal.includes(orderNumLower) || orderNumLower.includes(entryVal);
+                if (isMatch) {
+                    const pKey = Object.keys(p).find(k => {
+                        const l = k.toLowerCase().replace(/[^a-z0-9]/g, '');
+                        return (l.startsWith('production') ||
+                            l.startsWith('output') ||
+                            l.startsWith('produced') ||
+                            l.startsWith('bags') ||
+                            l.includes('qty') ||
+                            l.includes('amount'));
+                    });
+                    const qty = pKey ? parseFloat(p[pKey]) : 0;
+                    if (!isNaN(qty)) {
+                        productionSums[orderNumLower] += qty;
+                    }
                 }
             }
         }

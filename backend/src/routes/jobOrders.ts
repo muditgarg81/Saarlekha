@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { authenticate, requireRole } from '../middleware/auth';
 import { getTenantPrisma } from '../db/prisma';
-import { syncAllJobOrdersProduction } from '../utils/sync';
+import { syncAllJobOrdersProduction, findJobOrderKey } from '../utils/sync';
 
 export const jobOrdersRouter = Router();
 jobOrdersRouter.use(authenticate);
@@ -315,34 +315,17 @@ jobOrdersRouter.get('/by-number/:orderNumber/summary', async (req, res) => {
     const productionLogs: any[] = [];
     const qualityLogs: any[] = [];
     const orderNumLower = order.order_number.toLowerCase().trim();
-    const orderNumDigits = orderNumLower.replace(/[^0-9]/g, '');
 
     for (const entry of reportEntries) {
       const payload = (entry.payload as Record<string, any>) || {};
       const keys = Object.keys(payload);
 
       // Look for a key that represents job order number
-      const jobOrderKey = keys.find(k => {
-        const l = k.toLowerCase().replace(/[^a-z0-9]/g, '');
-        return (
-          l.includes('joborder') ||
-          l.includes('ordernumber') ||
-          l.includes('orderref') ||
-          l.includes('orderrefer') ||
-          l === 'order' ||
-          l === 'orderno'
-        );
-      });
+      const jobOrderKey = findJobOrderKey(keys);
 
       if (jobOrderKey && payload[jobOrderKey]) {
         const entryVal = String(payload[jobOrderKey]).toLowerCase().trim();
-        const entryValDigits = entryVal.replace(/[^0-9]/g, '');
-
-        const isMatch =
-          entryVal === orderNumLower ||
-          entryVal.includes(orderNumLower) ||
-          orderNumLower.includes(entryVal) ||
-          (orderNumDigits.length > 0 && entryValDigits.length > 0 && entryValDigits.includes(orderNumDigits));
+        const isMatch = entryVal === orderNumLower || entryVal.includes(orderNumLower) || orderNumLower.includes(entryVal);
 
         if (isMatch) {
           const isQuality = entry.format_version?.format?.type === 'QUALITY';

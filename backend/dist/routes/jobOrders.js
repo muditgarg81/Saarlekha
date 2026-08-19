@@ -286,27 +286,14 @@ exports.jobOrdersRouter.get('/by-number/:orderNumber/summary', async (req, res) 
         const productionLogs = [];
         const qualityLogs = [];
         const orderNumLower = order.order_number.toLowerCase().trim();
-        const orderNumDigits = orderNumLower.replace(/[^0-9]/g, '');
         for (const entry of reportEntries) {
             const payload = entry.payload || {};
             const keys = Object.keys(payload);
             // Look for a key that represents job order number
-            const jobOrderKey = keys.find(k => {
-                const l = k.toLowerCase().replace(/[^a-z0-9]/g, '');
-                return (l.includes('joborder') ||
-                    l.includes('ordernumber') ||
-                    l.includes('orderref') ||
-                    l.includes('orderrefer') ||
-                    l === 'order' ||
-                    l === 'orderno');
-            });
+            const jobOrderKey = (0, sync_1.findJobOrderKey)(keys);
             if (jobOrderKey && payload[jobOrderKey]) {
                 const entryVal = String(payload[jobOrderKey]).toLowerCase().trim();
-                const entryValDigits = entryVal.replace(/[^0-9]/g, '');
-                const isMatch = entryVal === orderNumLower ||
-                    entryVal.includes(orderNumLower) ||
-                    orderNumLower.includes(entryVal) ||
-                    (orderNumDigits.length > 0 && entryValDigits.length > 0 && entryValDigits.includes(orderNumDigits));
+                const isMatch = entryVal === orderNumLower || entryVal.includes(orderNumLower) || orderNumLower.includes(entryVal);
                 if (isMatch) {
                     const isQuality = entry.format_version?.format?.type === 'QUALITY';
                     if (isQuality) {
