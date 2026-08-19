@@ -178,7 +178,13 @@ export function PrivateLayout() {
         <div className="space-y-1">
           <Link
             to={item.children[0].href}
-            onClick={handleParentClick}
+            onClick={(e) => {
+              handleParentClick();
+              if (location.pathname === item.children![0].href) {
+                e.preventDefault();
+                window.location.reload();
+              }
+            }}
             className={clsx(
               'w-full flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors text-left focus:outline-none',
               isChildActive ? 'text-primary' : 'text-text-secondary hover:bg-gray-50 hover:text-text-primary'
@@ -203,7 +209,13 @@ export function PrivateLayout() {
                   <Link
                     key={child.name}
                     to={child.href!}
-                    onClick={() => setSidebarOpen(false)}
+                    onClick={(e) => {
+                      setSidebarOpen(false);
+                      if (location.pathname === child.href) {
+                        e.preventDefault();
+                        window.location.reload();
+                      }
+                    }}
                     className={clsx(
                       'block px-3 py-1.5 text-xs font-medium rounded-md transition-colors',
                       isSubActive 
@@ -230,7 +242,13 @@ export function PrivateLayout() {
     return (
       <Link
         to={item.href!}
-        onClick={() => setSidebarOpen(false)}
+        onClick={(e) => {
+          setSidebarOpen(false);
+          if (location.pathname === item.href) {
+            e.preventDefault();
+            window.location.reload();
+          }
+        }}
         className={clsx(
           'flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors',
           isActive
@@ -474,6 +492,12 @@ export function PrivateLayout() {
               <Link
                 key={item.name}
                 to={href}
+                onClick={(e) => {
+                  if (location.pathname === href) {
+                    e.preventDefault();
+                    window.location.reload();
+                  }
+                }}
                 className={clsx(
                   'flex-1 flex flex-col items-center justify-center py-2 gap-0.5 text-xs transition-colors',
                   isActive ? 'text-primary' : 'text-text-secondary'

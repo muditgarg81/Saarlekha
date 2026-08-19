@@ -987,7 +987,11 @@ export function JobOrderMaster() {
       <div className="flex border-b border-border mb-6">
         <button
           onClick={() => {
-            setActiveTab('active');
+            if (activeTab === 'active') {
+              fetchData();
+            } else {
+              setActiveTab('active');
+            }
             setSelectedOrders([]);
           }}
           className={clsx(
@@ -1007,7 +1011,11 @@ export function JobOrderMaster() {
         </button>
         <button
           onClick={() => {
-            setActiveTab('completed');
+            if (activeTab === 'completed') {
+              fetchData();
+            } else {
+              setActiveTab('completed');
+            }
             setSelectedOrders([]);
           }}
           className={clsx(

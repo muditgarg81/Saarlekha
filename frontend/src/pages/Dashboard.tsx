@@ -625,7 +625,13 @@ export function Dashboard() {
       {/* Tab Switcher */}
       <div className="flex border-b border-border gap-6">
         <button
-          onClick={() => setActiveTab('summary')}
+          onClick={() => {
+            if (activeTab === 'summary') {
+              fetchDashboard();
+            } else {
+              setActiveTab('summary');
+            }
+          }}
           className={clsx(
             "pb-3 text-sm font-semibold transition-colors border-b-2 -mb-[2px]",
             activeTab === 'summary'
@@ -636,7 +642,13 @@ export function Dashboard() {
           Summary
         </button>
         <button
-          onClick={() => setActiveTab('charts')}
+          onClick={() => {
+            if (activeTab === 'charts') {
+              fetchDashboard();
+            } else {
+              setActiveTab('charts');
+            }
+          }}
           className={clsx(
             "pb-3 text-sm font-semibold transition-colors border-b-2 -mb-[2px]",
             activeTab === 'charts'
