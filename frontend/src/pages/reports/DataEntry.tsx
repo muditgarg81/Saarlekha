@@ -359,38 +359,44 @@ export function DataEntry() {
         }
 
         // 2. Auto-fill Item Description
-        const itemVal =
-          selectedJO.item?.name ||
-          selectedJO.custom_item ||
-          selectedJO.custom_data?.['Item Description'] ||
-          selectedJO.custom_data?.['Item'] ||
-          '';
+        let customDataObj = selectedJO.custom_data;
+        if (typeof customDataObj === 'string') {
+          try { customDataObj = JSON.parse(customDataObj); } catch (e) {}
+        }
+        const customItemVal = customDataObj && typeof customDataObj === 'object'
+          ? (customDataObj['Item Description'] || customDataObj['Item'] || customDataObj['Item Name'] || customDataObj['Items Decrption'] || customDataObj['Items Description'])
+          : undefined;
+
+        const itemVal = selectedJO.item?.name || selectedJO.custom_item || customItemVal || '';
         if (itemVal) {
           const itemField = activeSchema.find(f => {
             const l = f.name.toLowerCase().replace(/[^a-z0-9]/g, '');
             return l.includes('item') || l.includes('sku') || l.includes('product') || f.type === 'item';
           });
           if (itemField) {
-            newPayload[itemField.name] = itemVal;
+            newPayload[itemField.name] = String(itemVal);
           }
         }
 
         // 3. Auto-fill Order Reference
-        const orderRefVal =
-          selectedJO.custom_data?.['Ref'] ||
-          selectedJO.custom_data?.['Order reference'] ||
-          selectedJO.custom_data?.['Order Ref'] ||
-          selectedJO.custom_data?.['Reference'] ||
-          selectedJO.custom_data?.['Ref No'] ||
-          selectedJO.custom_data?.['Order Reference'] ||
-          '';
+        let orderRefVal = '';
+        if (customDataObj && typeof customDataObj === 'object') {
+          const refKey = Object.keys(customDataObj).find(k => {
+            const l = k.toLowerCase().replace(/[^a-z0-9]/g, '');
+            return (l.includes('ref') || l.includes('reference') || l.includes('order')) && !l.includes('joborder');
+          });
+          if (refKey && customDataObj[refKey] !== undefined && customDataObj[refKey] !== null) {
+            orderRefVal = String(customDataObj[refKey]);
+          }
+        }
+
         if (orderRefVal) {
           const refField = activeSchema.find(f => {
             const l = f.name.toLowerCase().replace(/[^a-z0-9]/g, '');
-            return (l.includes('orderref') || l.includes('reference') || l === 'ref' || l === 'refno') && !l.includes('joborder');
+            return (l.includes('ref') || l.includes('reference') || l.includes('orderref')) && !l.includes('joborder');
           });
           if (refField) {
-            newPayload[refField.name] = String(orderRefVal);
+            newPayload[refField.name] = orderRefVal;
           }
         }
       }
