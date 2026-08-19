@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import api from '../../utils/api';
 import { useAuth } from '../../context/AuthContext';
 import { ExportBar } from '../../utils/export';
@@ -49,8 +49,17 @@ export function hasMachineAndOperator(fields: { name: string; type: string }[]) 
 
 export function OtherProduction() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const returnUrl = encodeURIComponent(window.location.pathname + window.location.search);
   const { user } = useAuth();
+
+  const urlStart = searchParams.get('startDate');
+  const urlEnd = searchParams.get('endDate');
+  const urlDept = searchParams.get('departmentId');
+
+  const today = new Date().toISOString().split('T')[0];
+  const [startDate, setStartDate] = useState(urlStart || today);
+  const [endDate, setEndDate] = useState(urlEnd || today);
   const [entries, setEntries] = useState<ReportEntry[]>([]);
   const [formats, setFormats] = useState<ReportFormat[]>([]);
   const [selectedFormatId, setSelectedFormatId] = useState<string>('');
@@ -58,14 +67,10 @@ export function OtherProduction() {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [activeDropdown, setActiveDropdown] = useState<{ id: string; top: number; left: number } | null>(null);
   const [departments, setDepartments] = useState<any[]>([]);
-  const [selectedDepartmentId, setSelectedDepartmentId] = useState<string>('');
+  const [selectedDepartmentId, setSelectedDepartmentId] = useState<string>(urlDept || '');
 
   const [sortField, setSortField] = useState<string>('date');
   const [sortAsc, setSortAsc] = useState<boolean>(false);
-
-  const today = new Date().toISOString().split('T')[0];
-  const [startDate, setStartDate] = useState(today);
-  const [endDate, setEndDate] = useState(today);
 
   const handleSort = (field: string) => {
     const normField = field.trim();

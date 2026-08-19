@@ -400,7 +400,7 @@ export function Dashboard() {
         : `Avg Efficiency: ${data.kpis.overallEfficiency ? `${data.kpis.overallEfficiency}%` : 'N/A'}`,
       icon: Factory,
       color: 'bg-blue-50 text-primary',
-      href: '/production'
+      href: `/production?startDate=${startDate}&endDate=${endDate}${selectedDepartmentId ? `&departmentId=${selectedDepartmentId}` : ''}`
     },
     {
       name: 'Active Manpower',
@@ -416,7 +416,7 @@ export function Dashboard() {
       sub: 'Awaiting completion',
       icon: ClipboardList,
       color: 'bg-amber-50 text-amber-600',
-      href: '/job-orders'
+      href: `/job-orders?status=OPEN`
     },
     {
       name: 'Report Builds',
@@ -736,7 +736,7 @@ export function Dashboard() {
                               setIsOpen={(open) => setOpenedExportDropdownId(open ? `${dept.departmentId}-operator` : null)}
                               onExport={(format) => handleOperatorExport(format, dept.operatorEfficiency, dept.departmentName)}
                             />
-                            <Link to="/production" className="text-xs text-primary hover:underline flex items-center">
+                            <Link to={`/production?startDate=${startDate}&endDate=${endDate}&departmentId=${dept.departmentId}`} className="text-xs text-primary hover:underline flex items-center">
                               Detail <ChevronRight className="h-3 w-3 ml-0.5" />
                             </Link>
                           </div>
@@ -783,7 +783,7 @@ export function Dashboard() {
                               setIsOpen={(open) => setOpenedExportDropdownId(open ? `${dept.departmentId}-machine` : null)}
                               onExport={(format) => handleMachineExport(format, dept.machineEfficiency, dept.departmentName)}
                             />
-                            <Link to="/production" className="text-xs text-primary hover:underline flex items-center">
+                            <Link to={`/production?startDate=${startDate}&endDate=${endDate}&departmentId=${dept.departmentId}`} className="text-xs text-primary hover:underline flex items-center">
                               Detail <ChevronRight className="h-3 w-3 ml-0.5" />
                             </Link>
                           </div>

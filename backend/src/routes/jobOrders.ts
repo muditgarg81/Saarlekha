@@ -315,6 +315,7 @@ jobOrdersRouter.get('/by-number/:orderNumber/summary', async (req, res) => {
     const productionLogs: any[] = [];
     const qualityLogs: any[] = [];
     const orderNumLower = order.order_number.toLowerCase().trim();
+    const orderNumDigits = orderNumLower.replace(/[^0-9]/g, '');
 
     for (const entry of reportEntries) {
       const payload = (entry.payload as Record<string, any>) || {};
@@ -323,12 +324,27 @@ jobOrdersRouter.get('/by-number/:orderNumber/summary', async (req, res) => {
       // Look for a key that represents job order number
       const jobOrderKey = keys.find(k => {
         const l = k.toLowerCase().replace(/[^a-z0-9]/g, '');
-        return l.startsWith('joborder') || l === 'joborderno' || l === 'jobordernumber' || l === 'joborderid' || l === 'order';
+        return (
+          l.includes('joborder') ||
+          l.includes('ordernumber') ||
+          l.includes('orderref') ||
+          l.includes('orderrefer') ||
+          l === 'order' ||
+          l === 'orderno'
+        );
       });
 
       if (jobOrderKey && payload[jobOrderKey]) {
         const entryVal = String(payload[jobOrderKey]).toLowerCase().trim();
-        if (entryVal === orderNumLower) {
+        const entryValDigits = entryVal.replace(/[^0-9]/g, '');
+
+        const isMatch =
+          entryVal === orderNumLower ||
+          entryVal.includes(orderNumLower) ||
+          orderNumLower.includes(entryVal) ||
+          (orderNumDigits.length > 0 && entryValDigits.length > 0 && entryValDigits.includes(orderNumDigits));
+
+        if (isMatch) {
           const isQuality = entry.format_version?.format?.type === 'QUALITY';
 
           if (isQuality) {
@@ -349,7 +365,14 @@ jobOrdersRouter.get('/by-number/:orderNumber/summary', async (req, res) => {
             // Extract production qty
             const prodKey = keys.find(k => {
               const l = k.toLowerCase().replace(/[^a-z0-9]/g, '');
-              return l.startsWith('production') || l.startsWith('output') || l.startsWith('produced');
+              return (
+                l.startsWith('production') ||
+                l.startsWith('output') ||
+                l.startsWith('produced') ||
+                l.startsWith('bags') ||
+                l.includes('qty') ||
+                l.includes('amount')
+              );
             });
 
             const productionQty = prodKey ? parseFloat(payload[prodKey]) : 0;

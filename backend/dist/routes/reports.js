@@ -296,10 +296,14 @@ exports.reportsRouter.get('/entries', async (req, res) => {
                 where.department_id = departmentId;
         }
         if (startDate && endDate) {
+            const start = new Date(startDate);
+            start.setUTCHours(0, 0, 0, 0);
+            start.setTime(start.getTime() - 12 * 60 * 60 * 1000);
             const end = new Date(endDate);
             end.setUTCHours(23, 59, 59, 999);
+            end.setTime(end.getTime() + 12 * 60 * 60 * 1000);
             where.entry_date = {
-                gte: new Date(startDate),
+                gte: start,
                 lte: end
             };
         }
