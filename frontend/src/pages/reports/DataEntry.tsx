@@ -332,6 +332,70 @@ export function DataEntry() {
   };
 
   const handleFieldChange = async (fieldName: string, value: any) => {
+    const normFieldName = fieldName.toLowerCase().replace(/[^a-z0-9]/g, '');
+    const isJobOrderField =
+      normFieldName.includes('joborder') ||
+      (normFieldName.includes('order') && !normFieldName.includes('ref') && !normFieldName.includes('customer') && !normFieldName.includes('item'));
+
+    let newPayload = { ...payload, [fieldName]: value };
+
+    if (isJobOrderField && value) {
+      const selectedJO = jobOrders.find((jo: any) =>
+        jo.order_number === value ||
+        String(jo.order_number).toLowerCase().trim() === String(value).toLowerCase().trim()
+      );
+
+      if (selectedJO) {
+        // 1. Auto-fill Customer Name
+        const custVal = selectedJO.customer?.name || '';
+        if (custVal) {
+          const custField = activeSchema.find(f => {
+            const l = f.name.toLowerCase().replace(/[^a-z0-9]/g, '');
+            return l.includes('customer') || f.type === 'client';
+          });
+          if (custField) {
+            newPayload[custField.name] = custVal;
+          }
+        }
+
+        // 2. Auto-fill Item Description
+        const itemVal =
+          selectedJO.item?.name ||
+          selectedJO.custom_item ||
+          selectedJO.custom_data?.['Item Description'] ||
+          selectedJO.custom_data?.['Item'] ||
+          '';
+        if (itemVal) {
+          const itemField = activeSchema.find(f => {
+            const l = f.name.toLowerCase().replace(/[^a-z0-9]/g, '');
+            return l.includes('item') || l.includes('sku') || l.includes('product') || f.type === 'item';
+          });
+          if (itemField) {
+            newPayload[itemField.name] = itemVal;
+          }
+        }
+
+        // 3. Auto-fill Order Reference
+        const orderRefVal =
+          selectedJO.custom_data?.['Ref'] ||
+          selectedJO.custom_data?.['Order reference'] ||
+          selectedJO.custom_data?.['Order Ref'] ||
+          selectedJO.custom_data?.['Reference'] ||
+          selectedJO.custom_data?.['Ref No'] ||
+          selectedJO.custom_data?.['Order Reference'] ||
+          '';
+        if (orderRefVal) {
+          const refField = activeSchema.find(f => {
+            const l = f.name.toLowerCase().replace(/[^a-z0-9]/g, '');
+            return (l.includes('orderref') || l.includes('reference') || l === 'ref' || l === 'refno') && !l.includes('joborder');
+          });
+          if (refField) {
+            newPayload[refField.name] = String(orderRefVal);
+          }
+        }
+      }
+    }
+
     const carryFields = activeSchema.filter(f => f.type === 'carry_forward');
     const affectedCarryFields = carryFields.filter(f => {
       const scopeFieldId = f.carryScope === 'overall' ? undefined : (f.carryScopeFieldId || activeSchema.find(as => as.type === 'machine')?.name);
@@ -363,9 +427,9 @@ export function DataEntry() {
         }
       }
 
-      await resolveCarryForwardSeeds(payload, fieldName, value);
+      await resolveCarryForwardSeeds(newPayload, fieldName, value);
     } else {
-      setPayload(prev => ({ ...prev, [fieldName]: value }));
+      setPayload(newPayload);
     }
   };
 
@@ -817,6 +881,9 @@ export function DataEntry() {
                             {customers.map(c => (
                               <option key={c.id} value={c.name}>{c.name}</option>
                             ))}
+                            {payload[field.name] && !customers.some(c => c.name === payload[field.name]) && (
+                              <option value={payload[field.name]}>{payload[field.name]}</option>
+                            )}
                           </select>
                         ) : field.type === 'job_order' ? (
                           <select 
@@ -843,6 +910,9 @@ export function DataEntry() {
                             {items.map(it => (
                               <option key={it.id} value={it.name}>{it.name}</option>
                             ))}
+                            {payload[field.name] && !items.some(it => it.name === payload[field.name]) && (
+                              <option value={payload[field.name]}>{payload[field.name]}</option>
+                            )}
                           </select>
                         ) : field.type === 'dropdown' ? (
                           <select 
@@ -855,6 +925,9 @@ export function DataEntry() {
                             {field.options?.map((opt, oIdx) => (
                               <option key={oIdx} value={opt}>{opt}</option>
                             ))}
+                            {payload[field.name] && field.options && !field.options.includes(payload[field.name]) && (
+                              <option value={payload[field.name]}>{payload[field.name]}</option>
+                            )}
                           </select>
                         ) : field.type === 'boolean' ? (
                           <select 
