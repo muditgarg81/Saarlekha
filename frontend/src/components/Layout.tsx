@@ -69,6 +69,7 @@ export function PrivateLayout() {
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [companies, setCompanies] = useState<any[]>([]);
+  const [refreshKey, setRefreshKey] = useState(0);
 
   useEffect(() => {
     if (user?.role === 'SUPER_ADMIN') {
@@ -182,7 +183,7 @@ export function PrivateLayout() {
               handleParentClick();
               if (location.pathname === item.children![0].href) {
                 e.preventDefault();
-                window.location.reload();
+                setRefreshKey(prev => prev + 1);
               }
             }}
             className={clsx(
@@ -213,7 +214,7 @@ export function PrivateLayout() {
                       setSidebarOpen(false);
                       if (location.pathname === child.href) {
                         e.preventDefault();
-                        window.location.reload();
+                        setRefreshKey(prev => prev + 1);
                       }
                     }}
                     className={clsx(
@@ -246,7 +247,7 @@ export function PrivateLayout() {
           setSidebarOpen(false);
           if (location.pathname === item.href) {
             e.preventDefault();
-            window.location.reload();
+            setRefreshKey(prev => prev + 1);
           }
         }}
         className={clsx(
@@ -479,7 +480,7 @@ export function PrivateLayout() {
 
         {/* Page content */}
         <main className="flex-1 p-4 md:p-8 pb-24 md:pb-8">
-          <Outlet />
+          <Outlet key={`${location.pathname}${location.search}-${refreshKey}`} />
         </main>
 
         {/* ── Mobile Bottom Tab Bar ── */}
@@ -495,7 +496,7 @@ export function PrivateLayout() {
                 onClick={(e) => {
                   if (location.pathname === href) {
                     e.preventDefault();
-                    window.location.reload();
+                    setRefreshKey(prev => prev + 1);
                   }
                 }}
                 className={clsx(

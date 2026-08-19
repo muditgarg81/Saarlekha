@@ -26,10 +26,36 @@ const INACTIVITY_TIMEOUT = 60 * 60 * 1000; // 1 hour
 const ACTIVITY_EVENTS = ['mousedown', 'mousemove', 'keydown', 'scroll', 'touchstart', 'click'] as const;
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
-  const [token, setToken] = useState<string | null>(null);
-  const [selectedCompanyId, setSelectedCompanyIdState] = useState<string | null>(null);
-  const [selectedCompanyName, setSelectedCompanyNameState] = useState<string | null>(null);
+  const [user, setUser] = useState<User | null>(() => {
+    const storedUser = localStorage.getItem('user');
+    if (storedUser) {
+      try { return JSON.parse(storedUser) as User; } catch (e) {}
+    }
+    return null;
+  });
+  const [token, setToken] = useState<string | null>(() => localStorage.getItem('token'));
+  const [selectedCompanyId, setSelectedCompanyIdState] = useState<string | null>(() => {
+    const storedUser = localStorage.getItem('user');
+    if (storedUser) {
+      try {
+        const parsedUser = JSON.parse(storedUser) as User;
+        if (parsedUser.role !== 'SUPER_ADMIN') return parsedUser.companyId || null;
+        return localStorage.getItem('selected_tenant_id');
+      } catch (e) {}
+    }
+    return null;
+  });
+  const [selectedCompanyName, setSelectedCompanyNameState] = useState<string | null>(() => {
+    const storedUser = localStorage.getItem('user');
+    if (storedUser) {
+      try {
+        const parsedUser = JSON.parse(storedUser) as User;
+        if (parsedUser.role !== 'SUPER_ADMIN') return parsedUser.companyName || null;
+        return localStorage.getItem('selected_tenant_name');
+      } catch (e) {}
+    }
+    return null;
+  });
   const inactivityTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const clearAuth = useCallback(() => {
@@ -62,27 +88,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       ACTIVITY_EVENTS.forEach(e => window.removeEventListener(e, resetInactivityTimer));
     };
   }, [token, resetInactivityTimer]);
-
-  useEffect(() => {
-    const storedToken = localStorage.getItem('token');
-    const storedUser = localStorage.getItem('user');
-    const storedTenantId = localStorage.getItem('selected_tenant_id');
-    const storedTenantName = localStorage.getItem('selected_tenant_name');
-    
-    if (storedToken && storedUser) {
-      setToken(storedToken);
-      const parsedUser = JSON.parse(storedUser) as User;
-      setUser(parsedUser);
-      
-      if (parsedUser.role !== 'SUPER_ADMIN') {
-        setSelectedCompanyIdState(parsedUser.companyId || null);
-        setSelectedCompanyNameState(parsedUser.companyName || null);
-      } else {
-        setSelectedCompanyIdState(storedTenantId);
-        setSelectedCompanyNameState(storedTenantName);
-      }
-    }
-  }, []);
 
   const login = (newToken: string, newUser: User) => {
     localStorage.setItem('token', newToken);
