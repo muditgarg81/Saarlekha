@@ -149,8 +149,9 @@ export function JobOrderMaster() {
 
   // Pivot Table state
   const [pivotSearchTerm, setPivotSearchTerm] = useState('');
-  const [pivotStatusFilter, setPivotStatusFilter] = useState<'ALL' | 'ACTIVE' | 'COMPLETED'>('ALL');
+  const [pivotStatusFilter, setPivotStatusFilter] = useState<'ALL' | 'ACTIVE' | 'COMPLETED'>('ACTIVE');
   const [collapsedCustomers, setCollapsedCustomers] = useState<Record<string, boolean>>({});
+  const [collapsedItems, setCollapsedItems] = useState<Record<string, boolean>>({});
 
   const toggleCustomerCollapse = (custName: string) => {
     setCollapsedCustomers(prev => ({
@@ -159,10 +160,17 @@ export function JobOrderMaster() {
     }));
   };
 
+  const toggleItemCollapse = (itemKey: string) => {
+    setCollapsedItems(prev => ({
+      ...prev,
+      [itemKey]: !prev[itemKey]
+    }));
+  };
+
   const isAdmin = ['SUPER_ADMIN', 'COMPANY_ADMIN'].includes(user?.role || '');
   const isOperations = user?.role === 'OPERATIONS';
 
-  // Compute Pivot Table Aggregations
+  // Compute Pivot Table Aggregations with Job Order Drilldown Support
   const pivotData = React.useMemo(() => {
     let target = orders;
 
@@ -184,9 +192,9 @@ export function JobOrderMaster() {
     }
 
     if (pivotStatusFilter === 'ACTIVE') {
-      target = target.filter(o => o.status !== 'COMPLETED');
+      target = target.filter(o => !['COMPLETED', 'CANCELLED', 'CLOSED'].includes(o.status));
     } else if (pivotStatusFilter === 'COMPLETED') {
-      target = target.filter(o => o.status === 'COMPLETED');
+      target = target.filter(o => ['COMPLETED', 'CANCELLED', 'CLOSED'].includes(o.status));
     }
 
     const customerMap = new Map<string, {
@@ -195,6 +203,7 @@ export function JobOrderMaster() {
         unit: string;
         orderCount: number;
         ordersList: string[];
+        jobOrders: JobOrder[];
         totalOrderedQty: number;
         totalProductionQty: number;
         totalBalanceQty: number;
@@ -227,6 +236,7 @@ export function JobOrderMaster() {
           unit,
           orderCount: 0,
           ordersList: [],
+          jobOrders: [],
           totalOrderedQty: 0,
           totalProductionQty: 0,
           totalBalanceQty: 0
@@ -238,6 +248,7 @@ export function JobOrderMaster() {
       if (o.order_number && !itemGroup.ordersList.includes(o.order_number)) {
         itemGroup.ordersList.push(o.order_number);
       }
+      itemGroup.jobOrders.push(o);
       itemGroup.totalOrderedQty += orderQty;
       itemGroup.totalProductionQty += prodQty;
       itemGroup.totalBalanceQty += balQty;
@@ -252,6 +263,7 @@ export function JobOrderMaster() {
         unit: string;
         orderCount: number;
         ordersList: string[];
+        jobOrders: JobOrder[];
         totalOrderedQty: number;
         totalProductionQty: number;
         totalBalanceQty: number;
@@ -273,6 +285,7 @@ export function JobOrderMaster() {
         unit: string;
         orderCount: number;
         ordersList: string[];
+        jobOrders: JobOrder[];
         totalOrderedQty: number;
         totalProductionQty: number;
         totalBalanceQty: number;
@@ -290,6 +303,7 @@ export function JobOrderMaster() {
           unit: itemVal.unit,
           orderCount: itemVal.orderCount,
           ordersList: itemVal.ordersList,
+          jobOrders: itemVal.jobOrders,
           totalOrderedQty: itemVal.totalOrderedQty,
           totalProductionQty: itemVal.totalProductionQty,
           totalBalanceQty: itemVal.totalBalanceQty
@@ -348,20 +362,27 @@ export function JobOrderMaster() {
   }, [orders, selectedDeptFilter, selectedCustFilter, startDate, endDate, pivotStatusFilter, pivotSearchTerm]);
 
   const toggleExpandAll = () => {
-    const allCollapsed = pivotData.groups.every(g => collapsedCustomers[g.customerId]);
-    const nextState: Record<string, boolean> = {};
+    const allCustCollapsed = pivotData.groups.every(g => collapsedCustomers[g.customerId]);
+    const nextCustState: Record<string, boolean> = {};
+    const nextItemState: Record<string, boolean> = {};
+
     pivotData.groups.forEach(g => {
-      nextState[g.customerId] = !allCollapsed;
+      nextCustState[g.customerId] = !allCustCollapsed;
+      g.items.forEach(it => {
+        const itemKey = `${g.customerId}::${it.itemDescription}`;
+        nextItemState[itemKey] = !allCustCollapsed;
+      });
     });
-    setCollapsedCustomers(nextState);
+    setCollapsedCustomers(nextCustState);
+    setCollapsedItems(nextItemState);
   };
 
   const getPivotExportData = () => {
     const columns = [
       { header: 'Customer Name', key: 'customerName' },
-      { header: 'Item Description', key: 'itemDescription' },
-      { header: 'Orders Count', key: 'orderCount' },
-      { header: 'Job Orders List', key: 'ordersList' },
+      { header: 'Item Description / Job Order #', key: 'itemDescription' },
+      { header: 'Status / Department', key: 'status' },
+      { header: 'Orders Count / Ref', key: 'ordersList' },
       { header: 'Total Ordered Qty', key: 'totalOrderedQty' },
       { header: 'Total Produced Qty', key: 'totalProductionQty' },
       { header: 'Balance Qty', key: 'totalBalanceQty' },
@@ -375,21 +396,48 @@ export function JobOrderMaster() {
         rows.push({
           customerName: group.customerName,
           itemDescription: item.itemDescription,
-          orderCount: item.orderCount,
-          ordersList: item.ordersList.join(', '),
+          status: 'ITEM TOTAL',
+          ordersList: `${item.orderCount} Orders`,
           totalOrderedQty: `${item.totalOrderedQty.toLocaleString()} ${item.unit}`,
           totalProductionQty: `${item.totalProductionQty.toLocaleString()} ${item.unit}`,
           totalBalanceQty: `${item.totalBalanceQty.toLocaleString()} ${item.unit}`,
           completionPct: pct
         });
+
+        item.jobOrders.forEach(jo => {
+          const joOrderQty = Number(jo.order_qty || 0);
+          const joProdQty = Number(jo.production_qty || 0);
+          const joBalQty = Math.max(0, joOrderQty - joProdQty);
+          const joPct = joOrderQty > 0 ? ((joProdQty / joOrderQty) * 100).toFixed(1) + '%' : 'N/A';
+
+          let customDataObj = jo.custom_data;
+          if (typeof customDataObj === 'string') {
+            try { customDataObj = JSON.parse(customDataObj); } catch (e) {}
+          }
+          const refVal = customDataObj && typeof customDataObj === 'object'
+            ? (customDataObj['Ref'] || customDataObj['Order reference'] || customDataObj['Order Ref'] || customDataObj['Reference'] || '')
+            : '';
+
+          rows.push({
+            customerName: '',
+            itemDescription: `   └─ ${jo.order_number}`,
+            status: jo.status + (jo.department?.name ? ` (${jo.department.name})` : ''),
+            ordersList: refVal ? `Ref: ${refVal}` : '',
+            totalOrderedQty: `${joOrderQty.toLocaleString()} ${jo.order_qty_unit || item.unit}`,
+            totalProductionQty: `${joProdQty.toLocaleString()} ${jo.order_qty_unit || item.unit}`,
+            totalBalanceQty: `${joBalQty.toLocaleString()} ${jo.order_qty_unit || item.unit}`,
+            completionPct: joPct
+          });
+        });
       });
+
       // Customer Subtotal Row
       const custPct = group.totalOrderedQty > 0 ? ((group.totalProductionQty / group.totalOrderedQty) * 100).toFixed(1) + '%' : 'N/A';
       rows.push({
-        customerName: `Subtotal (${group.customerName})`,
+        customerName: `SUBTOTAL (${group.customerName})`,
         itemDescription: `All ${group.items.length} Items`,
-        orderCount: group.totalOrders,
-        ordersList: '',
+        status: '',
+        ordersList: `${group.totalOrders} Orders Total`,
         totalOrderedQty: `${group.totalOrderedQty.toLocaleString()} ${group.unit}`,
         totalProductionQty: `${group.totalProductionQty.toLocaleString()} ${group.unit}`,
         totalBalanceQty: `${group.totalBalanceQty.toLocaleString()} ${group.unit}`,
@@ -398,9 +446,9 @@ export function JobOrderMaster() {
     });
 
     return {
-      title: 'Clientwise Itemwise Order Summary Report',
+      title: 'Clientwise Itemwise Job Order Summary & Drilldown Report',
       subtitle: `Total Clients: ${pivotData.totals.totalCustomers} | Total Orders: ${pivotData.totals.totalJobOrders}`,
-      filename: `clientwise_itemwise_order_summary_${new Date().toISOString().split('T')[0]}`,
+      filename: `clientwise_itemwise_job_order_summary_${new Date().toISOString().split('T')[0]}`,
       columns,
       rows
     };
@@ -1341,24 +1389,24 @@ export function JobOrderMaster() {
               <div className="flex items-center bg-gray-100 p-1 rounded-md text-xs font-semibold">
                 <button
                   type="button"
-                  onClick={() => setPivotStatusFilter('ALL')}
-                  className={clsx("px-3 py-1.5 rounded transition-all cursor-pointer", pivotStatusFilter === 'ALL' ? "bg-white text-primary shadow-xs" : "text-text-secondary hover:text-text-primary")}
-                >
-                  All Statuses
-                </button>
-                <button
-                  type="button"
                   onClick={() => setPivotStatusFilter('ACTIVE')}
-                  className={clsx("px-3 py-1.5 rounded transition-all cursor-pointer", pivotStatusFilter === 'ACTIVE' ? "bg-white text-primary shadow-xs" : "text-text-secondary hover:text-text-primary")}
+                  className={clsx("px-3 py-1.5 rounded transition-all cursor-pointer", pivotStatusFilter === 'ACTIVE' ? "bg-white text-primary shadow-xs font-bold" : "text-text-secondary hover:text-text-primary")}
                 >
-                  Active Only
+                  Running Orders Only
                 </button>
                 <button
                   type="button"
                   onClick={() => setPivotStatusFilter('COMPLETED')}
-                  className={clsx("px-3 py-1.5 rounded transition-all cursor-pointer", pivotStatusFilter === 'COMPLETED' ? "bg-white text-primary shadow-xs" : "text-text-secondary hover:text-text-primary")}
+                  className={clsx("px-3 py-1.5 rounded transition-all cursor-pointer", pivotStatusFilter === 'COMPLETED' ? "bg-white text-primary shadow-xs font-bold" : "text-text-secondary hover:text-text-primary")}
                 >
                   Completed Only
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPivotStatusFilter('ALL')}
+                  className={clsx("px-3 py-1.5 rounded transition-all cursor-pointer", pivotStatusFilter === 'ALL' ? "bg-white text-primary shadow-xs font-bold" : "text-text-secondary hover:text-text-primary")}
+                >
+                  All Statuses
                 </button>
               </div>
             </div>
@@ -1467,46 +1515,124 @@ export function JobOrderMaster() {
                           {!isCollapsed && (
                             <>
                               {group.items.map((item, idx) => {
+                                const itemKey = `${group.customerId}::${item.itemDescription}`;
+                                const isItemCollapsed = !!collapsedItems[itemKey];
                                 const itemPct = item.totalOrderedQty > 0 ? (item.totalProductionQty / item.totalOrderedQty) * 100 : 0;
                                 return (
-                                  <tr key={idx} className="hover:bg-surface transition-colors border-l-4 border-l-primary/30">
-                                    <td className="px-6 py-3 pl-12">
-                                      <div className="flex items-center gap-2">
-                                        <Package className="h-4 w-4 text-text-secondary" />
-                                        <span className="font-semibold text-text-primary">{item.itemDescription}</span>
-                                        <div className="flex flex-wrap items-center gap-1">
-                                          {item.ordersList.slice(0, 3).map(oNum => (
-                                            <span key={oNum} className="text-[10px] font-mono bg-gray-100 text-text-secondary px-1.5 py-0.5 rounded font-semibold">
-                                              {oNum}
-                                            </span>
-                                          ))}
-                                          {item.ordersList.length > 3 && (
-                                            <span className="text-[10px] font-mono text-text-secondary">+{item.ordersList.length - 3} more</span>
-                                          )}
+                                  <React.Fragment key={idx}>
+                                    <tr
+                                      onClick={() => toggleItemCollapse(itemKey)}
+                                      className="hover:bg-surface cursor-pointer transition-colors border-l-4 border-l-primary/40 select-none"
+                                    >
+                                      <td className="px-6 py-3 pl-10">
+                                        <div className="flex items-center gap-2">
+                                          <button type="button" className="p-0.5 rounded text-gray-400 hover:text-primary">
+                                            {isItemCollapsed ? <ChevronRight className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+                                          </button>
+                                          <Package className="h-4 w-4 text-text-secondary" />
+                                          <span className="font-semibold text-text-primary">{item.itemDescription}</span>
+                                          <span className="text-[11px] font-semibold bg-gray-100 text-text-secondary px-2 py-0.5 rounded border border-border">
+                                            {item.orderCount} {item.orderCount === 1 ? 'order' : 'orders'}
+                                          </span>
                                         </div>
-                                      </div>
-                                    </td>
-                                    <td className="px-4 py-3 text-center font-mono text-xs text-text-secondary">
-                                      {item.orderCount}
-                                    </td>
-                                    <td className="px-6 py-3 text-right font-mono text-sm text-text-primary">
-                                      {item.totalOrderedQty.toLocaleString()} <span className="text-xs text-text-secondary">{item.unit}</span>
-                                    </td>
-                                    <td className="px-6 py-3 text-right font-mono text-sm text-emerald-700 font-semibold">
-                                      {item.totalProductionQty.toLocaleString()} <span className="text-xs text-text-secondary">{item.unit}</span>
-                                    </td>
-                                    <td className="px-6 py-3 text-right font-mono text-sm text-amber-700 font-semibold">
-                                      {item.totalBalanceQty.toLocaleString()} <span className="text-xs text-text-secondary">{item.unit}</span>
-                                    </td>
-                                    <td className="px-6 py-3 text-center">
-                                      <span className={clsx(
-                                        "text-xs font-mono font-bold px-2 py-0.5 rounded-full",
-                                        itemPct >= 100 ? "bg-emerald-100 text-emerald-800" : itemPct >= 50 ? "bg-blue-100 text-blue-800" : "bg-yellow-100 text-yellow-800"
-                                      )}>
-                                        {itemPct.toFixed(1)}%
-                                      </span>
-                                    </td>
-                                  </tr>
+                                      </td>
+                                      <td className="px-4 py-3 text-center font-mono text-xs text-text-secondary font-bold">
+                                        {item.orderCount}
+                                      </td>
+                                      <td className="px-6 py-3 text-right font-mono text-sm text-text-primary font-semibold">
+                                        {item.totalOrderedQty.toLocaleString()} <span className="text-xs text-text-secondary">{item.unit}</span>
+                                      </td>
+                                      <td className="px-6 py-3 text-right font-mono text-sm text-emerald-700 font-bold">
+                                        {item.totalProductionQty.toLocaleString()} <span className="text-xs text-text-secondary">{item.unit}</span>
+                                      </td>
+                                      <td className="px-6 py-3 text-right font-mono text-sm text-amber-700 font-bold">
+                                        {item.totalBalanceQty.toLocaleString()} <span className="text-xs text-text-secondary">{item.unit}</span>
+                                      </td>
+                                      <td className="px-6 py-3 text-center">
+                                        <span className={clsx(
+                                          "text-xs font-mono font-bold px-2 py-0.5 rounded-full",
+                                          itemPct >= 100 ? "bg-emerald-100 text-emerald-800" : itemPct >= 50 ? "bg-blue-100 text-blue-800" : "bg-yellow-100 text-yellow-800"
+                                        )}>
+                                          {itemPct.toFixed(1)}%
+                                        </span>
+                                      </td>
+                                    </tr>
+
+                                    {/* Level 3: Individual Job Order Drilldown Rows */}
+                                    {!isItemCollapsed && (
+                                      <>
+                                        {item.jobOrders.map((jo, joIdx) => {
+                                          const joOrderQty = Number(jo.order_qty || 0);
+                                          const joProdQty = Number(jo.production_qty || 0);
+                                          const joBalQty = Math.max(0, joOrderQty - joProdQty);
+                                          const joPct = joOrderQty > 0 ? (joProdQty / joOrderQty) * 100 : 0;
+
+                                          let customDataObj = jo.custom_data;
+                                          if (typeof customDataObj === 'string') {
+                                            try { customDataObj = JSON.parse(customDataObj); } catch (e) {}
+                                          }
+                                          const refVal = customDataObj && typeof customDataObj === 'object'
+                                            ? (customDataObj['Ref'] || customDataObj['Order reference'] || customDataObj['Order Ref'] || customDataObj['Reference'] || '')
+                                            : '';
+
+                                          return (
+                                            <tr key={joIdx} className="bg-gray-50/60 hover:bg-blue-50/30 text-xs border-l-4 border-l-primary/10">
+                                              <td className="px-6 py-2 pl-16">
+                                                <div className="flex items-center gap-3">
+                                                  <span className="font-mono font-bold text-primary bg-primary/10 px-2 py-0.5 rounded text-[11px]">
+                                                    {jo.order_number}
+                                                  </span>
+                                                  {jo.department?.name && (
+                                                    <span className="text-text-secondary font-medium bg-white px-1.5 py-0.5 rounded border border-border text-[10px]">
+                                                      Dept: {jo.department.name}
+                                                    </span>
+                                                  )}
+                                                  {refVal && (
+                                                    <span className="text-text-secondary font-medium text-[10px]">
+                                                      Ref: <strong className="text-text-primary">{refVal}</strong>
+                                                    </span>
+                                                  )}
+                                                  {jo.start_date && (
+                                                    <span className="text-text-secondary text-[10px]">
+                                                      Start: {new Date(jo.start_date).toLocaleDateString()}
+                                                    </span>
+                                                  )}
+                                                </div>
+                                              </td>
+                                              <td className="px-4 py-2 text-center">
+                                                <span className={clsx(
+                                                  "px-2 py-0.5 rounded text-[10px] font-bold uppercase",
+                                                  jo.status === 'COMPLETED' ? "bg-emerald-100 text-emerald-800" : jo.status === 'CANCELLED' ? "bg-red-100 text-red-800" : "bg-blue-100 text-blue-800"
+                                                )}>
+                                                  {jo.status}
+                                                </span>
+                                              </td>
+                                              <td className="px-6 py-2 text-right font-mono text-text-primary font-medium">
+                                                {joOrderQty.toLocaleString()} <span className="text-[10px] text-text-secondary">{jo.order_qty_unit || item.unit}</span>
+                                              </td>
+                                              <td className="px-6 py-2 text-right font-mono text-emerald-700 font-semibold">
+                                                {joProdQty.toLocaleString()} <span className="text-[10px] text-text-secondary">{jo.order_qty_unit || item.unit}</span>
+                                              </td>
+                                              <td className="px-6 py-2 text-right font-mono text-amber-700 font-semibold">
+                                                {joBalQty.toLocaleString()} <span className="text-[10px] text-text-secondary">{jo.order_qty_unit || item.unit}</span>
+                                              </td>
+                                              <td className="px-6 py-2 text-center">
+                                                <div className="flex items-center justify-center gap-1.5">
+                                                  <div className="w-12 bg-gray-200 rounded-full h-1.5 overflow-hidden">
+                                                    <div
+                                                      style={{ width: `${Math.min(100, joPct)}%` }}
+                                                      className={clsx("h-full", joPct >= 100 ? "bg-emerald-600" : joPct >= 50 ? "bg-blue-600" : "bg-amber-500")}
+                                                    />
+                                                  </div>
+                                                  <span className="text-[10px] font-mono font-semibold">{joPct.toFixed(0)}%</span>
+                                                </div>
+                                              </td>
+                                            </tr>
+                                          );
+                                        })}
+                                      </>
+                                    )}
+                                  </React.Fragment>
                                 );
                               })}
                             </>
