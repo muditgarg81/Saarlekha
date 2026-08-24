@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import api from '../../utils/api';
 import { useAuth } from '../../context/AuthContext';
 import { ExportBar } from '../../utils/export';
-import { Plus, ClipboardList, Trash2, Edit, CheckCircle, XCircle, Lock, MoreVertical, X, Search } from 'lucide-react';
+import { Plus, ClipboardList, Trash2, Edit, CheckCircle, XCircle, Lock, MoreVertical, X, Search, ChevronDown, ChevronRight, Layers, Building2, BarChart3, Package } from 'lucide-react';
 import clsx from 'clsx';
 import { injectStandardFields, isStandardField, type FormatField } from '../../utils/standards';
 
@@ -25,18 +25,22 @@ interface Item {
 interface JobOrder {
   id: string;
   order_number: string;
+  customer_id: string;
   status: string;
-  start_date: string;
-  end_date: string;
-  customer: Customer;
-  department?: Department;
-  item?: Item;
+  start_date: string | null;
+  end_date: string | null;
+  created_at?: string;
+  department_id?: string;
+  item_id?: string;
   custom_item?: string;
   order_qty?: number;
   order_qty_unit?: string;
   production_qty?: number;
   production_qty_unit?: string;
-  custom_data?: Record<string, any>;
+  custom_data?: any;
+  customer?: Customer;
+  department?: Department;
+  item?: Item;
 }
 
 export function JobOrderMaster() {
@@ -45,10 +49,11 @@ export function JobOrderMaster() {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
   const [itemsMaster, setItemsMaster] = useState<Item[]>([]);
+  const [items, setItems] = useState<Item[]>([]);
   const [joSchema, setJoSchema] = useState<FormatField[]>([]);
   const [selectedDeptFilter, setSelectedDeptFilter] = useState('');
   const [selectedCustFilter, setSelectedCustFilter] = useState('');
-  const [activeTab, setActiveTab] = useState<'active' | 'completed'>('active');
+  const [activeTab, setActiveTab] = useState<'active' | 'completed' | 'pivot'>('active');
   const [loading, setLoading] = useState(true);
 
   const evaluateCalculatedField = (field: FormatField, record: any) => {
@@ -142,8 +147,264 @@ export function JobOrderMaster() {
   const [searchTerm, setSearchTerm] = useState('');
   const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
 
+  // Pivot Table state
+  const [pivotSearchTerm, setPivotSearchTerm] = useState('');
+  const [pivotStatusFilter, setPivotStatusFilter] = useState<'ALL' | 'ACTIVE' | 'COMPLETED'>('ALL');
+  const [collapsedCustomers, setCollapsedCustomers] = useState<Record<string, boolean>>({});
+
+  const toggleCustomerCollapse = (custName: string) => {
+    setCollapsedCustomers(prev => ({
+      ...prev,
+      [custName]: !prev[custName]
+    }));
+  };
+
   const isAdmin = ['SUPER_ADMIN', 'COMPANY_ADMIN'].includes(user?.role || '');
   const isOperations = user?.role === 'OPERATIONS';
+
+  // Compute Pivot Table Aggregations
+  const pivotData = React.useMemo(() => {
+    let target = orders;
+
+    if (selectedDeptFilter) {
+      target = target.filter(o => o.department_id === selectedDeptFilter || o.department?.id === selectedDeptFilter);
+    }
+    if (selectedCustFilter) {
+      target = target.filter(o => o.customer_id === selectedCustFilter || o.customer?.id === selectedCustFilter);
+    }
+    if (startDate && endDate) {
+      const start = new Date(startDate);
+      const end = new Date(endDate);
+      start.setHours(0, 0, 0, 0);
+      end.setHours(23, 59, 59, 999);
+      target = target.filter(o => {
+        const orderDate = o.start_date ? new Date(o.start_date) : new Date((o as any).created_at || Date.now());
+        return orderDate >= start && orderDate <= end;
+      });
+    }
+
+    if (pivotStatusFilter === 'ACTIVE') {
+      target = target.filter(o => o.status !== 'COMPLETED');
+    } else if (pivotStatusFilter === 'COMPLETED') {
+      target = target.filter(o => o.status === 'COMPLETED');
+    }
+
+    const customerMap = new Map<string, {
+      customerName: string;
+      itemsMap: Map<string, {
+        unit: string;
+        orderCount: number;
+        ordersList: string[];
+        totalOrderedQty: number;
+        totalProductionQty: number;
+        totalBalanceQty: number;
+      }>;
+    }>();
+
+    target.forEach(o => {
+      const custName = o.customer?.name || 'Unassigned Customer';
+      let customDataObj = o.custom_data;
+      if (typeof customDataObj === 'string') {
+        try { customDataObj = JSON.parse(customDataObj); } catch (e) {}
+      }
+      const customItemVal = customDataObj && typeof customDataObj === 'object'
+        ? (customDataObj['Item Description'] || customDataObj['Item'] || customDataObj['Item Name'])
+        : undefined;
+      const itemDesc = o.item?.name || o.custom_item || customItemVal || 'Unspecified Item';
+      const unit = o.order_qty_unit || o.production_qty_unit || 'mtr';
+
+      const orderQty = Number(o.order_qty || 0);
+      const prodQty = Number(o.production_qty || 0);
+      const balQty = Math.max(0, orderQty - prodQty);
+
+      if (!customerMap.has(custName)) {
+        customerMap.set(custName, { customerName: custName, itemsMap: new Map() });
+      }
+
+      const custGroup = customerMap.get(custName)!;
+      if (!custGroup.itemsMap.has(itemDesc)) {
+        custGroup.itemsMap.set(itemDesc, {
+          unit,
+          orderCount: 0,
+          ordersList: [],
+          totalOrderedQty: 0,
+          totalProductionQty: 0,
+          totalBalanceQty: 0
+        });
+      }
+
+      const itemGroup = custGroup.itemsMap.get(itemDesc)!;
+      itemGroup.orderCount += 1;
+      if (o.order_number && !itemGroup.ordersList.includes(o.order_number)) {
+        itemGroup.ordersList.push(o.order_number);
+      }
+      itemGroup.totalOrderedQty += orderQty;
+      itemGroup.totalProductionQty += prodQty;
+      itemGroup.totalBalanceQty += balQty;
+    });
+
+    const result: Array<{
+      customerId: string;
+      customerName: string;
+      totalOrders: number;
+      items: Array<{
+        itemDescription: string;
+        unit: string;
+        orderCount: number;
+        ordersList: string[];
+        totalOrderedQty: number;
+        totalProductionQty: number;
+        totalBalanceQty: number;
+      }>;
+      totalOrderedQty: number;
+      totalProductionQty: number;
+      totalBalanceQty: number;
+      unit: string;
+    }> = [];
+
+    let grandTotalOrdered = 0;
+    let grandTotalProduced = 0;
+    let grandTotalBalance = 0;
+    let grandTotalJobOrders = 0;
+
+    customerMap.forEach((custVal, custName) => {
+      const itemsList: Array<{
+        itemDescription: string;
+        unit: string;
+        orderCount: number;
+        ordersList: string[];
+        totalOrderedQty: number;
+        totalProductionQty: number;
+        totalBalanceQty: number;
+      }> = [];
+
+      let custOrderedSum = 0;
+      let custProducedSum = 0;
+      let custBalanceSum = 0;
+      let custOrdersCount = 0;
+      let primaryUnit = 'mtr';
+
+      custVal.itemsMap.forEach((itemVal, itemDesc) => {
+        itemsList.push({
+          itemDescription: itemDesc,
+          unit: itemVal.unit,
+          orderCount: itemVal.orderCount,
+          ordersList: itemVal.ordersList,
+          totalOrderedQty: itemVal.totalOrderedQty,
+          totalProductionQty: itemVal.totalProductionQty,
+          totalBalanceQty: itemVal.totalBalanceQty
+        });
+        custOrderedSum += itemVal.totalOrderedQty;
+        custProducedSum += itemVal.totalProductionQty;
+        custBalanceSum += itemVal.totalBalanceQty;
+        custOrdersCount += itemVal.orderCount;
+        if (itemVal.unit) primaryUnit = itemVal.unit;
+      });
+
+      const searchLower = pivotSearchTerm.toLowerCase().trim();
+      let matchesSearch = true;
+      let filteredItems = itemsList;
+
+      if (searchLower) {
+        const custMatches = custName.toLowerCase().includes(searchLower);
+        if (!custMatches) {
+          filteredItems = itemsList.filter(it =>
+            it.itemDescription.toLowerCase().includes(searchLower) ||
+            it.ordersList.some(o => o.toLowerCase().includes(searchLower))
+          );
+          matchesSearch = filteredItems.length > 0;
+        }
+      }
+
+      if (matchesSearch && filteredItems.length > 0) {
+        result.push({
+          customerId: custName,
+          customerName: custName,
+          totalOrders: custOrdersCount,
+          items: filteredItems.sort((a, b) => a.itemDescription.localeCompare(b.itemDescription)),
+          totalOrderedQty: custOrderedSum,
+          totalProductionQty: custProducedSum,
+          totalBalanceQty: custBalanceSum,
+          unit: primaryUnit
+        });
+
+        grandTotalOrdered += custOrderedSum;
+        grandTotalProduced += custProducedSum;
+        grandTotalBalance += custBalanceSum;
+        grandTotalJobOrders += custOrdersCount;
+      }
+    });
+
+    return {
+      groups: result.sort((a, b) => a.customerName.localeCompare(b.customerName)),
+      totals: {
+        totalCustomers: result.length,
+        totalJobOrders: grandTotalJobOrders,
+        grandOrderedQty: grandTotalOrdered,
+        grandProductionQty: grandTotalProduced,
+        grandBalanceQty: grandTotalBalance
+      }
+    };
+  }, [orders, selectedDeptFilter, selectedCustFilter, startDate, endDate, pivotStatusFilter, pivotSearchTerm]);
+
+  const toggleExpandAll = () => {
+    const allCollapsed = pivotData.groups.every(g => collapsedCustomers[g.customerId]);
+    const nextState: Record<string, boolean> = {};
+    pivotData.groups.forEach(g => {
+      nextState[g.customerId] = !allCollapsed;
+    });
+    setCollapsedCustomers(nextState);
+  };
+
+  const getPivotExportData = () => {
+    const columns = [
+      { header: 'Customer Name', key: 'customerName' },
+      { header: 'Item Description', key: 'itemDescription' },
+      { header: 'Orders Count', key: 'orderCount' },
+      { header: 'Job Orders List', key: 'ordersList' },
+      { header: 'Total Ordered Qty', key: 'totalOrderedQty' },
+      { header: 'Total Produced Qty', key: 'totalProductionQty' },
+      { header: 'Balance Qty', key: 'totalBalanceQty' },
+      { header: 'Completion %', key: 'completionPct' }
+    ];
+
+    const rows: any[] = [];
+    pivotData.groups.forEach(group => {
+      group.items.forEach(item => {
+        const pct = item.totalOrderedQty > 0 ? ((item.totalProductionQty / item.totalOrderedQty) * 100).toFixed(1) + '%' : 'N/A';
+        rows.push({
+          customerName: group.customerName,
+          itemDescription: item.itemDescription,
+          orderCount: item.orderCount,
+          ordersList: item.ordersList.join(', '),
+          totalOrderedQty: `${item.totalOrderedQty.toLocaleString()} ${item.unit}`,
+          totalProductionQty: `${item.totalProductionQty.toLocaleString()} ${item.unit}`,
+          totalBalanceQty: `${item.totalBalanceQty.toLocaleString()} ${item.unit}`,
+          completionPct: pct
+        });
+      });
+      // Customer Subtotal Row
+      const custPct = group.totalOrderedQty > 0 ? ((group.totalProductionQty / group.totalOrderedQty) * 100).toFixed(1) + '%' : 'N/A';
+      rows.push({
+        customerName: `Subtotal (${group.customerName})`,
+        itemDescription: `All ${group.items.length} Items`,
+        orderCount: group.totalOrders,
+        ordersList: '',
+        totalOrderedQty: `${group.totalOrderedQty.toLocaleString()} ${group.unit}`,
+        totalProductionQty: `${group.totalProductionQty.toLocaleString()} ${group.unit}`,
+        totalBalanceQty: `${group.totalBalanceQty.toLocaleString()} ${group.unit}`,
+        completionPct: custPct
+      });
+    });
+
+    return {
+      title: 'Clientwise Itemwise Order Summary Report',
+      subtitle: `Total Clients: ${pivotData.totals.totalCustomers} | Total Orders: ${pivotData.totals.totalJobOrders}`,
+      filename: `clientwise_itemwise_order_summary_${new Date().toISOString().split('T')[0]}`,
+      columns,
+      rows
+    };
+  };
 
   const filteredOrders = orders.filter(order => {
     // 0. Active/Completed Tab Filter
@@ -630,7 +891,7 @@ export function JobOrderMaster() {
               Delete Selected ({selectedOrders.length})
             </button>
           )}
-          <ExportBar loading={loading} opts={getExportData()} />
+          <ExportBar loading={loading} opts={activeTab === 'pivot' ? getPivotExportData() : getExportData()} />
           {isAdmin && (
             <button 
               onClick={() => setShowForm(!showForm)}
@@ -984,7 +1245,7 @@ export function JobOrderMaster() {
       )}
 
       {/* Tabs */}
-      <div className="flex border-b border-border mb-6">
+      <div className="flex border-b border-border mb-6 overflow-x-auto">
         <button
           onClick={() => {
             if (activeTab === 'active') {
@@ -995,7 +1256,7 @@ export function JobOrderMaster() {
             setSelectedOrders([]);
           }}
           className={clsx(
-            "px-6 py-3 text-sm font-semibold border-b-2 transition-all relative flex items-center gap-2 focus:outline-none",
+            "px-6 py-3 text-sm font-semibold border-b-2 transition-all relative flex items-center gap-2 focus:outline-none whitespace-nowrap",
             activeTab === 'active'
               ? "border-primary text-primary"
               : "border-transparent text-text-secondary hover:text-text-primary hover:border-gray-300"
@@ -1019,7 +1280,7 @@ export function JobOrderMaster() {
             setSelectedOrders([]);
           }}
           className={clsx(
-            "px-6 py-3 text-sm font-semibold border-b-2 transition-all relative flex items-center gap-2 focus:outline-none",
+            "px-6 py-3 text-sm font-semibold border-b-2 transition-all relative flex items-center gap-2 focus:outline-none whitespace-nowrap",
             activeTab === 'completed'
               ? "border-primary text-primary"
               : "border-transparent text-text-secondary hover:text-text-primary hover:border-gray-300"
@@ -1033,9 +1294,260 @@ export function JobOrderMaster() {
             {orders.filter(o => o.status === 'COMPLETED').length}
           </span>
         </button>
+        <button
+          onClick={() => {
+            if (activeTab === 'pivot') {
+              fetchData();
+            } else {
+              setActiveTab('pivot');
+            }
+            setSelectedOrders([]);
+          }}
+          className={clsx(
+            "px-6 py-3 text-sm font-semibold border-b-2 transition-all relative flex items-center gap-2 focus:outline-none whitespace-nowrap",
+            activeTab === 'pivot'
+              ? "border-primary text-primary font-bold"
+              : "border-transparent text-text-secondary hover:text-text-primary hover:border-gray-300"
+          )}
+        >
+          <BarChart3 className="h-4 w-4 text-primary" />
+          Clientwise Summary (Pivot)
+          <span className={clsx(
+            "px-2 py-0.5 text-xs rounded-full font-bold",
+            activeTab === 'pivot' ? "bg-blue-50 text-blue-700 border border-blue-100" : "bg-gray-100 text-text-secondary"
+          )}>
+            {pivotData.totals.totalCustomers} Clients
+          </span>
+        </button>
       </div>
 
-      {/* Search Bar Panel */}
+      {activeTab === 'pivot' ? (
+        <div className="space-y-6">
+          {/* Controls Bar for Pivot Table */}
+          <div className="bg-white p-4 rounded-card border border-border shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="flex flex-wrap items-center gap-3 flex-1">
+              <div className="relative flex-1 max-w-md">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-text-secondary" />
+                <input
+                  type="text"
+                  placeholder="Search client or item in pivot report..."
+                  value={pivotSearchTerm}
+                  onChange={e => setPivotSearchTerm(e.target.value)}
+                  className="w-full pl-9 pr-4 py-2 border border-border rounded-md text-sm outline-none focus:ring-1 focus:ring-primary focus:border-primary text-text-primary"
+                />
+              </div>
+
+              {/* Status Filter */}
+              <div className="flex items-center bg-gray-100 p-1 rounded-md text-xs font-semibold">
+                <button
+                  type="button"
+                  onClick={() => setPivotStatusFilter('ALL')}
+                  className={clsx("px-3 py-1.5 rounded transition-all cursor-pointer", pivotStatusFilter === 'ALL' ? "bg-white text-primary shadow-xs" : "text-text-secondary hover:text-text-primary")}
+                >
+                  All Statuses
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPivotStatusFilter('ACTIVE')}
+                  className={clsx("px-3 py-1.5 rounded transition-all cursor-pointer", pivotStatusFilter === 'ACTIVE' ? "bg-white text-primary shadow-xs" : "text-text-secondary hover:text-text-primary")}
+                >
+                  Active Only
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPivotStatusFilter('COMPLETED')}
+                  className={clsx("px-3 py-1.5 rounded transition-all cursor-pointer", pivotStatusFilter === 'COMPLETED' ? "bg-white text-primary shadow-xs" : "text-text-secondary hover:text-text-primary")}
+                >
+                  Completed Only
+                </button>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={toggleExpandAll}
+                className="inline-flex items-center px-3 py-1.5 border border-border bg-white text-text-primary text-xs font-semibold rounded-md hover:bg-surface shadow-xs gap-1.5 cursor-pointer"
+              >
+                <Layers className="h-3.5 w-3.5 text-primary" />
+                {pivotData.groups.length > 0 && pivotData.groups.every(g => collapsedCustomers[g.customerId]) ? 'Expand All' : 'Collapse All'}
+              </button>
+            </div>
+          </div>
+
+          {/* Pivot Table Main Container */}
+          {pivotData.groups.length === 0 ? (
+            <div className="bg-white p-12 text-center rounded-card border border-border shadow-sm space-y-3">
+              <Building2 className="h-10 w-10 text-gray-300 mx-auto" />
+              <p className="text-base font-semibold text-text-primary">No clientwise order summary data available</p>
+              <p className="text-xs text-text-secondary">Try adjusting your search query, status, or date range filters.</p>
+            </div>
+          ) : (
+            <div className="bg-white rounded-card border border-border shadow-sm overflow-hidden">
+              <div className="px-6 py-4 border-b border-border bg-surface flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div>
+                  <h3 className="text-base font-bold text-text-primary flex items-center gap-2">
+                    <BarChart3 className="h-5 w-5 text-primary" /> Clientwise & Itemwise Order Summary (Pivot Report)
+                  </h3>
+                  <p className="text-xs text-text-secondary mt-0.5">
+                    Aggregated job order requirements grouped by client and item specifications
+                  </p>
+                </div>
+                <div className="text-xs font-semibold text-text-secondary flex items-center gap-3">
+                  <span className="bg-blue-50 text-blue-700 px-2.5 py-1 rounded-full border border-blue-200">
+                    Clients: <strong>{pivotData.totals.totalCustomers}</strong>
+                  </span>
+                  <span className="bg-emerald-50 text-emerald-700 px-2.5 py-1 rounded-full border border-emerald-200">
+                    Orders: <strong>{pivotData.totals.totalJobOrders}</strong>
+                  </span>
+                </div>
+              </div>
+
+              {/* Table */}
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-border">
+                  <thead className="bg-gray-50 text-xs font-semibold text-text-secondary uppercase tracking-wider">
+                    <tr>
+                      <th className="px-6 py-3.5 text-left">Client / Item Description</th>
+                      <th className="px-4 py-3.5 text-center">Orders Count</th>
+                      <th className="px-6 py-3.5 text-right">Total Ordered</th>
+                      <th className="px-6 py-3.5 text-right">Total Produced</th>
+                      <th className="px-6 py-3.5 text-right">Balance Qty</th>
+                      <th className="px-6 py-3.5 text-center">Progress %</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border text-sm bg-white">
+                    {pivotData.groups.map(group => {
+                      const isCollapsed = !!collapsedCustomers[group.customerId];
+                      const custPct = group.totalOrderedQty > 0 ? (group.totalProductionQty / group.totalOrderedQty) * 100 : 0;
+
+                      return (
+                        <React.Fragment key={group.customerId}>
+                          {/* Client Header Row */}
+                          <tr
+                            onClick={() => toggleCustomerCollapse(group.customerId)}
+                            className="bg-blue-50/50 hover:bg-blue-50 cursor-pointer transition-colors font-semibold select-none"
+                          >
+                            <td className="px-6 py-3.5 flex items-center gap-3 text-text-primary">
+                              <button type="button" className="p-1 rounded text-primary hover:bg-blue-100">
+                                {isCollapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                              </button>
+                              <Building2 className="h-4 w-4 text-primary" />
+                              <span className="font-bold text-base text-primary">{group.customerName}</span>
+                              <span className="text-xs font-normal text-text-secondary bg-white px-2 py-0.5 rounded border border-border">
+                                {group.items.length} {group.items.length === 1 ? 'item' : 'items'}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3.5 text-center font-mono font-bold text-text-primary">
+                              {group.totalOrders}
+                            </td>
+                            <td className="px-6 py-3.5 text-right font-mono font-bold text-text-primary">
+                              {group.totalOrderedQty.toLocaleString()} <span className="text-xs font-normal text-text-secondary">{group.unit}</span>
+                            </td>
+                            <td className="px-6 py-3.5 text-right font-mono font-bold text-emerald-700">
+                              {group.totalProductionQty.toLocaleString()} <span className="text-xs font-normal text-text-secondary">{group.unit}</span>
+                            </td>
+                            <td className="px-6 py-3.5 text-right font-mono font-bold text-amber-700">
+                              {group.totalBalanceQty.toLocaleString()} <span className="text-xs font-normal text-text-secondary">{group.unit}</span>
+                            </td>
+                            <td className="px-6 py-3.5 text-center">
+                              <div className="flex items-center justify-center gap-2">
+                                <div className="w-16 bg-gray-200 rounded-full h-2 overflow-hidden">
+                                  <div
+                                    style={{ width: `${Math.min(100, custPct)}%` }}
+                                    className={clsx("h-full transition-all duration-300", custPct >= 100 ? "bg-emerald-600" : custPct >= 50 ? "bg-blue-600" : "bg-amber-500")}
+                                  />
+                                </div>
+                                <span className="text-xs font-mono font-bold">{custPct.toFixed(1)}%</span>
+                              </div>
+                            </td>
+                          </tr>
+
+                          {/* Nested Item Rows */}
+                          {!isCollapsed && (
+                            <>
+                              {group.items.map((item, idx) => {
+                                const itemPct = item.totalOrderedQty > 0 ? (item.totalProductionQty / item.totalOrderedQty) * 100 : 0;
+                                return (
+                                  <tr key={idx} className="hover:bg-surface transition-colors border-l-4 border-l-primary/30">
+                                    <td className="px-6 py-3 pl-12">
+                                      <div className="flex items-center gap-2">
+                                        <Package className="h-4 w-4 text-text-secondary" />
+                                        <span className="font-semibold text-text-primary">{item.itemDescription}</span>
+                                        <div className="flex flex-wrap items-center gap-1">
+                                          {item.ordersList.slice(0, 3).map(oNum => (
+                                            <span key={oNum} className="text-[10px] font-mono bg-gray-100 text-text-secondary px-1.5 py-0.5 rounded font-semibold">
+                                              {oNum}
+                                            </span>
+                                          ))}
+                                          {item.ordersList.length > 3 && (
+                                            <span className="text-[10px] font-mono text-text-secondary">+{item.ordersList.length - 3} more</span>
+                                          )}
+                                        </div>
+                                      </div>
+                                    </td>
+                                    <td className="px-4 py-3 text-center font-mono text-xs text-text-secondary">
+                                      {item.orderCount}
+                                    </td>
+                                    <td className="px-6 py-3 text-right font-mono text-sm text-text-primary">
+                                      {item.totalOrderedQty.toLocaleString()} <span className="text-xs text-text-secondary">{item.unit}</span>
+                                    </td>
+                                    <td className="px-6 py-3 text-right font-mono text-sm text-emerald-700 font-semibold">
+                                      {item.totalProductionQty.toLocaleString()} <span className="text-xs text-text-secondary">{item.unit}</span>
+                                    </td>
+                                    <td className="px-6 py-3 text-right font-mono text-sm text-amber-700 font-semibold">
+                                      {item.totalBalanceQty.toLocaleString()} <span className="text-xs text-text-secondary">{item.unit}</span>
+                                    </td>
+                                    <td className="px-6 py-3 text-center">
+                                      <span className={clsx(
+                                        "text-xs font-mono font-bold px-2 py-0.5 rounded-full",
+                                        itemPct >= 100 ? "bg-emerald-100 text-emerald-800" : itemPct >= 50 ? "bg-blue-100 text-blue-800" : "bg-yellow-100 text-yellow-800"
+                                      )}>
+                                        {itemPct.toFixed(1)}%
+                                      </span>
+                                    </td>
+                                  </tr>
+                                );
+                              })}
+                            </>
+                          )}
+                        </React.Fragment>
+                      );
+                    })}
+                  </tbody>
+                  {/* Grand Totals Footer */}
+                  <tfoot className="bg-gray-100 font-bold border-t-2 border-border text-sm">
+                    <tr>
+                      <td className="px-6 py-4 text-text-primary flex items-center gap-2">
+                        <Layers className="h-4 w-4 text-primary" /> Grand Total ({pivotData.totals.totalCustomers} Clients)
+                      </td>
+                      <td className="px-4 py-4 text-center font-mono text-text-primary">
+                        {pivotData.totals.totalJobOrders}
+                      </td>
+                      <td className="px-6 py-4 text-right font-mono text-text-primary">
+                        {pivotData.totals.grandOrderedQty.toLocaleString()}
+                      </td>
+                      <td className="px-6 py-4 text-right font-mono text-emerald-800">
+                        {pivotData.totals.grandProductionQty.toLocaleString()}
+                      </td>
+                      <td className="px-6 py-4 text-right font-mono text-amber-800">
+                        {pivotData.totals.grandBalanceQty.toLocaleString()}
+                      </td>
+                      <td className="px-6 py-4 text-center font-mono text-primary">
+                        {pivotData.totals.grandOrderedQty > 0
+                          ? ((pivotData.totals.grandProductionQty / pivotData.totals.grandOrderedQty) * 100).toFixed(1) + '%'
+                          : 'N/A'}
+                      </td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+            </div>
+          )}
+        </div>
+      ) : (
+        <>
+          {/* Search Bar Panel */}
       <div className="bg-white p-4 rounded-card border border-border shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
         <div className="relative flex-1 max-w-md">
           <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -1463,6 +1975,8 @@ export function JobOrderMaster() {
           )}
         </div>
       </div>
+      </>
+      )}
 
       {/* Inline Modals */}
       {showAddCustomerModal && (
