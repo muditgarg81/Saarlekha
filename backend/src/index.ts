@@ -67,25 +67,33 @@ app.use('/api/audit', auditRouter);
 app.use('/api/maintenance-types', maintenanceTypesRouter);
 app.use('/api/payments', paymentsRouter);
 
-app.get('/api/health', async (req, res) => {
-  try {
-    await prisma.$queryRaw`SELECT 1`;
-    res.status(200).json({ status: 'ok', database: 'connected', timestamp: new Date().toISOString() });
-  } catch (error: any) {
-    res.status(500).json({ status: 'error', database: 'disconnected', error: error.message });
-  }
+// Uptime monitors (e.g. UptimeRobot) hit this every few minutes. It must NOT
+// touch the database: a Neon compute autosuspends after 5 minutes idle, and a
+// DB query on every health-check hit resets that idle timer, so the compute
+// never sees 5 idle minutes and never scales to zero. This previously ran
+// `SELECT 1` on every hit (same query as the DB-backed check below) and kept
+// the compute running continuously for 11+ days. Point external monitors at
+// this route (or /api/liveness, which is equivalent) — never at /api/health/db.
+app.get('/api/health', (_req, res) => {
+  res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
-app.get('/health', async (req, res) => {
-  try {
-    await prisma.$queryRaw`SELECT 1`;
-    res.status(200).json({ status: 'ok', database: 'connected', timestamp: new Date().toISOString() });
-  } catch (error: any) {
-    res.status(500).json({ status: 'error', database: 'disconnected', error: error.message });
-  }
+app.get('/health', (_req, res) => {
+  res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
 app.get('/api/liveness', (_req, res) => res.json({ status: 'ok' }));
+
+// Actual DB-connectivity check, kept separate so it is never hit by a
+// frequent automated monitor. Use this only for manual/on-demand checks.
+app.get('/api/health/db', async (req, res) => {
+  try {
+    await prisma.$queryRaw`SELECT 1`;
+    res.status(200).json({ status: 'ok', database: 'connected', timestamp: new Date().toISOString() });
+  } catch (error: any) {
+    res.status(500).json({ status: 'error', database: 'disconnected', error: error.message });
+  }
+});
 
 // Invoked by an external scheduler (daily). Never called by the browser app.
 app.post('/api/internal/purge-tokens', async (req, res) => {
